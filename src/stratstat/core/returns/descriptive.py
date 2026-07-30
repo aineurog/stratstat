@@ -13,6 +13,7 @@ from __future__ import annotations
 import numpy as np
 from numpy.typing import NDArray
 
+from stratstat.core._utils import compute_cagr as _compute_cagr
 from stratstat.inputs import ReturnsInput
 from stratstat.registry import register_metric
 from stratstat.results import MetricResult
@@ -56,9 +57,7 @@ def cagr(input_data: ReturnsInput) -> MetricResult:
     r = input_data.values  # (n_periods, n_strategies)
     p = float(input_data.periods_per_year)
 
-    log_returns = np.log(1.0 + r)
-    mean_log = np.nanmean(log_returns, axis=0)  # shape: (n_strategies,)
-    arr = np.exp(mean_log * p) - 1.0
+    arr = _compute_cagr(r, p)  # shape: (n_strategies,)
 
     value: float | NDArray[np.floating]
     value = float(arr[0]) if input_data.is_single else arr

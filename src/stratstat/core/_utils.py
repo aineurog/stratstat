@@ -55,3 +55,24 @@ def nanstd(
 ) -> NDArray[np.floating] | float:
     """Compute the standard deviation ignoring NaN values."""
     return np.nanstd(a, axis=axis, ddof=ddof)  # type: ignore[no-any-return]
+
+
+def compute_cagr(r: NDArray[np.floating], periods_per_year: float) -> NDArray[np.floating]:
+    """Compute CAGR for each strategy column.
+
+    Formula:
+        CAGR = exp(P * nanmean(log(1 + r))) - 1
+
+    where P is ``periods_per_year``.
+
+    Args:
+        r: Returns array of shape (n_periods, n_strategies).
+        periods_per_year: Annualization factor.
+
+    Returns:
+        CAGR array of shape (n_strategies,).
+    """
+    log_returns: NDArray[np.floating] = np.log(1.0 + r)
+    mean_log: NDArray[np.floating] = np.nanmean(log_returns, axis=0)
+    arr: NDArray[np.floating] = np.exp(mean_log * periods_per_year) - 1.0
+    return arr
