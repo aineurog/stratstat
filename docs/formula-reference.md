@@ -584,9 +584,13 @@ automatic block length, 95 % CI.
 
 ### 4.7 Minimum Track Record Length
 
-\[T_{\min} = \left(\frac{z_{1-\alpha}}{SR^* - \hat{SR}}\right)^{\!2}
+\[T_{\min} = 1 + \left(\frac{z_{1-\alpha}}{\hat{SR} - SR^*}\right)^{\!2}
 \cdot \left(1 - \hat{\gamma}_3\hat{SR} +
 \frac{\hat{\gamma}_4-1}{4}\hat{SR}^2\right)\]
+
+where \(z_{1-\alpha} = \Phi^{-1}(1-\alpha)\) is the critical value and
+\(\hat{\gamma}_3, \hat{\gamma}_4\) are sample skewness and raw kurtosis
+respectively.
 
 **Citation:** Bailey & López de Prado (2012); de Prado (2018, Ch. 14).
 Default \(\alpha = 0.05\).
