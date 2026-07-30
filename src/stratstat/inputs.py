@@ -610,3 +610,108 @@ class BenchmarkInput:
             f"periods_per_year={self.periods_per_year}, "
             f"rf={self.rf})"
         )
+
+
+class CompareInput:
+    """Wraps multiple strategy return series for compare-tier metrics.
+
+    Compare metrics operate on two or more strategies simultaneously:
+    correlation, diversification, pairwise Sharpe-difference tests,
+    White's Reality Check, PBO, marginal risk contributions, and
+    component VaR.
+
+    Parameters
+    ----------
+    returns: array-like
+        Strategy returns of shape ``(n_periods, n_strategies)``.
+        Must have at least 2 strategy columns.
+    weights: array-like, optional
+        Strategy weights of shape ``(n_strategies,)``.  Defaults to
+        equal weight when needed by a metric (diversification ratio,
+        MCR, component VaR).
+    benchmark: array-like, optional
+        Benchmark returns of shape ``(n_periods,)``.  Required only by
+        White's Reality Check (§9.4).
+    periods_per_year: int, optional
+        Annualization factor (e.g. 252 for daily).  Required by metrics
+        that annualise Sharpe ratios (JK test, PBO).
+    rf: float, optional
+        Risk-free rate per period (default 0.0).  Used in Sharpe-ratio
+        computations inside JK test and PBO.
+    """
+
+    def __init__(
+        self,
+        returns: Any,
+        weights: Any | None = None,
+        benchmark: Any | None = None,
+        periods_per_year: int | None = None,
+        rf: float = 0.0,
+    ) -> None:
+        # -- strategy returns -----------------------------------------------
+        ret = _to_numpy(returns)
+        if ret.ndim == 0:
+            ret = ret.reshape(1, 1)
+        elif ret.ndim == 1:
+            ret = ret.reshape(-1, 1)
+        elif ret.ndim > 2:
+            raise ValueError(
+                f"Returns data must be 1-D or 2-D, got {ret.ndim}-D array."
+            )
+        self.returns: NDArray[np.floating] = ret  # (n_periods, n_strategies)
+        self.n_periods: int = ret.shape[0]
+        self.n_strategies: int = ret.shape[1]
+
+        # -- weights (optional, defaults to equal weight) -------------------
+        if weights is not None:
+            w = _to_numpy(weights).ravel()
+            if w.shape[0] != self.n_strategies:
+                raise ValueError(
+                    f"Weights length {w.shape[0]} must match "
+                    f"n_strategies {self.n_strategies}."
+                )
+            self.weights: NDArray[np.floating] = w
+        else:
+            self.weights = None
+
+        # -- benchmark returns (optional) -----------------------------------
+        if benchmark is not None:
+            bench = _to_numpy(benchmark).ravel()
+            if bench.shape[0] != self.n_periods:
+                raise ValueError(
+                    f"Benchmark length {bench.shape[0]} must match "
+                    f"n_periods {self.n_periods}."
+                )
+            self.benchmark: NDArray[np.floating] | None = bench
+        else:
+            self.benchmark = None
+
+        self.periods_per_year: int | None = periods_per_year
+        self.rf: float = rf
+
+    # -- convenience predicates ------------------------------------------
+
+    @property
+    def has_weights(self) -> bool:
+        """True if explicit strategy weights were provided."""
+        return self.weights is not None
+
+    @property
+    def has_benchmark(self) -> bool:
+        """True if benchmark returns were provided."""
+        return self.benchmark is not None
+
+    def get_weights(self) -> NDArray[np.floating]:
+        """Return strategy weights, defaulting to equal weight."""
+        if self.weights is not None:
+            return self.weights
+        return np.full(self.n_strategies, 1.0 / self.n_strategies, dtype=np.float64)
+
+    def __repr__(self) -> str:
+        return (
+            f"CompareInput(n_periods={self.n_periods}, "
+            f"n_strategies={self.n_strategies}, "
+            f"periods_per_year={self.periods_per_year}, "
+            f"rf={self.rf}, "
+            f"has_benchmark={self.has_benchmark})"
+        )
