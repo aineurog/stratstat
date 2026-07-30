@@ -7,8 +7,12 @@ MetricSet: an ordered collection of MetricResult with serialization methods.
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass, field, asdict
-from typing import Any
+from collections.abc import Iterator
+from dataclasses import asdict, dataclass, field
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 
 @dataclass
@@ -54,7 +58,7 @@ class MetricSet:
     def __len__(self) -> int:
         return len(self.results)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[MetricResult]:
         return iter(self.results)
 
     def __getitem__(self, index: int) -> MetricResult:
@@ -64,7 +68,7 @@ class MetricSet:
         """Return results as {name: value} dict."""
         return {r.name: r.value for r in self.results}
 
-    def to_frame(self):
+    def to_frame(self) -> pd.DataFrame:
         """Return results as a pandas DataFrame with category columns."""
         import pandas as pd
 

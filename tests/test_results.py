@@ -1,6 +1,5 @@
 """Tests for MetricResult and MetricSet types."""
 
-import pytest
 
 from stratstat.results import MetricResult, MetricSet
 

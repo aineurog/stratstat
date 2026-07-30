@@ -10,9 +10,10 @@ from __future__ import annotations
 from typing import Any
 
 import numpy as np
+from numpy.typing import NDArray
 
 
-def _to_numpy(data: Any) -> np.ndarray:
+def _to_numpy(data: Any) -> NDArray[np.floating]:
     """Normalize any accepted input type to a numpy array.
 
     Accepts: numpy.ndarray, pandas.Series, pandas.DataFrame,
@@ -68,7 +69,7 @@ class ReturnsInput:
                 f"Returns data must be 1-D or 2-D, got {arr.ndim}-D array."
             )
 
-        self.values: np.ndarray = arr  # shape: (n_periods, n_strategies)
+        self.values: NDArray[np.floating] = arr  # shape: (n_periods, n_strategies)
         self.n_periods: int = arr.shape[0]
         self.n_strategies: int = arr.shape[1]
         self.periods_per_year: int | None = periods_per_year

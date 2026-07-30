@@ -10,7 +10,6 @@ Treat with extra rigor and extra test scrutiny.
 Most metrics are tagged: category=("inference", "returns"), backend="resampling".
 """
 
-from stratstat.registry import register_metric
 
 
 # Metrics will be registered here during Phase 4.

@@ -11,6 +11,7 @@ and numba dispatch.
 from __future__ import annotations
 
 import numpy as np
+from numpy.typing import NDArray
 
 
 def annualization_factor(periods_per_year: int | None) -> float:
@@ -44,13 +45,13 @@ def is_numba_available() -> bool:
         return False
 
 
-def nanmean(a: np.ndarray, axis: int | None = None) -> np.ndarray | float:
+def nanmean(a: NDArray[np.floating], axis: int | None = None) -> NDArray[np.floating] | float:
     """Compute the mean ignoring NaN values. Drop-in for when numba is unavailable."""
-    return np.nanmean(a, axis=axis)
+    return np.nanmean(a, axis=axis)  # type: ignore[no-any-return]
 
 
 def nanstd(
-    a: np.ndarray, axis: int | None = None, ddof: int = 1
-) -> np.ndarray | float:
+    a: NDArray[np.floating], axis: int | None = None, ddof: int = 1
+) -> NDArray[np.floating] | float:
     """Compute the standard deviation ignoring NaN values."""
-    return np.nanstd(a, axis=axis, ddof=ddof)
+    return np.nanstd(a, axis=axis, ddof=ddof)  # type: ignore[no-any-return]

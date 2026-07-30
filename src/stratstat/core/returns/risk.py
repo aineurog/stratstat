@@ -7,7 +7,6 @@ All metrics are tagged: category=("risk", "returns").
 Backend varies: most are "vectorized", drawdown duration walks are "sequential".
 """
 
-from stratstat.registry import register_metric
 
 
 # Metrics will be registered here during Phase 3.

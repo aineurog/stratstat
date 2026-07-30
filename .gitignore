@@ -42,3 +42,4 @@ htmlcov/
 .env
 .env.local
 .claude/
+.commandcode/

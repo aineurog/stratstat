@@ -3,11 +3,11 @@
 import pytest
 
 from stratstat.exceptions import (
-    StratStatError,
-    InvalidInputError,
-    InsufficientDataError,
-    UnknownMetricError,
     ConventionError,
+    InsufficientDataError,
+    InvalidInputError,
+    StratStatError,
+    UnknownMetricError,
 )
 
 

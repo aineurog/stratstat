@@ -5,7 +5,6 @@ or any heavy visualization dependency. This test fails if that boundary
 is violated.
 """
 
-import importlib
 import sys
 
 
@@ -16,10 +15,12 @@ def test_core_does_not_import_matplotlib():
 
     # Check that importing core submodules does not pull in matplotlib
     from stratstat.core import _utils  # noqa: F401
-    from stratstat.core.returns import descriptive  # noqa: F401
-    from stratstat.core.returns import risk  # noqa: F401
-    from stratstat.core.returns import risk_adjusted  # noqa: F401
-    from stratstat.core.returns import inference  # noqa: F401
+    from stratstat.core.returns import (
+        descriptive,  # noqa: F401
+        inference,  # noqa: F401
+        risk,  # noqa: F401
+        risk_adjusted,  # noqa: F401
+    )
 
     assert "matplotlib" not in sys.modules, (
         "core module imported matplotlib — this violates the core/report boundary"

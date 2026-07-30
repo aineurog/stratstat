@@ -7,7 +7,6 @@ Tagged: category=("relative", "compare"), requires="compare".
 Will be implemented in Phase 6.
 """
 
-from stratstat.registry import register_metric
 
 
 # Metrics will be registered here during Phase 6.

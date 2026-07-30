@@ -2,8 +2,8 @@
 
 import pytest
 
-from stratstat.registry import register_metric, list_metrics, get_metric, _registry
 from stratstat.exceptions import UnknownMetricError
+from stratstat.registry import _registry, get_metric, list_metrics, register_metric
 
 
 def test_register_metric_adds_to_registry():

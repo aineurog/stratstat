@@ -9,7 +9,6 @@ Sortino denominator convention) — these must expose an explicit method=/conven
 parameter with a cited default.
 """
 
-from stratstat.registry import register_metric
 
 
 # Metrics will be registered here during Phase 3.

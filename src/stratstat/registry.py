@@ -7,8 +7,11 @@ Adding a new metric must never require editing a central dispatch block.
 
 from __future__ import annotations
 
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Any, cast
 
+if TYPE_CHECKING:
+    from stratstat.results import MetricResult, MetricSet
 
 _registry: dict[str, dict[str, Any]] = {}
 
@@ -19,7 +22,7 @@ def register_metric(
     category: tuple[str, ...] = (),
     backend: str = "vectorized",
     ref: str = "",
-):
+) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
     """Decorator to register a metric function in the global registry.
 
     Args:
@@ -33,7 +36,7 @@ def register_metric(
         The decorated function, unchanged.
     """
 
-    def decorator(func: Callable) -> Callable:
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         _registry[name] = {
             "func": func,
             "requires": requires,
@@ -94,10 +97,10 @@ def get_metric(name: str) -> dict[str, Any]:
     return _registry[name]
 
 
-def _compute_one(input_data, metric_name: str, **kwargs):
+def _compute_one(input_data: Any, metric_name: str, **kwargs: Any) -> MetricResult:
     """Compute a single metric. Wired to the public compute() in __init__.py."""
-    from stratstat.inputs import ReturnsInput
     from stratstat.exceptions import UnknownMetricError
+    from stratstat.inputs import ReturnsInput
 
     if metric_name not in _registry:
         raise UnknownMetricError(f"Unknown metric: {metric_name!r}")
@@ -108,7 +111,7 @@ def _compute_one(input_data, metric_name: str, **kwargs):
 
     if requires == "returns":
         inp = input_data if isinstance(input_data, ReturnsInput) else ReturnsInput(input_data)
-        return func(inp, **kwargs)
+        return cast(MetricResult, func(inp, **kwargs))
 
     # Other input tiers wired in later phases.
     raise NotImplementedError(
@@ -116,7 +119,7 @@ def _compute_one(input_data, metric_name: str, **kwargs):
     )
 
 
-def _compute_all(input_data, category: str | None = None, **kwargs):
+def _compute_all(input_data: Any, category: str | None = None, **kwargs: Any) -> MetricSet:
     """Compute all matching metrics. Wired to the public compute_all() in __init__.py."""
     from stratstat.results import MetricSet
 

@@ -1,6 +1,6 @@
 """Tests for session-level convention overrides."""
 
-from stratstat.conventions import set_default, get_default, clear_defaults
+from stratstat.conventions import clear_defaults, get_default, set_default
 
 
 def test_set_and_get_default():

@@ -6,7 +6,6 @@ skewness, kurtosis, and related distributional summaries.
 All metrics are tagged: category=("descriptive", "returns"), backend="vectorized".
 """
 
-from stratstat.registry import register_metric
 
 
 # Metrics will be registered here during Phase 3.

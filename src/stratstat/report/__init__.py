@@ -9,15 +9,15 @@ visualization function triggers the import check.
 """
 
 
-def _ensure_plotly():
+def _ensure_plotly() -> None:
     """Check that plotly is installed; raise a helpful error if not."""
     try:
         import plotly  # noqa: F401
-    except ImportError:
+    except ImportError as err:
         raise ImportError(
             "plotly is required for the report module. "
             "Install it with: pip install stratstat[report]"
-        )
+        ) from err
 
 
 # Visualization functions will be added in Phase 7.
