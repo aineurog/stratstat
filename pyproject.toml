@@ -1,0 +1,102 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "stratstat"
+version = "0.1.0.dev0"
+description = "Quantitative strategy evaluation statistics — the modern successor to empyrical, pyfolio, and QuantStats."
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.10"
+authors = [
+    {name = "Syed Qaisar Jalil"},
+]
+keywords = [
+    "finance",
+    "quantitative",
+    "strategy",
+    "evaluation",
+    "statistics",
+    "performance",
+    "risk",
+    "metrics",
+    "trading",
+    "portfolio",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Financial and Insurance Industry",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Office/Business :: Financial",
+    "Topic :: Scientific/Engineering :: Mathematics",
+]
+dependencies = [
+    "numpy>=1.24",
+    "pandas>=1.5",
+    "polars>=0.18",
+]
+
+[project.optional-dependencies]
+fast = ["numba>=0.58"]
+report = ["plotly>=5.0"]
+all = ["stratstat[fast,report]"]
+dev = [
+    "stratstat[all]",
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "ruff>=0.1",
+    "mypy>=1.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/aineurog/stratstat"
+Repository = "https://github.com/aineurog/stratstat.git"
+Issues = "https://github.com/aineurog/stratstat/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+stratstat = ["py.typed"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "N",   # pep8-naming
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "SIM", # flake8-simplify
+]
+ignore = []
+[tool.ruff.per-file-ignores]
+"__init__.py" = ["F401"]  # re-exporting names is expected
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+warn_unreachable = true
+enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
+exclude = ["tests/"]
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "-ra",
+]
