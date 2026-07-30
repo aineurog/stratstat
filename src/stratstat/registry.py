@@ -101,6 +101,7 @@ def _compute_one(input_data: Any, metric_name: str, **kwargs: Any) -> MetricResu
     """Compute a single metric. Wired to the public compute() in __init__.py."""
     from stratstat.exceptions import UnknownMetricError
     from stratstat.inputs import ReturnsInput
+    from stratstat.results import MetricResult
 
     if metric_name not in _registry:
         raise UnknownMetricError(f"Unknown metric: {metric_name!r}")
