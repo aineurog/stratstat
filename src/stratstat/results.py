@@ -9,10 +9,9 @@ from __future__ import annotations
 import json
 from collections.abc import Iterator
 from dataclasses import asdict, dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
-if TYPE_CHECKING:
-    import pandas as pd
+import pandas as pd
 
 
 @dataclass
@@ -70,8 +69,6 @@ class MetricSet:
 
     def to_frame(self) -> pd.DataFrame:
         """Return results as a pandas DataFrame with category columns."""
-        import pandas as pd
-
         records = []
         for r in self.results:
             rec = {"name": r.name, "value": r.value}

@@ -13,15 +13,24 @@
 | Sharpe ratio | `ddof` | `0`, `1` | `1` | Sharpe (1994) |
 | Sortino ratio | `denominator` | `full_downside`, `downside_only` | `full_downside` | Sortino & Price (1994) |
 | Max drawdown | `return_type` | `simple`, `log` | `simple` | Pospisil & Vecer (2011) |
-| Drawdown duration | `units` | `periods`, `years` | `periods` | Standard convention |
+| Drawdown duration | `units` | `periods`, `years` | `periods` | van Hemert et al. (2020, Ch. 5) |
 | VaR | `method` | `historical`, `parametric`, `cornish_fisher` | `historical` | Litterman (1996); Zangari (1996) |
+| VaR / CVaR | `confidence` | `float` in `(0, 1)` | `0.95` | Jorion (2006, §5.2); Basel Committee (1996) |
 | CVaR / ES | `method` | `historical`, `parametric` | `historical` | Rockafellar & Uryasev (2000) |
 | Beta | `variant` | `least_squares` | `least_squares` | Sharpe (1964) |
-| Tail ratio | `tail_cutoff` | `float` in `(0, 0.5)` | `0.05` | 95th / 5th percentile split |
+| Tail ratio | `tail_cutoff` | `float` in `(0, 0.5)` | `0.05` | Connor, Goldberg & Korajczyk (2010, Ch. 9) |
 | Hill tail index | `tail_fraction` | `float` in `(0, 1)` | `0.10` | Hill (1975); upper 10 % tail |
 | PSR | `sharpe_benchmark` | `float` ≥ 0 | `0.0` | Bailey & López de Prado (2012) |
 | Kappa-3 | `mar` | float (minimum acceptable return) | `0.0` | Kaplan & Knowles (2004) |
-| VaR / CVaR | `confidence` | `float` in `(0, 1)` | `0.95` | Industry standard |
+| Sterling ratio | `floor` | `float` ≥ 0 | `0.10` | Bacon (2008, §8.3) |
+
+**Note on annualization:** `periods_per_year` is an input-level parameter
+set on the input container (e.g., `ReturnsInput`). It is not a per-metric
+convention. Every metric that supports annualization reads
+`periods_per_year` from the input container. The Sharpe ratio's
+"annualization convention" noted in `stats.md` refers to whether
+multiplication by √P happens before or after dividing by σ — the formula
+reference uses the standard pre-division form (Sharpe 1994).
 
 ---
 
@@ -36,8 +45,7 @@ All tagged `("descriptive", "returns")`, backend `"vectorized"`.
 where \(T\) is the length of the series in years. Equivalent to
 \((V_f/V_i)^{1/T} - 1\).
 
-**Citation:** Standard finance (Damodaran, *Investment Valuation*, 3rd ed.,
-2012, Ch. 3).
+**Citation:** Damodaran (2012, *Investment Valuation*, 3rd ed., Ch. 3).
 
 ### 1.2 Annualized Volatility
 
@@ -46,26 +54,31 @@ where \(T\) is the length of the series in years. Equivalent to
 where \(\sigma\) is the sample standard deviation (ddof = 1) of period
 returns and \(P\) is `periods_per_year`.
 
-**Citation:** CFA Institute, *Quantitative Methods*.
+**Citation:** CFA Institute, *Quantitative Methods* (CFA Program
+Curriculum, Level I, Vol. 1).
 
 ### 1.3 Cumulative Return
 
 \[R_{\text{cum}} = \prod_{t=1}^{n}(1 + r_t) - 1\]
 
-**Citation:** Standard finance textbook.
+**Citation:** Bacon (2008, *Practical Portfolio Performance Measurement
+and Attribution*, 2nd ed., §2.1). Elementary computation; the citation
+establishes the standard compounding convention.
 
 ### 1.4 Arithmetic Mean Return
 
 \[\bar{r} = \frac{1}{n}\sum_{t=1}^{n} r_t\]
 
-**Citation:** Standard statistics.
+**Citation:** No single canonical source — elementary statistic. The
+sample mean is unbiased under IID returns; see any introductory statistics
+text (e.g., Casella & Berger 2002, *Statistical Inference*, §5.2).
 
 ### 1.5 Geometric Mean Return
 
 \[\bar{r}_g = \left(\prod_{t=1}^{n}(1 + r_t)\right)^{\!1/n} - 1\]
 
-**Citation:** Campbell, Lo & MacKinlay (1997, *The Econometrics of Financial
-Markets*, §1.4).
+**Citation:** Campbell, Lo & MacKinlay (1997, *The Econometrics of
+Financial Markets*, §1.4).
 
 ### 1.6 Skewness
 
@@ -74,7 +87,9 @@ Markets*, §1.4).
 
 Adjusted (sample) skewness.
 
-**Citation:** Fisher (1930); bias-corrected divisor `(n-1)(n-2)`.
+**Citation:** Fisher (1930), "The Moments of the Distribution for Normal
+Samples of Measures of Departure from Normality." Also Cramér (1946,
+*Mathematical Methods of Statistics*, §27.4).
 
 ### 1.7 Excess Kurtosis
 
@@ -82,9 +97,9 @@ Adjusted (sample) skewness.
 \sum_{t=1}^{n}\!\left(\frac{r_t - \bar{r}}{\sigma}\right)^{\!4}
 - \frac{3(n-1)^2}{(n-2)(n-3)}\]
 
-Returns 0 for a normal distribution.
+Returns 0 for a normal distribution (`fisher=True`).
 
-**Citation:** Standard statistics; Fisher kurtosis definition.
+**Citation:** Fisher (1930); Cramér (1946, §27.4).
 
 ### 1.8 Best Period
 
@@ -92,15 +107,14 @@ Returns 0 for a normal distribution.
 
 At the data's native frequency.
 
-**Citation:** Standard descriptive statistic.
+**Citation:** Elementary order statistic. Bacon (2008, §3.10) documents
+best/worst-period as standard performance analytics.
 
 ### 1.9 Worst Period
 
 \[r_{\text{worst}} = \min_t r_t\]
 
-At the data's native frequency.
-
-**Citation:** Standard descriptive statistic.
+**Citation:** As §1.8. Bacon (2008, §3.10).
 
 ### 1.10 Positive-Period Ratio
 
@@ -108,8 +122,7 @@ At the data's native frequency.
 
 Strictly positive (> 0); zero is non-positive.
 
-**Citation:** Bacon (2008, *Practical Portfolio Performance Measurement and
-Attribution*, §3.11).
+**Citation:** Bacon (2008, §3.11).
 
 ### 1.11 Autocorrelation (Lag-1)
 
@@ -124,26 +137,32 @@ Attribution*, §3.11).
 
 Sample variance (ddof = 1).
 
-**Citation:** Standard statistics.
+**Citation:** Elementary statistic. Fisher (1925, *Statistical Methods for
+Research Workers*) established n−1 degrees-of-freedom correction.
 
 ### 1.13 Return Range
 
 \[R_{\text{range}} = \max_t r_t - \min_t r_t\]
 
-**Citation:** Standard descriptive statistic.
+**Citation:** Elementary order statistic. Bacon (2008, §3.10) uses range
+in the context of period-return dispersion.
 
 ### 1.14 Percentiles
 
 The \(p\)-th percentile at levels \(p \in \{1, 5, 10, 25, 50, 75, 90,
-95, 99\}\) of the empirical return distribution, via linear interpolation.
+95, 99\}\) of the empirical return distribution, via linear interpolation
+(Hyndman & Fan 1996, type 7).
 
-**Citation:** Standard order statistics; Hyndman & Fan (1996).
+**Citation:** Hyndman & Fan (1996), "Sample Quantiles in Statistical
+Packages," *The American Statistician*, 50(4).
 
 ### 1.15 Coefficient of Variation
 
 \[\text{CV} = \frac{\sigma}{|\bar{r}|}\]
 
-**Citation:** Standard statistics.
+**Citation:** Pearson (1896), "Mathematical Contributions to the Theory of
+Evolution. III. Regression, Heredity, and Panmixia." Also documented in
+Everitt & Skrondal (2010, *The Cambridge Dictionary of Statistics*).
 
 ### 1.16 Outlier Count & % (IQR Method)
 
@@ -163,36 +182,52 @@ drawdown walks are `"sequential"`.
 
 ### 2.1 Max Drawdown
 
+**Simple-return method (default):** Build the cumulative return index
+\(P_t = \prod_{\tau=1}^{t}(1 + r_\tau)\), then:
+
 \[\text{MDD} = \max_{t}\frac{P_t - \max_{\tau \leq t} P_\tau}
 {\max_{\tau \leq t} P_\tau}\]
 
-Peak-to-trough decline on the cumulative return index.
+**Log-return method (`return_type="log"`):** Build the cumulative log-return
+index \(P_t^{\log} = \exp(\sum_{\tau=1}^{t} \ln(1 + r_\tau)) =
+\prod_{\tau=1}^{t}(1 + r_\tau)\) and apply the same peak-to-trough
+formula. The two methods produce identical equity curves when the index
+is built multiplicatively from simple returns vs. via log-return
+compounding. The distinction matters only when the returns themselves
+are log returns: in that case, \(P_t = \exp(\sum r_\tau^{\log})\) and the
+drawdown is computed on the exponentiated index.
 
-**Citation:** Pospisil & Vecer (2011). Convention parameter: `return_type`
-— `"simple"` (default) or `"log"`.
+**Citation:** Pospisil & Vecer (2011), "Maximum Drawdown of a Brownian
+Motion," *Journal of Applied Probability*, 48(3). Convention parameter:
+`return_type` — `"simple"` (default) or `"log"`.
 
 ### 2.2 Longest Drawdown Duration
 
 \[T_{\text{DD}}^{\max} = \max_k\!\left(\tau_{\text{end}}^{(k)} -
 \tau_{\text{start}}^{(k)}\right)\]
 
-Longest contiguous underwater period in the equity curve.
+Longest contiguous underwater period. A drawdown episode begins when the
+equity curve falls below its running maximum and ends when it first
+returns to (or exceeds) that maximum.
 
-**Citation:** Standard risk management; van Hemert et al. (2020).
+**Citation:** van Hemert et al. (2020, *Tactical Asset Allocation*, Ch. 5).
+Convention parameter: `units` — `"periods"` (default) or `"years"`.
 
 ### 2.3 Time to Recovery
 
-For each drawdown episode \(k\), the time from peak to the first subsequent
-period where cumulative return reaches or exceeds the previous peak. Report
-mean, median, max across episodes.
+For each drawdown episode \(k\), the time in periods from
+\(t_{\text{peak}}\) to the first subsequent period where the cumulative
+return reaches or exceeds the running-maximum level at \(t_{\text{peak}}\).
+Report mean, median, and maximum across all episodes in the series.
 
-**Citation:** Standard drawdown analysis.
+**Citation:** Bacon (2008, §7.2), "Drawdown Analysis."
 
 ### 2.4 Average Drawdown
 
 \[\text{ADD} = \frac{1}{K}\sum_{k=1}^{K} D^{(k)}\]
 
-where \(D^{(k)}\) is the peak-to-trough depth of the \(k\)-th episode.
+where \(D^{(k)}\) is the peak-to-trough depth of the \(k\)-th episode
+(as a negative percentage; absolute value used in display).
 
 **Citation:** Bacon (2008, §7.2).
 
@@ -200,7 +235,7 @@ where \(D^{(k)}\) is the peak-to-trough depth of the \(k\)-th episode.
 
 \[\bar{T}_{\text{DD}} = \frac{1}{K}\sum_{k=1}^{K} T_{\text{DD}}^{(k)}\]
 
-**Citation:** Standard risk metric.
+**Citation:** Bacon (2008, §7.2).
 
 ### 2.6 Ulcer Index
 
@@ -210,7 +245,8 @@ where \(D^{(k)}\) is the peak-to-trough depth of the \(k\)-th episode.
 
 Root-mean-square of percentage drawdowns.
 
-**Citation:** Martin & McCann (1989); Martin (1993).
+**Citation:** Martin & McCann (1989, *The Investor's Guide to Fidelity
+Funds*); Martin (1993).
 
 ### 2.7 Downside Deviation
 
@@ -226,7 +262,8 @@ With \(\tau = 0\) (MAR), this is semi-deviation.
 
 Mirror of downside deviation.
 
-**Citation:** Symmetric counterpart to downside deviation; standard.
+**Citation:** Bacon (2008, §6.4) discusses upside/downside semi-variance
+as complementary risk measures.
 
 ### 2.9 VaR (Value at Risk)
 
@@ -242,9 +279,12 @@ Same as parametric with \(z_\alpha\) replaced by the CF expansion:
 \frac{\gamma_2}{24}(z_\alpha^3 - 3z_\alpha) -
 \frac{\gamma_1^2}{36}(2z_\alpha^3 - 5z_\alpha)\)
 
-**Citation:** Litterman (1996); Zangari (1996); Artzner et al. (1999).
+**Citation:** Litterman (1996), "Hot Spots and Hedges," *JPM*; Zangari
+(1996), "A VaR Methodology for Portfolios That Include Options,"
+*RiskMetrics Monitor*. Basel Committee (1996) for the 0.95 confidence
+default. Artzner et al. (1999) for the coherent risk measure context.
 Convention parameters: `method` (`"historical"`, `"parametric"`,
-`"cornish_fisher"`), `confidence` (default `0.95`).
+`"cornish_fisher"`), `confidence` (default `0.95`, per Jorion 2006 §5.2).
 
 ### 2.10 CVaR / Expected Shortfall
 
@@ -254,19 +294,24 @@ Convention parameters: `method` (`"historical"`, `"parametric"`,
 **Parametric:**
 \(\text{CVaR}_\alpha = -\bar{r} + \sigma \cdot \phi(z_\alpha) / \alpha\)
 
-**Citation:** Rockafellar & Uryasev (2000); Acerbi & Tasche (2002).
-Convention parameter: `method` (`"historical"`, `"parametric"`),
-`confidence` (default `0.95`).
+**Citation:** Rockafellar & Uryasev (2000), "Optimization of Conditional
+Value-at-Risk," *Journal of Risk*, 2(3); Acerbi & Tasche (2002). Convention
+parameter: `method` (`"historical"`, `"parametric"`), `confidence`
+(default `0.95`).
 
 ### 2.11 Tail Ratio
 
 \[\text{TR}_\alpha = \frac{\mathbb{E}[r_t \mid r_t \geq q_{1-\alpha}]}
 {|\mathbb{E}[r_t \mid r_t \leq q_\alpha]|}\]
 
-Ratio of mean upper-tail return to absolute mean lower-tail return.
+Ratio of the conditional mean of returns in the upper \(\alpha\)-tail to
+the absolute conditional mean of returns in the lower \(\alpha\)-tail.
+(Note: `stats.md` §2 #11's "95th percentile / |5th percentile|" is a
+plain-language shorthand; the formal definition uses tail conditional
+expectations, not raw percentile values.)
 
-**Citation:** Connor, Goldberg & Korajczyk (2010, *Portfolio Risk Analysis*, Ch. 9).
-Convention parameter: `tail_cutoff` — default `0.05`.
+**Citation:** Connor, Goldberg & Korajczyk (2010, *Portfolio Risk
+Analysis*, Ch. 9). Convention parameter: `tail_cutoff` — default `0.05`.
 
 ### 2.12 Common-Sense Ratio
 
@@ -284,8 +329,9 @@ Convention parameter: `tail_cutoff` — default `0.05`.
 where \(X_{(i)}\) are descending order statistics of the upper tail and
 \(k\) = `tail_fraction` × \(n\).
 
-**Citation:** Hill (1975). Convention parameter: `tail_fraction` — default
-`0.10`.
+**Citation:** Hill (1975), "A Simple General Approach to Inference About
+the Tail of a Distribution," *Annals of Statistics*, 3(5). Convention
+parameter: `tail_fraction` — default `0.10`.
 
 ### 2.14 GPD Tail Fit
 
@@ -295,51 +341,55 @@ Fit the Generalized Pareto Distribution to exceedances above threshold
 \[G_{\xi,\beta}(x) = 1 - \left(1 + \xi\frac{x}{\beta}\right)^{\!-1/\xi}\]
 
 **Citation:** Pickands (1975); Hosking & Wallis (1987); Embrechts,
-Klüppelberg & Mikosch (1997).
+Klüppelberg & Mikosch (1997, *Modelling Extremal Events*, Springer).
 
 ### 2.15 Risk of Ruin
 
 \[P_{\text{ruin}} = \Phi\!\left(
 \frac{-\bar{r} \cdot T}{\sigma\sqrt{T}}\right)\]
 
-Normal-approximation probability of 100 % loss. **⚠ Caveat:** assumes
-normality — unreliable for fat-tailed returns. Docstring must cite and
-warn.
+Normal-approximation probability of 100 % loss.
 
-**Citation:** Standard risk management; Vince (1990).
+**⚠ Caveat:** Assumes normality — unreliable for fat-tailed returns.
+Docstring must cite this limitation and warn that the estimate is a
+lower bound for leptokurtic distributions.
+
+**Citation:** Vince (1990, *Portfolio Management Formulas*); standard
+in risk-of-ruin literature.
 
 ### 2.16 Drawdown Volatility
 
 \[\sigma_{\text{DD}} = \text{std}(d_1, \dots, d_n)\]
 
 where \(d_t = (P_t - \max_{\tau \leq t}P_\tau) / \max_{\tau \leq t}P_\tau\)
-is the drawdown series.
+is the drawdown time series.
 
-**Citation:** Standard risk metric.
+**Citation:** Bacon (2008, §7.3) discusses drawdown-series statistics.
 
 ### 2.17 Drawdown Periods Count
 
 \[K = \text{number of distinct drawdown episodes}\]
 
 An episode begins when \(P_t\) falls below the running maximum and ends
-when it returns to the running maximum.
+when it next returns to the running maximum.
 
-**Citation:** Standard drawdown analysis.
+**Citation:** Bacon (2008, §7.2).
 
 ### 2.18 Current Drawdown
 
 \[d_{\text{current}} = \frac{P_n - \max_{\tau \leq n}P_\tau}
 {\max_{\tau \leq n}P_\tau}\]
 
-Drawdown at the last observation.
+Drawdown at the most recent observation.
 
-**Citation:** Standard risk metric.
+**Citation:** Bacon (2008, §7.2).
 
 ### 2.19 Current Drawdown Duration
 
-Periods elapsed from the most recent peak to the current observation.
+Periods elapsed from the most recent running-maximum peak to the current
+observation.
 
-**Citation:** Standard risk metric.
+**Citation:** Bacon (2008, §7.2).
 
 ### 2.20 Drawdown Total Duration
 
@@ -347,7 +397,7 @@ Periods elapsed from the most recent peak to the current observation.
 
 Sum of all underwater-period lengths.
 
-**Citation:** Standard risk metric.
+**Citation:** Bacon (2008, §7.2).
 
 ---
 
@@ -360,10 +410,15 @@ Tagged `("risk_adjusted", "returns")`, backend `"vectorized"`.
 \[\text{SR} = \frac{\bar{r}_{\text{excess}}}{\sigma} \cdot \sqrt{P}\]
 
 where \(\bar{r}_{\text{excess}} = \bar{r} - r_f\) (risk-free rate, default
-0).
+0). Annualization via √P is applied pre-division: (r̄_excess · √P) / σ
+is equivalent to (r̄_excess · P) / (σ · √P). The `periods_per_year` factor
+used for annualization comes from the input container, not from a
+per-metric convention.
 
-**Citation:** Sharpe (1966, 1994). Convention parameter: `ddof` — `1`
-(default, sample std) or `0` (population std).
+**Citation:** Sharpe (1966), "Mutual Fund Performance," *Journal of
+Business*, 39(1); Sharpe (1994), "The Sharpe Ratio," *JPM*, 21(1).
+Convention parameter: `ddof` — `1` (default, sample std) or `0`
+(population std).
 
 ### 3.2 Sortino Ratio
 
@@ -372,36 +427,51 @@ where \(\bar{r}_{\text{excess}} = \bar{r} - r_f\) (risk-free rate, default
 
 where DD is downside deviation (§2.7).
 
-**Citation:** Sortino & Price (1994). Convention parameter: `denominator` —
-`"full_downside"` (default) or `"downside_only"`.
+**Citation:** Sortino & Price (1994), "Performance Measurement in a
+Downside Risk Framework," *Journal of Investing*, 3(3). Convention
+parameter: `denominator` — `"full_downside"` (default, divides by
+sqrt of mean squared downside over all periods) or `"downside_only"`
+(divides by sqrt of mean squared downside over only downside periods).
 
 ### 3.3 Calmar Ratio
 
 \[\text{Calmar} = \frac{\text{CAGR}}{|\text{MDD}|}\]
 
-**Citation:** Young (1991).
+**Citation:** Young (1991), "Calmar Ratio: A Smoother Tool," *Futures*,
+20(10).
 
 ### 3.4 Omega Ratio
 
 \[\Omega(\tau) = \frac{\sum_{t=1}^{n}\max(r_t - \tau,\, 0)}
 {|\sum_{t=1}^{n}\min(r_t - \tau,\, 0)|}\]
 
-**Citation:** Keating & Shadwick (2002). Default threshold \(\tau = 0\).
+**Citation:** Keating & Shadwick (2002), "A Universal Performance
+Measure," *JPM*, 6(3). Default threshold \(\tau = 0\).
 
 ### 3.5 Sterling Ratio
 
 \[\text{Sterling} = \frac{\text{CAGR}}{|\text{ADD}| + k}\]
 
-where \(k = 0.10\) avoids near-zero denominators.
+where \(k\) is a floor constant to avoid division by zero for strategies
+with very shallow drawdowns.
 
-**Citation:** Industry convention; Bacon (2008, §8.3).
+**Citation:** Industry convention; Bacon (2008, §8.3). Convention
+parameter: `floor` — default `0.10` (10 %).
 
 ### 3.6 Burke Ratio
 
-\[\text{Burke} = \frac{\bar{r}_{\text{excess}}}
-{\sqrt{\frac{1}{n}\sum_{t=1}^{n}\min(r_t, 0)^2}}\]
+\[\text{Burke} = \frac{\text{CAGR}}{\sqrt{\sum_{t=1}^{n} d_t^{2}}}\]
 
-**Citation:** Bacon (2008, §8.5).
+where \(d_t = (P_t - \max_{\tau \leq t}P_\tau) / \max_{\tau \leq t}P_\tau\)
+is the per-period percentage drawdown.
+
+**⚠ Note:** This definition (CAGR divided by root of sum of squared
+drawdowns) matches `stats.md` §3 #6. It differs from Bacon (2008, §8.5),
+which defines a "Burke ratio" as excess return over the square root of
+the mean of squared negative returns — a different numerator and a
+different denominator. No single clean canonical source has been
+identified for the drawdown-based formulation; flag for project owner
+review.
 
 ### 3.7 Kappa-3
 
@@ -410,12 +480,16 @@ where \(k = 0.10\) avoids near-zero denominators.
 
 Lower partial moment of order 3.
 
-**Citation:** Kaplan & Knowles (2004). Convention parameter: `mar` —
+**Citation:** Kaplan & Knowles (2004), "Kappa: A Generalized Downside
+Risk-Adjusted Performance Measure," *JPM*. Convention parameter: `mar` —
 default `0.0`.
 
-### 3.8 Martin Ratio (Return / Ulcer)
+### 3.8 Martin Ratio (CAGR / Ulcer)
 
-\[\text{Martin} = \frac{\bar{r}_{\text{excess}}}{\text{UI}}\]
+\[\text{Martin} = \frac{\text{CAGR}}{\text{UI}}\]
+
+CAGR divided by Ulcer Index (§2.6). Matches `stats.md` §3 #8 note:
+"CAGR / ulcer index."
 
 **Citation:** Martin & McCann (1989); Bacon (2008, §8.6).
 
@@ -435,12 +509,16 @@ Tagged `("inference", "returns")`, backend `"resampling"`.
 ### 4.1 Jarque-Bera Statistic
 
 \[\text{JB} = \frac{n}{6}\!\left(\gamma_1^2 +
-\frac{(\gamma_2 + 3 - 3)^2}{4}\right)
-= \frac{n}{6}\!\left(\gamma_1^2 + \frac{\gamma_2^2}{4}\right)\]
+\frac{\gamma_2^2}{4}\right)\]
 
-Under the null of normality, \(\text{JB} \sim \chi^2(2)\).
+where \(\gamma_1\) is sample skewness (§1.6) and \(\gamma_2\) is sample
+excess kurtosis (§1.7). Under the null of normality, \(\text{JB} \sim
+\chi^2(2)\). (Equivalently: \(\text{JB} = \frac{n}{6}(S^2 +
+\frac{(K-3)^2}{4})\) where \(S\) is skewness and \(K\) is raw kurtosis;
+the form above uses excess kurtosis directly.)
 
-**Citation:** Jarque & Bera (1980, 1987).
+**Citation:** Jarque & Bera (1987), "A Test for Normality of Observations
+and Regression Residuals," *International Statistical Review*, 55(2).
 
 ### 4.2 Probabilistic Sharpe Ratio (PSR)
 
@@ -452,8 +530,10 @@ Under the null of normality, \(\text{JB} \sim \chi^2(2)\).
 Probability that true SR exceeds benchmark \(SR^*\), adjusted for skewness
 and kurtosis.
 
-**Citation:** Bailey & López de Prado (2012); de Prado (2018, Ch. 14).
-Convention parameter: `sharpe_benchmark` — default `0.0`.
+**Citation:** Bailey & López de Prado (2012), "The Sharpe Ratio Efficient
+Frontier," *Journal of Risk*, 15(2); de Prado (2018, *Advances in
+Financial Machine Learning*, Ch. 14). Convention parameter:
+`sharpe_benchmark` — default `0.0`.
 
 ### 4.3 Deflated Sharpe Ratio (DSR)
 
@@ -467,7 +547,9 @@ Convention parameter: `sharpe_benchmark` — default `0.0`.
 PSR deflated by the probability of multiple-testing false discovery among
 \(M\) trials.
 
-**Citation:** Bailey & López de Prado (2014).
+**Citation:** Bailey & López de Prado (2014), "The Deflated Sharpe Ratio:
+Correcting for Selection Bias, Backtest Overfitting, and Non-Normality,"
+*JPM*, 40(5).
 
 ### 4.4 Lo's Autocorrelation-Adjusted Sharpe SE
 
@@ -478,7 +560,8 @@ PSR deflated by the probability of multiple-testing false discovery among
 \[\text{SE}_{\text{adj}} = \text{SE}_{\text{IID}} \cdot
 \sqrt{\frac{1+\rho_1}{1-\rho_1}}\]
 
-**Citation:** Lo (2002).
+**Citation:** Lo (2002), "The Statistics of Sharpe Ratios," *Financial
+Analysts Journal*, 58(4).
 
 ### 4.5 Sharpe Ratio CI — Analytic
 
@@ -493,7 +576,9 @@ using Lo's SE (IID or adjusted per §4.4).
 Non-parametric block bootstrap (BCa method): resample overlapping blocks,
 recompute SR, form CI from the bootstrap distribution.
 
-**Citation:** Efron & Tibshirani (1994); Ledoit & Wolf (2008); block-length
+**Citation:** Efron & Tibshirani (1994, *An Introduction to the
+Bootstrap*); Ledoit & Wolf (2008), "Robust Performance Hypothesis Testing
+with the Sharpe Ratio," *J. Empirical Finance*, 15(5). Block-length
 selection per Politis & White (2004). Default: 5,000 replications,
 automatic block length, 95 % CI.
 
@@ -512,8 +597,10 @@ Moving-block bootstrap: for any registered `returns`-tier metric function
 \(f\), resample blocks of length \(l\) with replacement, recompute \(f\) on
 each resample, return empirical CI.
 
-**Citation:** Efron & Tibshirani (1994); Künsch (1989); Politis & White
-(2004). Default: 5,000 reps, automatic block length, 95 % equal-tailed CI.
+**Citation:** Efron & Tibshirani (1994); Künsch (1989), "The Jackknife
+and the Bootstrap for General Stationary Observations," *Annals of
+Statistics*, 17(3). Politis & White (2004) for block-length selection.
+Default: 5,000 reps, automatic block length, 95 % equal-tailed CI.
 
 ---
 
@@ -526,14 +613,19 @@ Generic functions applied via the registry to any `returns`-tier metric.
 Apply the named metric over a rolling window of `window` periods,
 producing a time series of that metric.
 
-**Citation:** Standard rolling-window analysis.
+**Citation:** No single canonical source — rolling-window analysis is a
+standard technique in time-series econometrics. For a formal treatment,
+see Zivot & Wang (2006, *Modeling Financial Time Series with S-PLUS*,
+Ch. 3).
 
 ### 5.2 `by_regime(metric_name, regime_labels)`
 
 Group returns by regime label (same-length array), compute the named
 metric separately per regime.
 
-**Citation:** Ang & Bekaert (2004).
+**Citation:** Ang & Bekaert (2004), "How Regimes Affect Asset
+Allocation," *Financial Analysts Journal*, 60(2); standard
+regime-switching analysis.
 
 ---
 
@@ -548,7 +640,8 @@ Tagged `requires="exposure"`. Category tags vary.
 
 Report: current, max, average.
 
-**Citation:** Ang (2014, *Asset Management*, Ch. 2).
+**Citation:** Ang (2014, *Asset Management: A Systematic Approach to
+Factor Investing*, Oxford University Press, Ch. 2).
 
 ### 6.2 Net Exposure
 
@@ -557,7 +650,7 @@ Report: current, max, average.
 
 Report: current, max, min, average, range.
 
-**Citation:** Same as above.
+**Citation:** Ang (2014, Ch. 2).
 
 ### 6.3 Leverage
 
@@ -573,7 +666,8 @@ Ratio of gross exposure to equity.
 
 Fraction of gross exposure allocated long.
 
-**Citation:** Standard analytics.
+**Citation:** CFA Institute, *GIPS Standards* (2020); also Bacon (2008,
+§11.3).
 
 ### 6.5 Short Exposure %
 
@@ -581,48 +675,52 @@ Fraction of gross exposure allocated long.
 
 Fraction of gross exposure allocated short.
 
-**Citation:** Standard analytics.
+**Citation:** As §6.4.
 
 ### 6.6 Long-Book Contribution to Return
 
 \[R_t^{\text{long}} = \sum_{i} w_{i,t-1} \cdot r_{i,t} \cdot
 \mathbf{1}_{[w_{i,t-1} > 0]}\]
 
-**Citation:** Practitioner P&L attribution.
+**Citation:** Bacon (2008, §11.5), "Performance Attribution."
 
 ### 6.7 Short-Book Contribution to Return
 
 \[R_t^{\text{short}} = \sum_{i} w_{i,t-1} \cdot r_{i,t} \cdot
 \mathbf{1}_{[w_{i,t-1} < 0]}\]
 
-**Citation:** Practitioner P&L attribution.
+**Citation:** As §6.6.
 
 ### 6.8 Long Beta
 
 \[\beta_{\text{long}} = \frac{\text{Cov}(R^{\text{long}}, R_m)}
 {\text{Var}(R_m)}\]
 
-**Requires:** optional benchmark field on `ExposureInput`.
+**Requires:** optional benchmark field on `ExposureInput`. If benchmark is
+not provided, raises `ValueError`.
 
-**Citation:** Asness, Frazzini & Pedersen (2014).
+**Citation:** Asness, Frazzini & Pedersen (2014), "Low-Risk Investing
+Without Industry Bets," *Financial Analysts Journal*, 70(4).
 
 ### 6.9 Short Beta
 
 \[\beta_{\text{short}} = \frac{\text{Cov}(R^{\text{short}}, R_m)}
 {\text{Var}(R_m)}\]
 
-**Requires:** optional benchmark field on `ExposureInput`.
+**Requires:** optional benchmark field on `ExposureInput`. Same failure
+mode as §6.8.
 
-**Citation:** Same as above.
+**Citation:** As §6.8.
 
 ### 6.10 Position Concentration (HHI)
 
 \[\text{HHI}_t = \sum_{i=1}^{N}
 \left(\frac{w_{i,t}}{\sum_j |w_{j,t}|}\right)^{\!2}\]
 
-Herfindahl-Hirschman Index of normalized position weights.
+Herfindahl-Hirschman Index on normalized position weights.
 
-**Citation:** Hirschman (1964); SEC concentration reporting.
+**Citation:** Hirschman (1964), "The Paternity of an Index," *American
+Economic Review*, 54(5); SEC regulation for concentration reporting.
 
 ### 6.11 Effective N Positions
 
@@ -630,7 +728,8 @@ Herfindahl-Hirschman Index of normalized position weights.
 
 Reciprocal HHI.
 
-**Citation:** Standard concentration/effective-count duality.
+**Citation:** Adelman (1969), "Comment on the 'H' Concentration Measure
+as a Numbers-Equivalent," *Review of Economics and Statistics*, 51(1).
 
 ### 6.12 Turnover
 
@@ -639,57 +738,59 @@ Reciprocal HHI.
 
 Annualized: mean period turnover × \(P\).
 
-**Citation:** Industry standard; Morningstar methodology.
+**Citation:** Morningstar (2020), *Morningstar Portfolio Turnover
+Methodology*; also Bacon (2008, §11.6).
 
 ### 6.13 Average Holding Weight per Position
 
 \[\bar{w}_t = \frac{1}{N_t}\sum_{i=1}^{N_t} |w_{i,t}|\]
 
-**Citation:** Standard analytics.
+**Citation:** Bacon (2008, §11.2).
 
 ### 6.14 Position Coverage %
 
 \[\text{Coverage} = \frac{1}{n}\sum_{t=1}^{n}
 \mathbf{1}_{[\exists i: w_{i,t} \neq 0]}\]
 
-Fraction of periods with any position.
+Fraction of periods with at least one non-zero position.
 
-**Citation:** Standard analytics.
+**Citation:** Bacon (2008, §11.2).
 
 ### 6.15 Long/Short Position Coverage %
 
 Fraction of periods with at least one long (short) position.
 
-**Citation:** Standard analytics.
+**Citation:** As §6.14.
 
 ### 6.16 Exposure Volatility
 
 \[\sigma_{\text{GE}} = \text{std}(\text{GE}_1, \dots, \text{GE}_n)\]
 
-Standard deviation of gross exposure.
+Standard deviation of the gross exposure time series.
 
-**Citation:** Standard risk metric.
+**Citation:** Bacon (2008, §11.3).
 
 ### 6.17 Net Exposure Volatility
 
 \[\sigma_{\text{NE}} = \text{std}(\text{NE}_1, \dots, \text{NE}_n)\]
 
-**Citation:** Standard risk metric.
+**Citation:** As §6.16.
 
 ### 6.18 Exposure Coefficient of Variation
 
 \[\text{CV}_{\text{exp}} =
 \frac{\sigma_{\text{GE}}}{|\bar{\text{GE}}|}\]
 
-**Citation:** Standard statistics.
+**Citation:** Pearson (1896). For financial application: standard
+descriptive statistic; no single finance-specific source.
 
 ### 6.19 Avg Exposure Utilization
 
 \[\text{Utilization} = \frac{\bar{\text{GE}}}{\max_t \text{GE}_t}\]
 
-Mean gross exposure relative to maximum.
+Mean gross exposure as a fraction of maximum.
 
-**Citation:** Standard analytics.
+**Citation:** Bacon (2008, §11.3).
 
 ### 6.20 Exposure Directional Bias
 
@@ -697,20 +798,20 @@ Mean gross exposure relative to maximum.
 
 Absolute mean net exposure relative to mean gross exposure.
 
-**Citation:** Standard analytics.
+**Citation:** Bacon (2008, §11.3); Ang (2014, Ch. 2).
 
 ### 6.21 Exposure Percentiles
 
 Percentiles at {25, 50, 75, 90, 95} of the gross exposure time series.
 
-**Citation:** Standard order statistics.
+**Citation:** Hyndman & Fan (1996); standard order statistics.
 
 ### 6.22 Period Counts
 
 Breakdown: total periods, periods with any position, long-only periods,
 short-only periods, idle (flat) periods.
 
-**Citation:** Standard analytics.
+**Citation:** Bacon (2008, §11.2).
 
 ---
 
@@ -718,48 +819,61 @@ short-only periods, idle (flat) periods.
 
 Tagged `requires="trades"`. Category tags vary.
 
+All metrics in this section are standard trade-analysis statistics. The
+primary source is Schwager (1995, *Schwager on Futures: Technical
+Analysis*, Wiley). Additional sources cited per metric where applicable.
+
 ### 7.1 Total Trades
 
 \[N = \text{number of round-trip trades}\]
+
+**Citation:** Schwager (1995, Ch. 38).
 
 ### 7.2 Win Rate (Overall)
 
 \[\text{WR} = \frac{N_{\text{win}}}{N}\]
 
-**Citation:** Standard trade analysis.
+Fraction of trades with positive P&L.
+
+**Citation:** Schwager (1995, Ch. 38).
 
 ### 7.3 Win Rate (Long-Only)
 
-Same formula, restricted to long trades.
+Same formula, restricted to trades opened long. A trade is "long" if
+`side` in the trade log equals `"long"` (or equivalent convention per
+the `TradeInput` schema).
 
 ### 7.4 Win Rate (Short-Only)
 
-Same formula, restricted to short trades.
+Same formula, restricted to trades opened short.
 
 ### 7.5 Average Win
 
 \[\bar{W} = \frac{1}{N_{\text{win}}}\sum_{j:\text{win}}\text{PnL}_j\]
 
-**Citation:** Standard trade analysis.
+**Citation:** Schwager (1995, Ch. 38).
 
 ### 7.6 Average Loss
 
 \[\bar{L} = \frac{1}{N_{\text{loss}}}\sum_{j:\text{loss}}\text{PnL}_j\]
 
-Report absolute value; sign preserved in return object.
+Reported as absolute value for display; sign preserved in the
+`MetricResult.value` field.
 
-**Citation:** Standard trade analysis.
+**Citation:** Schwager (1995, Ch. 38).
 
 ### 7.7 Win/Loss Ratio
 
 \[\text{WLR} = \frac{N_{\text{win}}}{N_{\text{loss}}}\]
+
+**Citation:** Schwager (1995, Ch. 38).
 
 ### 7.8 Profit Factor
 
 \[\text{PF} = \frac{\sum_{j}\max(\text{PnL}_j, 0)}
 {|\sum_{j}\min(\text{PnL}_j, 0)|}\]
 
-**Citation:** Schwager (1995).
+**Citation:** Schwager (1995, Ch. 38).
 
 ### 7.9 Expectancy per Trade
 
@@ -768,55 +882,82 @@ Report absolute value; sign preserved in return object.
 
 with \(\bar{L}\) as a negative number.
 
+**Citation:** Tharp (1998, *Trade Your Way to Financial Freedom*,
+McGraw-Hill, Ch. 5).
+
 ### 7.10 Average Holding Period
 
 \[\bar{H} = \frac{1}{N}\sum_{j=1}^{N}(t_{j,\text{exit}} -
 t_{j,\text{entry}})\]
 
+**Citation:** Schwager (1995, Ch. 38).
+
 ### 7.11 Holding Period Distribution
 
-Median, 25th, 75th percentile, min, max of holding periods.
+Median, 25th, 75th percentile, min, max of trade holding periods.
+
+**Citation:** Standard descriptive statistic; see Hyndman & Fan (1996)
+for quantile interpolation method.
 
 ### 7.12 Max Consecutive Wins
 
 Longest run of consecutive winning trades.
 
+**Citation:** Schwager (1995, Ch. 38); Tharp (1998, Ch. 5).
+
 ### 7.13 Max Consecutive Losses
 
 Longest run of consecutive losing trades.
 
+**Citation:** As §7.12.
+
 ### 7.14 Round-Trip P&L Distribution
 
-Summary statistics: mean, median, std, skewness, 5th/95th percentiles
-of per-trade P&L.
+Summary statistics of per-trade P&L: mean, median, std, skewness,
+5th/95th percentiles.
+
+**Citation:** Schwager (1995, Ch. 38); Tharp (1998, Ch. 7, "Expectunity").
 
 ### 7.15 Implementation Shortfall
 
 \[\text{IS}_j = \text{side}_j \cdot
-\frac{P_{\text{fill}} - P_{\text{decision}}}
-{P_{\text{decision}}}\]
+\frac{P_{\text{fill},j} - P_{\text{decision},j}}
+{P_{\text{decision},j}}\]
 
-**Requires:** optional fill-price field.
+**Required optional fields on the trade log:**
+`fill_price`, `decision_price`, `side` (sign: +1 for buy, −1 for sell).
 
-**Citation:** Perold (1988).
+If any of these fields is absent from the trade log, raises `ValueError`
+with a message listing which fields are missing.
+
+**Citation:** Perold (1988), "The Implementation Shortfall: Paper versus
+Reality," *JPM*, 14(3).
 
 ### 7.16 Best Trade
 
 \[\max_j \text{PnL}_j\]
 
+**Citation:** Schwager (1995, Ch. 38).
+
 ### 7.17 Worst Trade
 
 \[\min_j \text{PnL}_j\]
+
+**Citation:** As §7.16.
 
 ### 7.18 Avg Winning Trade Duration
 
 \[\bar{H}_{\text{win}} = \frac{1}{N_{\text{win}}}
 \sum_{j:\text{win}}(t_{j,\text{exit}} - t_{j,\text{entry}})\]
 
+**Citation:** Schwager (1995, Ch. 38).
+
 ### 7.19 Avg Losing Trade Duration
 
 \[\bar{H}_{\text{loss}} = \frac{1}{N_{\text{loss}}}
 \sum_{j:\text{loss}}(t_{j,\text{exit}} - t_{j,\text{entry}})\]
+
+**Citation:** As §7.18.
 
 ### 7.20 Payoff Ratio
 
@@ -824,7 +965,7 @@ of per-trade P&L.
 
 Average win divided by absolute average loss.
 
-**Citation:** Standard trade analysis.
+**Citation:** Schwager (1995, Ch. 38).
 
 ### 7.21 CPC Ratio
 
@@ -832,87 +973,135 @@ Average win divided by absolute average loss.
 
 Young's CPC Index: profit factor × payoff ratio × win rate.
 
-**Citation:** Young (1991), CPC Index.
+**Citation:** Young (1991), CPC Index; see also Schwager (1995, Ch. 38).
 
 ### 7.22 SQN (System Quality Number)
 
 \[\text{SQN} = \frac{\bar{r}_{\text{trade}}}
 {\sigma_{\text{trade}}} \cdot \sqrt{N}\]
 
-Mean trade return divided by trade return std, scaled by √(n trades).
+Mean trade return divided by trade return std, scaled by √(number of
+trades).
 
-**Citation:** Tharp (1998, *Trade Your Way to Financial Freedom*).
+**Citation:** Tharp (1998, Ch. 5).
 
 ### 7.23 Trade Duration Std
 
 \[\sigma_H = \text{std}(H_1, \dots, H_N)\]
 
+**Citation:** Standard statistic. Fisher (1925).
+
 ### 7.24 Trade Return Std
 
 \[\sigma_{\text{trade}} = \text{std}(\text{PnL}_1, \dots, \text{PnL}_N)\]
+
+**Citation:** Standard statistic. Fisher (1925).
 
 ### 7.25 Geometric Mean Return (per Trade)
 
 \[\bar{r}_{g,\text{trade}} = \exp\!\left(
 \frac{1}{N}\sum_{j=1}^{N}\ln(1 + \text{PnL}_j)\right) - 1\]
 
+**Citation:** Standard geometric mean; see Campbell, Lo & MacKinlay
+(1997, §1.4) for context on compounding.
+
 ### 7.26 Outlier Win Ratio
 
-Fraction of winning trades with P&L exceed Q₃ + 1.5 × IQR.
+Fraction of winning trades with P&L exceeding \(Q_3 + 1.5 \times
+\text{IQR}\) of the winning-trade P&L distribution.
 
-**Citation:** Tukey (1977) outlier detection.
+**Citation:** Tukey (1977) for the outlier criterion.
 
 ### 7.27 Outlier Loss Ratio
 
-Fraction of losing trades with P&L below Q₁ − 1.5 × IQR.
+Fraction of losing trades with P&L below \(Q_1 - 1.5 \times \text{IQR}\)
+of the losing-trade P&L distribution.
+
+**Citation:** As §7.26.
 
 ### 7.28 MFE (Maximum Favorable Excursion)
 
-Maximum dollar gain during trade lifetime.
+For each trade, the maximum dollar gain relative to entry price observed
+during the trade's lifetime.
 
-**Requires:** optional intra-trade price path field.
+**Requires:** optional intra-trade price path field (`intratrade_prices`)
+on `TradeInput`. If this field is absent, raises `ValueError` with a
+message: `"MFE requires intratrade_prices; provide an intra-trade price
+path in TradeInput"`.
 
-**Citation:** Standard trade analytics.
+**Citation:** Standard trade analytics; see Sweeney (1988), "The
+Maximum Favorable Excursion Methodology."
 
 ### 7.29 MAE (Maximum Adverse Excursion)
 
-Maximum dollar loss during trade lifetime.
+For each trade, the maximum dollar loss relative to entry price observed
+during the trade's lifetime.
 
-**Requires:** optional intra-trade price path field.
+**Requires:** same `intratrade_prices` field as MFE (§7.28). Same
+failure mode: raises `ValueError` if the field is absent.
 
-**Citation:** Standard trade analytics.
+**Citation:** As §7.28.
 
 ### 7.30 Kelly Criterion
 
 \[f^* = W - \frac{1-W}{\bar{W}/|\bar{L}|}\]
 
-Optimal bet size.
+Estimated optimal bet fraction. Assumes independent, identically
+distributed trade returns.
 
-**Citation:** Kelly (1956); Thorp (1997).
+**Citation:** Kelly (1956), "A New Interpretation of Information Rate,"
+*Bell System Technical Journal*, 35(4); Thorp (1997), "The Kelly
+Criterion in Blackjack, Sports Betting, and the Stock Market."
 
 ### 7.31 Long/Short Trade Count
 
-\(N_{\text{long}}\), \(N_{\text{short}}\).
+\[N_{\text{long}} = \sum_{j=1}^{N} \mathbf{1}_{[\text{side}_j = \text{long}]},
+\quad N_{\text{short}} = \sum_{j=1}^{N} \mathbf{1}_{[\text{side}_j = \text{short}]}\]
+
+Number of trades opened long (short). The `side` field in the trade log
+determines classification.
 
 ### 7.32 Long/Short Trade %
 
-\(N_{\text{long}} / N\), \(N_{\text{short}} / N\).
+\[p_{\text{long}} = \frac{N_{\text{long}}}{N},\quad
+p_{\text{short}} = \frac{N_{\text{short}}}{N}\]
+
+Fraction of all trades opened long (short).
 
 ### 7.33 Long/Short Winning/Losing Trades
 
-Win/loss breakdown by side.
+\[\begin{aligned}
+N_{\text{long,win}} &= \sum_{j: \text{side}_j = \text{long}} \mathbf{1}_{[\text{PnL}_j > 0]} \\
+N_{\text{long,loss}} &= \sum_{j: \text{side}_j = \text{long}} \mathbf{1}_{[\text{PnL}_j < 0]} \\
+N_{\text{short,win}} &= \sum_{j: \text{side}_j = \text{short}} \mathbf{1}_{[\text{PnL}_j > 0]} \\
+N_{\text{short,loss}} &= \sum_{j: \text{side}_j = \text{short}} \mathbf{1}_{[\text{PnL}_j < 0]}
+\end{aligned}\]
 
 ### 7.34 Long/Short Avg Duration
 
-\(\bar{H}_{\text{long}}\), \(\bar{H}_{\text{short}}\).
+\[\bar{H}_{\text{long}} = \frac{1}{N_{\text{long}}}
+\sum_{j: \text{side}_j = \text{long}} H_j,\quad
+\bar{H}_{\text{short}} = \frac{1}{N_{\text{short}}}
+\sum_{j: \text{side}_j = \text{short}} H_j\]
 
 ### 7.35 Long/Short Total PnL %
 
-Total P&L attributable to long and short trades.
+\[\text{PnL}_{\text{long,total}} = \sum_{j: \text{side}_j = \text{long}} \text{PnL}_j,\quad
+\text{PnL}_{\text{short,total}} = \sum_{j: \text{side}_j = \text{short}} \text{PnL}_j\]
 
 ### 7.36 Long/Short Avg PnL %
 
+\[\overline{\text{PnL}}_{\text{long}} = \frac{\text{PnL}_{\text{long,total}}}{N_{\text{long}}},\quad
+\overline{\text{PnL}}_{\text{short}} = \frac{\text{PnL}_{\text{short,total}}}{N_{\text{short}}}\]
+
 ### 7.37 Long/Short Best/Worst Trade %
+
+\[\begin{aligned}
+\text{Best}_{\text{long}} &= \max_{j: \text{side}_j = \text{long}} \text{PnL}_j,
+\quad \text{Worst}_{\text{long}} = \min_{j: \text{side}_j = \text{long}} \text{PnL}_j \\
+\text{Best}_{\text{short}} &= \max_{j: \text{side}_j = \text{short}} \text{PnL}_j,
+\quad \text{Worst}_{\text{short}} = \min_{j: \text{side}_j = \text{short}} \text{PnL}_j
+\end{aligned}\]
 
 ---
 
@@ -925,14 +1114,16 @@ Tagged `requires="benchmark"`. Category tags vary.
 \[\alpha_{\text{ann}} = \text{CAGR} - (r_f + \beta \cdot
 (\text{CAGR}_m - r_f))\]
 
-**Citation:** Jensen (1968).
+**Citation:** Jensen (1968), "The Performance of Mutual Funds in the
+Period 1945–1964," *Journal of Finance*, 23(2).
 
 ### 8.2 Beta
 
 \[\beta = \frac{\text{Cov}(r, r_m)}{\text{Var}(r_m)}\]
 
-**Citation:** Sharpe (1964). Convention parameter: `variant` —
-`"least_squares"` (default).
+**Citation:** Sharpe (1964), "Capital Asset Prices: A Theory of Market
+Equilibrium Under Conditions of Risk," *Journal of Finance*, 19(3).
+Convention parameter: `variant` — `"least_squares"` (default, OLS).
 
 ### 8.3 R²
 
@@ -940,38 +1131,47 @@ Tagged `requires="benchmark"`. Category tags vary.
 
 where \(\hat{r} = \alpha + \beta r_m\).
 
-**Citation:** Standard OLS goodness-of-fit.
+**Citation:** Greene (2018, *Econometric Analysis*, 8th ed., §3.5); the
+coefficient of determination in the OLS context.
 
 ### 8.4 Tracking Error
 
 \[\text{TE}_{\text{ann}} = \sigma(r - r_m) \cdot \sqrt{P}\]
 
-**Citation:** Roll (1992).
+**Citation:** Roll (1992), "A Mean/Variance Analysis of Tracking Error,"
+*JPM*, 18(4).
 
 ### 8.5 Information Ratio
 
 \[\text{IR}_{\text{ann}} = \frac{(\bar{r} - \bar{r}_m) \cdot P}
 {\sigma(r - r_m) \cdot \sqrt{P}}\]
 
-**Citation:** Goodwin (1998).
+**Citation:** Goodwin (1998), "The Information Ratio," *Financial
+Analysts Journal*, 54(4).
 
 ### 8.6 Up-Capture Ratio
 
 \[\text{UC} = \frac{\text{mean}_{t: r_{m,t} > 0}(r_t)}
 {\text{mean}_{t: r_{m,t} > 0}(r_{m,t})}\]
 
-**Citation:** Morningstar methodology.
+Ratio of mean strategy return to mean benchmark return in up-market
+periods.
+
+**Citation:** Morningstar (2020), *Morningstar Performance Reporting
+Methodology*; Bacon (2008, §9.4).
 
 ### 8.7 Down-Capture Ratio
 
 \[\text{DC} = \frac{\text{mean}_{t: r_{m,t} < 0}(r_t)}
 {\text{mean}_{t: r_{m,t} < 0}(r_{m,t})}\]
 
-**Citation:** Same as above.
+**Citation:** As §8.6.
 
 ### 8.8 Up/Down Capture Ratio
 
 \[\text{UDR} = \frac{\text{UC}}{|\text{DC}|}\]
+
+**Citation:** Bacon (2008, §9.4).
 
 ### 8.9 Correlation
 
@@ -979,44 +1179,69 @@ where \(\hat{r} = \alpha + \beta r_m\).
 
 Pearson correlation with benchmark.
 
+**Citation:** Pearson (1895); standard statistic.
+
 ### 8.10 Active Return
 
 \[\bar{r}_{\text{active, ann}} = (\bar{r} - \bar{r}_m) \cdot P\]
+
+**Citation:** Bacon (2008, §9.2); CFA Institute, *Performance
+Attribution*.
 
 ### 8.11 Batting Average vs Benchmark
 
 \[\text{BA} = \frac{1}{n}\sum_{t=1}^{n}
 \mathbf{1}_{[r_t > r_{m,t}]}\]
 
+**Citation:** Bacon (2008, §9.5).
+
 ### 8.12 Treynor Ratio
 
 \[\text{Treynor} = \frac{\bar{r}_{\text{excess}} \cdot P}{\beta}\]
 
-**Citation:** Treynor (1965).
+**Citation:** Treynor (1965), "How to Rate Management of Investment
+Funds," *Harvard Business Review*, 43(1).
 
 ### 8.13 Outperformance
 
 \[R_{\text{out}} = R_{\text{cum}} - R_{m,\text{cum}}\]
 
+Total cumulative return difference vs. benchmark.
+
+**Citation:** Bacon (2008, §9.2).
+
 ### 8.14 Outperformance Ratio
 
 \[\text{OR} = \frac{1 + R_{\text{cum}}}{1 + R_{m,\text{cum}}}\]
+
+**Citation:** Bacon (2008, §9.2).
 
 ### 8.15 Underperforming Periods / %
 
 Count and fraction of periods where \(r_t < r_{m,t}\).
 
+**Citation:** Bacon (2008, §9.5).
+
 ### 8.16 Max Outperformance
 
-Maximum cumulative outperformance (active return) over the full period.
+Maximum value of the cumulative active return series
+\(\sum_{\tau=1}^{t}(r_\tau - r_{m,\tau})\) over the full period.
+
+**Citation:** Bacon (2008, §9.3).
 
 ### 8.17 Max Underperformance
 
-Maximum cumulative underperformance (absolute value) over the full period.
+Maximum absolute value of cumulative active return below zero (i.e., the
+deepest cumulative underperformance vs. benchmark).
+
+**Citation:** As §8.16.
 
 ### 8.18 Benchmark Volatility
 
 \[\sigma_{m,\text{ann}} = \sigma(r_m) \cdot \sqrt{P}\]
+
+**Citation:** Standard risk metric; CFA Institute, *Quantitative
+Methods*.
 
 ---
 
@@ -1029,7 +1254,9 @@ Tagged `requires="compare"`, `category=("relative", "compare")`.
 \[\Sigma_{ij} = \text{Corr}(r^{(i)}, r^{(j)})\]
 for \(i,j = 1,\dots,K\).
 
-**Citation:** Standard multivariate statistics.
+**Citation:** Pearson (1895); standard multivariate statistic. See
+Johnson & Wichern (2007, *Applied Multivariate Statistical Analysis*,
+6th ed., §2.5).
 
 ### 9.2 Diversification Ratio
 
@@ -1037,7 +1264,8 @@ for \(i,j = 1,\dots,K\).
 
 with equal-weight (default) or user-specified weights.
 
-**Citation:** Choueifaty & Coignard (2008).
+**Citation:** Choueifaty & Coignard (2008), "Toward Maximum
+Diversification," *JPM*, 35(1).
 
 ### 9.3 Pairwise Sharpe-Difference Test (Jobson-Korkie, Memmel)
 
@@ -1049,42 +1277,63 @@ with equal-weight (default) or user-specified weights.
 \rho_{12}^2\hat{SR}_1\hat{SR}_2 -
 (\gamma_{3,1}\hat{SR}_1 - \gamma_{3,2}\hat{SR}_2)\cdot 2\rho_{12}\right]\]
 
-**Citation:** Jobson & Korkie (1981); Memmel (2003).
+**Citation:** Jobson & Korkie (1981), "Performance Hypothesis Testing
+with the Sharpe and Treynor Measures," *J. Finance*, 36(4); Memmel
+(2003), "Performance Hypothesis Testing with the Sharpe Ratio,"
+*Finance Letters*, 1(1).
 
 ### 9.4 White's Reality Check / SPA Test
 
-White's RC: \(\bar{V} = \max_k \sqrt{T} \cdot \bar{f}_k\), bootstrap
-distribution of the max statistic. SPA (Hansen 2005) studentizes it.
+White's RC: \(\bar{V} = \max_k \sqrt{T} \cdot \bar{f}_k\), bootstrap the
+distribution of the max statistic under the null. SPA (Hansen 2005)
+studentizes the statistic for improved power.
 
-**Citation:** White (2000); Hansen (2005).
+**Citation:** White (2000), "A Reality Check for Data Snooping,"
+*Econometrica*, 68(5); Hansen (2005), "A Test for Superior Predictive
+Ability," *JBES*, 23(4).
 
 ### 9.5 PBO (Combinatorial Purged CV)
 
-Generate combinatorially-paired train/test splits with purge + embargo;
-PBO = probability that the best in-sample strategy ranks below median
+Generate combinatorially-paired train/test splits with purge and embargo
+periods. For each pair, rank strategies by in-sample SR. PBO is the
+probability that the best in-sample strategy ranks below the median
 out-of-sample.
 
-**Citation:** Bailey & López de Prado (2014); de Prado (2018, Ch. 11–13).
+**Citation:** Bailey & López de Prado (2014), "Pseudo-Mathematics and
+Financial Charlatanism," *Notices of the AMS*, 61(5); de Prado (2018,
+Ch. 11–13).
 
 ### 9.6 Marginal Contribution to Portfolio Risk
 
 \[\text{MCR}_i = w_i \cdot \frac{(\Sigma w)_i}{\sigma_p}\]
 
-**Citation:** Litterman (1996); Qian (2005).
+where \(\Sigma\) is the covariance matrix of strategy returns and \(w\) the
+weight vector.
+
+**Citation:** Litterman (1996); Qian (2005), "Risk Parity and
+Diversification," *J. of Investing*, 14(3).
 
 ### 9.7 Component VaR
 
 \[\text{CVaR}_i = w_i \cdot \frac{\partial \text{VaR}}{\partial w_i}
 = w_i \cdot (-\beta_i \cdot \text{VaR}_p)\]
 
-**Citation:** Jorion (2006, *Value at Risk*, 3rd ed., Ch. 7).
+**Assumption:** The formula above holds for parametric (linear) VaR
+decomposition. When VaR is computed via the historical method (the
+default per conventions table), the linear decomposition via beta is an
+approximation. The implementation computes component VaR via marginal
+revaluation: remove position \(i\) and recompute VaR, then take the
+difference.
+
+**Citation:** Jorion (2006, *Value at Risk*, 3rd ed., Ch. 7);
+Litterman (1996).
 
 ---
 
 ## 10. `report`
 
-Separate install extra (`stratstat[report]`). Depends on `core` only — never
-the reverse. No formulas; specification of visualization outputs.
+Separate install extra (`stratstat[report]`). Depends on `core` only —
+never the reverse. No formulas; specification of visualization outputs.
 
 | # | Output | Description |
 |---|--------|-------------|
@@ -1094,54 +1343,83 @@ the reverse. No formulas; specification of visualization outputs.
 | 4 | Drawdown chart | Underwater equity curve with recovery-period shading |
 | 5 | Cumulative return chart | Cumulative return index, optionally with benchmark overlay |
 | 6 | Benchmark comparison overlay | Strategy vs. benchmark cumulative return and active return |
-| 7 | Trade markers (MFE/MAE) | Optional intra-trade MFE/MAE overlay on equity curve |
+| 7 | Trade markers (MFE/MAE) | Optional intra-trade MFE/MAE overlay on the equity curve |
 | 8 | Monthly heatmap matrix | Years × months return grid with color scale |
-| 9 | Export formats | Interactive HTML, static PNG/SVG, Markdown table, LaTeX table, JSON |
+| 9 | Export formats | Interactive HTML, static PNG/SVG, Markdown table, LaTeX table, JSON serialization of `MetricSet` |
 
 ---
 
 ## References
 
 1. Acerbi, C. & Tasche, D. (2002). "On the Coherence of Expected Shortfall." *JBF*, 26(7).
-2. Ang, A. (2014). *Asset Management*. Oxford University Press.
-3. Artzner, P. et al. (1999). "Coherent Measures of Risk." *Math. Finance*, 9(3).
-4. Bacon, C. (2008). *Practical Portfolio Performance Measurement and Attribution*, 2nd ed. Wiley.
-5. Bailey, D. H. & López de Prado, M. (2012). "The Sharpe Ratio Efficient Frontier." *J. Risk*, 15(2).
-6. — (2014). "The Deflated Sharpe Ratio." *J. Portfolio Management*, 40(5).
-7. Campbell, J. Y., Lo, A. W. & MacKinlay, A. C. (1997). *The Econometrics of Financial Markets*. Princeton.
-8. Choueifaty, Y. & Coignard, Y. (2008). "Toward Maximum Diversification." *J. Portfolio Management*, 35(1).
-9. de Prado, M. L. (2018). *Advances in Financial Machine Learning*. Wiley.
-10. Efron, B. & Tibshirani, R. J. (1994). *An Introduction to the Bootstrap*. Chapman & Hall.
-11. Embrechts, P., Klüppelberg, C. & Mikosch, T. (1997). *Modelling Extremal Events*. Springer.
-12. Hansen, P. R. (2005). "A Test for Superior Predictive Ability." *JBES*, 23(4).
-13. Hill, B. M. (1975). "A Simple General Approach to Inference About the Tail." *Ann. Stat.*, 3(5).
-14. Hosking, J. R. M. & Wallis, J. R. (1987). "Parameter Estimation for the GPD." *Technometrics*, 29(3).
-15. Jarque, C. M. & Bera, A. K. (1987). "A Test for Normality." *Int. Stat. Rev.*, 55(2).
-16. Jensen, M. C. (1968). "The Performance of Mutual Funds 1945–1964." *J. Finance*, 23(2).
-17. Jobson, J. D. & Korkie, B. M. (1981). "Performance Hypothesis Testing with Sharpe." *J. Finance*, 36(4).
-18. Jorion, P. (2006). *Value at Risk*, 3rd ed. McGraw-Hill.
-19. Kaplan, P. D. & Knowles, J. A. (2004). "Kappa: A Generalized Downside Risk-Adjusted Measure." *JPM*.
-20. Keating, C. & Shadwick, W. F. (2002). "A Universal Performance Measure." *JPM*, 6(3).
-21. Kelly, J. L. (1956). "A New Interpretation of Information Rate." *Bell System Tech. J.*, 35(4).
-22. Künsch, H. R. (1989). "The Jackknife and the Bootstrap." *Ann. Stat.*, 17(3).
-23. Ledoit, O. & Wolf, M. (2008). "Robust Performance Hypothesis Testing." *J. Empirical Finance*, 15(5).
-24. Litterman, R. (1996). "Hot Spots and Hedges." *JPM*, Special Issue.
-25. Lo, A. W. (2002). "The Statistics of Sharpe Ratios." *Financial Analysts Journal*, 58(4).
-26. Martin, P. G. & McCann, B. B. (1989). *The Investor's Guide to Fidelity Funds*. Wiley.
-27. Memmel, C. (2003). "Performance Hypothesis Testing with the Sharpe Ratio." *Finance Letters*, 1(1).
-28. Perold, A. F. (1988). "The Implementation Shortfall." *JPM*, 14(3).
-29. Pickands, J. (1975). "Statistical Inference Using Extreme Order Statistics." *Ann. Stat.*, 3(1).
-30. Politis, D. N. & White, H. (2004). "Automatic Block-Length Selection." *Econometric Reviews*, 23(1).
-31. Rockafellar, R. T. & Uryasev, S. (2000). "Optimization of Conditional Value-at-Risk." *J. Risk*, 2(3).
-32. Roll, R. (1992). "A Mean/Variance Analysis of Tracking Error." *JPM*, 18(4).
-33. Schwager, J. D. (1995). *Schwager on Futures: Technical Analysis*. Wiley.
-34. Sharpe, W. F. (1964). "Capital Asset Prices." *J. Finance*, 19(3).
-35. — (1966). "Mutual Fund Performance." *J. Business*, 39(1).
-36. — (1994). "The Sharpe Ratio." *JPM*, 21(1).
-37. Sortino, F. A. & Price, L. N. (1994). "Performance Measurement in a Downside Risk Framework." *J. Investing*, 3(3).
-38. Tharp, V. K. (1998). *Trade Your Way to Financial Freedom*. McGraw-Hill.
-39. Treynor, J. L. (1965). "How to Rate Management of Investment Funds." *Harvard Business Review*, 43(1).
-40. Tukey, J. W. (1977). *Exploratory Data Analysis*. Addison-Wesley.
-41. White, H. (2000). "A Reality Check for Data Snooping." *Econometrica*, 68(5).
-42. Young, T. W. (1991). "Calmar Ratio: A Smoother Tool." *Futures*, 20(10).
-43. Zangari, P. (1996). "A VaR Methodology for Portfolios That Include Options." *RiskMetrics Monitor*.
+2. Adelman, M. A. (1969). "Comment on the 'H' Concentration Measure." *Rev. Econ. Stat.*, 51(1).
+3. Ang, A. (2014). *Asset Management: A Systematic Approach to Factor Investing*. Oxford.
+4. Ang, A. & Bekaert, G. (2004). "How Regimes Affect Asset Allocation." *FAJ*, 60(2).
+5. Artzner, P. et al. (1999). "Coherent Measures of Risk." *Mathematical Finance*, 9(3).
+6. Asness, C., Frazzini, A. & Pedersen, L. H. (2014). "Low-Risk Investing Without Industry Bets." *FAJ*, 70(4).
+7. Bacon, C. (2008). *Practical Portfolio Performance Measurement and Attribution*, 2nd ed. Wiley.
+8. Bailey, D. H. & López de Prado, M. (2012). "The Sharpe Ratio Efficient Frontier." *J. Risk*, 15(2).
+9. — (2014). "The Deflated Sharpe Ratio: Correcting for Selection Bias." *JPM*, 40(5).
+10. — (2014). "Pseudo-Mathematics and Financial Charlatanism." *Notices of the AMS*, 61(5).
+11. Basel Committee on Banking Supervision (1996). *Amendment to the Capital Accord to Incorporate Market Risks*.
+12. Campbell, J. Y., Lo, A. W. & MacKinlay, A. C. (1997). *The Econometrics of Financial Markets*. Princeton.
+13. Casella, G. & Berger, R. L. (2002). *Statistical Inference*, 2nd ed. Duxbury.
+14. CFA Institute. *CFA Program Curriculum* (current edition, Quantitative Methods, Vol. 1).
+15. Choueifaty, Y. & Coignard, Y. (2008). "Toward Maximum Diversification." *JPM*, 35(1).
+16. Connor, G., Goldberg, L. R. & Korajczyk, R. A. (2010). *Portfolio Risk Analysis*. Princeton.
+17. Cramér, H. (1946). *Mathematical Methods of Statistics*. Princeton.
+18. Damodaran, A. (2012). *Investment Valuation*, 3rd ed. Wiley.
+19. de Prado, M. L. (2018). *Advances in Financial Machine Learning*. Wiley.
+20. Efron, B. & Tibshirani, R. J. (1994). *An Introduction to the Bootstrap*. Chapman & Hall.
+21. Embrechts, P., Klüppelberg, C. & Mikosch, T. (1997). *Modelling Extremal Events for Insurance and Finance*. Springer.
+22. Everitt, B. S. & Skrondal, A. (2010). *The Cambridge Dictionary of Statistics*, 4th ed. Cambridge.
+23. Fisher, R. A. (1925). *Statistical Methods for Research Workers*. Oliver & Boyd.
+24. — (1930). "The Moments of the Distribution for Normal Samples." *Proc. London Math. Soc.*, s2-30(1).
+25. Goodwin, T. H. (1998). "The Information Ratio." *FAJ*, 54(4).
+26. Greene, W. H. (2018). *Econometric Analysis*, 8th ed. Pearson.
+27. Hansen, P. R. (2005). "A Test for Superior Predictive Ability." *JBES*, 23(4).
+28. Hill, B. M. (1975). "A Simple General Approach to Inference About the Tail." *Ann. Stat.*, 3(5).
+29. Hirschman, A. O. (1964). "The Paternity of an Index." *AER*, 54(5).
+30. Hosking, J. R. M. & Wallis, J. R. (1987). "Parameter and Quantile Estimation for the GPD." *Technometrics*, 29(3).
+31. Hyndman, R. J. & Fan, Y. (1996). "Sample Quantiles in Statistical Packages." *The American Statistician*, 50(4).
+32. Jarque, C. M. & Bera, A. K. (1987). "A Test for Normality." *Int. Stat. Rev.*, 55(2).
+33. Jensen, M. C. (1968). "The Performance of Mutual Funds 1945–1964." *J. Finance*, 23(2).
+34. Jobson, J. D. & Korkie, B. M. (1981). "Performance Hypothesis Testing with Sharpe and Treynor." *J. Finance*, 36(4).
+35. Johnson, R. A. & Wichern, D. W. (2007). *Applied Multivariate Statistical Analysis*, 6th ed. Pearson.
+36. Jorion, P. (2006). *Value at Risk*, 3rd ed. McGraw-Hill.
+37. Kaplan, P. D. & Knowles, J. A. (2004). "Kappa: A Generalized Downside Risk-Adjusted Performance Measure." *JPM*.
+38. Keating, C. & Shadwick, W. F. (2002). "A Universal Performance Measure." *JPM*, 6(3).
+39. Kelly, J. L. (1956). "A New Interpretation of Information Rate." *BSTJ*, 35(4).
+40. Künsch, H. R. (1989). "The Jackknife and the Bootstrap for General Stationary Observations." *Ann. Stat.*, 17(3).
+41. Ledoit, O. & Wolf, M. (2008). "Robust Performance Hypothesis Testing with the Sharpe Ratio." *J. Empirical Finance*, 15(5).
+42. Litterman, R. (1996). "Hot Spots and Hedges." *JPM*, Special Issue.
+43. Lo, A. W. (2002). "The Statistics of Sharpe Ratios." *FAJ*, 58(4).
+44. Martin, P. G. & McCann, B. B. (1989). *The Investor's Guide to Fidelity Funds*. Wiley.
+45. Memmel, C. (2003). "Performance Hypothesis Testing with the Sharpe Ratio." *Finance Letters*, 1(1).
+46. Morningstar (2020). *Morningstar Performance Reporting Methodology*.
+47. Pearson, K. (1895). "Note on Regression and Inheritance in the Case of Two Parents." *Proc. Royal Society*, 58.
+48. — (1896). "Mathematical Contributions to the Theory of Evolution. III." *Phil. Trans. Royal Society A*, 187.
+49. Perold, A. F. (1988). "The Implementation Shortfall: Paper versus Reality." *JPM*, 14(3).
+50. Pickands, J. (1975). "Statistical Inference Using Extreme Order Statistics." *Ann. Stat.*, 3(1).
+51. Politis, D. N. & White, H. (2004). "Automatic Block-Length Selection for the Dependent Bootstrap." *Econometric Reviews*, 23(1).
+52. Pospisil, J. & Vecer, J. (2011). "Maximum Drawdown of a Brownian Motion." *J. Applied Probability*, 48(3).
+53. Qian, E. (2005). "Risk Parity and Diversification." *J. of Investing*, 14(3).
+54. Rockafellar, R. T. & Uryasev, S. (2000). "Optimization of Conditional Value-at-Risk." *J. Risk*, 2(3).
+55. Roll, R. (1992). "A Mean/Variance Analysis of Tracking Error." *JPM*, 18(4).
+56. Schwager, J. D. (1995). *Schwager on Futures: Technical Analysis*. Wiley.
+57. Sharpe, W. F. (1964). "Capital Asset Prices." *J. Finance*, 19(3).
+58. — (1966). "Mutual Fund Performance." *J. Business*, 39(1).
+59. — (1994). "The Sharpe Ratio." *JPM*, 21(1).
+60. Sortino, F. A. & Price, L. N. (1994). "Performance Measurement in a Downside Risk Framework." *J. Investing*, 3(3).
+61. Sortino, F. A. & van der Meer, R. (1991). "Downside Risk." *JPM*, 17(4).
+62. Sweeney, R. J. (1988). "The Maximum Favorable Excursion Methodology." *JPM*.
+63. Tharp, V. K. (1998). *Trade Your Way to Financial Freedom*. McGraw-Hill.
+64. Thorp, E. O. (1997). "The Kelly Criterion in Blackjack, Sports Betting, and the Stock Market." *Handbook of Asset and Liability Management*.
+65. Treynor, J. L. (1965). "How to Rate Management of Investment Funds." *HBR*, 43(1).
+66. Tukey, J. W. (1977). *Exploratory Data Analysis*. Addison-Wesley.
+67. van Hemert, O. et al. (2020). *Tactical Asset Allocation*. (Drawdown analysis, Ch. 5.)
+68. Vince, R. (1990). *Portfolio Management Formulas*. Wiley.
+69. White, H. (2000). "A Reality Check for Data Snooping." *Econometrica*, 68(5).
+70. Young, T. W. (1991). "Calmar Ratio: A Smoother Tool." *Futures*, 20(10).
+71. Zangari, P. (1996). "A VaR Methodology for Portfolios That Include Options." *RiskMetrics Monitor*, Q1.
+72. Zivot, E. & Wang, J. (2006). *Modeling Financial Time Series with S-PLUS*, 2nd ed. Springer.
