@@ -434,14 +434,14 @@ def benchmark_overlay_chart(
     from plotly.subplots import make_subplots
 
     r = _to_array(returns)
-    bench_arr = np.asarray(benchmark, dtype=np.float64).ravel()
+    bench_raw = np.asarray(benchmark, dtype=np.float64).ravel()
 
     strat = r[:, 0] if r.ndim > 1 and r.shape[1] >= 1 else r.ravel()
 
     # Align lengths
-    n = min(len(strat), len(bench_arr))
-    strat = strat[:n]
-    bench_arr = bench_arr[:n]  # type: ignore[assignment]
+    n = min(len(strat), len(bench_raw))
+    strat = np.asarray(strat[:n], dtype=np.float64)
+    bench_arr: NDArray[np.floating] = np.asarray(bench_raw[:n], dtype=np.float64)
 
     cum_strat = np.cumprod(1.0 + np.where(np.isfinite(strat), strat, 0.0))
     cum_bench = np.cumprod(1.0 + np.where(np.isfinite(bench_arr), bench_arr, 0.0))
