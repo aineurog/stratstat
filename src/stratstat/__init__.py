@@ -5,7 +5,7 @@ StratStat — Quantitative strategy evaluation statistics.
 from typing import Any
 
 from stratstat.conventions import get_default, set_default
-from stratstat.inputs import ExposureInput, ReturnsInput, TradeInput
+from stratstat.inputs import BenchmarkInput, ExposureInput, ReturnsInput, TradeInput
 from stratstat.registry import get_metric, list_metrics, register_metric
 from stratstat.results import MetricResult, MetricSet
 
@@ -18,6 +18,7 @@ __all__ = [
     "ReturnsInput",
     "ExposureInput",
     "TradeInput",
+    "BenchmarkInput",
     "get_default",
     "set_default",
 ]

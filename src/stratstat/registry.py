@@ -138,6 +138,16 @@ def _compute_one(input_data: Any, metric_name: str, **kwargs: Any) -> MetricResu
         )
         return cast(MetricResult, func(trd_inp, **kwargs))
 
+    if requires == "benchmark":
+        from stratstat.inputs import BenchmarkInput
+
+        bench_inp = (
+            input_data
+            if isinstance(input_data, BenchmarkInput)
+            else BenchmarkInput(input_data)
+        )
+        return cast(MetricResult, func(bench_inp, **kwargs))
+
     # Other input tiers wired in later phases.
     raise NotImplementedError(
         f"Input tier {requires!r} not yet implemented for metric {metric_name!r}"

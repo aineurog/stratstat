@@ -528,3 +528,85 @@ class TradeInput:
             f"fields=[{fields}], "
             f"periods_per_year={self.periods_per_year})"
         )
+
+
+class BenchmarkInput:
+    """Wraps strategy returns + benchmark returns for benchmark-tier metrics.
+
+    Parameters
+    ----------
+    returns: array-like
+        Strategy returns of shape ``(n_periods,)`` or
+        ``(n_periods, n_strategies)``.
+    benchmark: array-like
+        Benchmark returns of shape ``(n_periods,)``.
+    periods_per_year: int, optional
+        Annualization factor (e.g. 252 for daily).  Required by
+        most benchmark metrics for annualization.
+    rf: float, optional
+        Risk-free rate per period (default 0.0).  Used by alpha
+        (§8.1) and Treynor ratio (§8.12).
+    """
+
+    def __init__(
+        self,
+        returns: Any,
+        benchmark: Any | None = None,
+        periods_per_year: int | None = None,
+        rf: float = 0.0,
+    ) -> None:
+        # Support tuple shortcut: BenchmarkInput((returns, benchmark))
+        if benchmark is None and isinstance(returns, (tuple, list)):
+            if len(returns) == 2:
+                returns, benchmark = returns[0], returns[1]
+            else:
+                raise ValueError(
+                    "Expected (returns, benchmark) tuple for "
+                    f"BenchmarkInput, got sequence of length {len(returns)}."
+                )
+
+        if benchmark is None:
+            raise ValueError(
+                "BenchmarkInput requires benchmark returns. "
+                "Provide benchmark= to BenchmarkInput, or pass a "
+                "(returns, benchmark) tuple."
+            )
+
+        # -- strategy returns ---------------------------------------------
+        ret = _to_numpy(returns)
+        if ret.ndim == 0:
+            ret = ret.reshape(1)
+        elif ret.ndim == 1:
+            ret = ret.reshape(-1, 1)
+        elif ret.ndim > 2:
+            raise ValueError(
+                f"Returns data must be 1-D or 2-D, got {ret.ndim}-D array."
+            )
+        self.returns: NDArray[np.floating] = ret  # (n_periods, n_strategies)
+        self.n_periods: int = ret.shape[0]
+        self.n_strategies: int = ret.shape[1]
+
+        # -- benchmark returns --------------------------------------------
+        bench = _to_numpy(benchmark).ravel()
+        if bench.shape[0] != self.n_periods:
+            raise ValueError(
+                f"Benchmark length {bench.shape[0]} must match "
+                f"n_periods {self.n_periods}."
+            )
+        self.benchmark: NDArray[np.floating] = bench  # (n_periods,)
+
+        self.periods_per_year: int | None = periods_per_year
+        self.rf: float = rf
+
+    @property
+    def is_single(self) -> bool:
+        """True if the input represents a single strategy."""
+        return self.n_strategies == 1
+
+    def __repr__(self) -> str:
+        return (
+            f"BenchmarkInput(n_periods={self.n_periods}, "
+            f"n_strategies={self.n_strategies}, "
+            f"periods_per_year={self.periods_per_year}, "
+            f"rf={self.rf})"
+        )

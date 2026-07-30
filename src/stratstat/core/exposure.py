@@ -15,6 +15,7 @@ from __future__ import annotations
 import numpy as np
 from numpy.typing import NDArray
 
+from stratstat.core._utils import ols_beta
 from stratstat.inputs import ExposureInput
 from stratstat.registry import register_metric
 from stratstat.results import MetricResult
@@ -125,20 +126,6 @@ def _short_exposure_series(
     neg = np.where(positions < 0.0, np.abs(positions), 0.0)
     arr: NDArray[np.floating] = np.nansum(neg, axis=1)
     return arr
-
-
-def _beta(x: NDArray[np.floating], y: NDArray[np.floating]) -> float:
-    """Ordinary least-squares beta: Cov(x, y) / Var(y).
-
-    Drops periods where either series is NaN.
-    """
-    mask = np.isfinite(x) & np.isfinite(y)
-    if mask.sum() < 3:
-        return np.nan
-    xc = x[mask]
-    yc = y[mask]
-    cov = np.cov(xc, yc, ddof=1)
-    return float(cov[0, 1] / cov[1, 1])
 
 
 # ---------------------------------------------------------------------------
@@ -433,7 +420,7 @@ _REF_LONG_BETA = _REF_AFP2014
     backend="vectorized",
     ref=_REF_LONG_BETA,
 )
-def long_beta(inp: ExposureInput) -> MetricResult:
+def longols_beta(inp: ExposureInput) -> MetricResult:
     r"""Beta of long-book returns vs. benchmark.
 
     .. math::
@@ -459,7 +446,7 @@ def long_beta(inp: ExposureInput) -> MetricResult:
     w_lag[0, :] = np.nan
     long_only = np.where(w_lag > 0.0, w_lag, 0.0)
     r_long = np.nansum(long_only * ret, axis=1)
-    value: float = _beta(r_long, bench)
+    value: float = ols_beta(r_long, bench)
     return MetricResult(
         name="long_beta",
         value=value,
@@ -483,7 +470,7 @@ _REF_SHORT_BETA = _REF_AFP2014
     backend="vectorized",
     ref=_REF_SHORT_BETA,
 )
-def short_beta(inp: ExposureInput) -> MetricResult:
+def shortols_beta(inp: ExposureInput) -> MetricResult:
     r"""Beta of short-book returns vs. benchmark.
 
     .. math::
@@ -509,7 +496,7 @@ def short_beta(inp: ExposureInput) -> MetricResult:
     w_lag[0, :] = np.nan
     short_only = np.where(w_lag < 0.0, w_lag, 0.0)
     r_short = np.nansum(short_only * ret, axis=1)
-    value: float = _beta(r_short, bench)
+    value: float = ols_beta(r_short, bench)
     return MetricResult(
         name="short_beta",
         value=value,

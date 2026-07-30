@@ -92,6 +92,21 @@ def sample_skewness(a: NDArray[np.floating]) -> float:
     return float(factor * m3)
 
 
+def ols_beta(x: NDArray[np.floating], y: NDArray[np.floating]) -> float:
+    """Ordinary least-squares beta: Cov(x, y) / Var(y).
+
+    Drops periods where either series is NaN.  Returns NaN if fewer
+    than 3 valid overlapping observations.
+    """
+    mask = np.isfinite(x) & np.isfinite(y)
+    if mask.sum() < 3:
+        return np.nan
+    xc = x[mask]
+    yc = y[mask]
+    cov = np.cov(xc, yc, ddof=1)
+    return float(cov[0, 1] / cov[1, 1])
+
+
 def compute_cagr(r: NDArray[np.floating], periods_per_year: float) -> NDArray[np.floating]:
     """Compute CAGR for each strategy column.
 
