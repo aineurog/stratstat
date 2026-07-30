@@ -43,3 +43,4 @@ htmlcov/
 .env.local
 .claude/
 .commandcode/
+project-docs/
