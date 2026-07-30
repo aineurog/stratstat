@@ -760,13 +760,25 @@ Fraction of periods with at least one non-zero position.
 
 **Citation:** Bacon (2008, §11.2).
 
-### 6.15 Long/Short Position Coverage %
+### 6.15 Long Position Coverage %
 
-Fraction of periods with at least one long (short) position.
+\[\text{Coverage}_{\text{long}} = \frac{1}{n}\sum_{t=1}^{n}
+\mathbf{1}_{[\exists i: w_{i,t} > 0]}\]
+
+Fraction of periods with at least one long (strictly positive) position.
 
 **Citation:** As §6.14.
 
-### 6.16 Exposure Volatility
+### 6.16 Short Position Coverage %
+
+\[\text{Coverage}_{\text{short}} = \frac{1}{n}\sum_{t=1}^{n}
+\mathbf{1}_{[\exists i: w_{i,t} < 0]}\]
+
+Fraction of periods with at least one short (strictly negative) position.
+
+**Citation:** As §6.14.
+
+### 6.17 Exposure Volatility
 
 \[\sigma_{\text{GE}} = \text{std}(\text{GE}_1, \dots, \text{GE}_n)\]
 
@@ -774,13 +786,13 @@ Standard deviation of the gross exposure time series.
 
 **Citation:** Bacon (2008, §11.3).
 
-### 6.17 Net Exposure Volatility
+### 6.18 Net Exposure Volatility
 
 \[\sigma_{\text{NE}} = \text{std}(\text{NE}_1, \dots, \text{NE}_n)\]
 
-**Citation:** As §6.16.
+**Citation:** As §6.17.
 
-### 6.18 Exposure Coefficient of Variation
+### 6.19 Exposure Coefficient of Variation
 
 \[\text{CV}_{\text{exp}} =
 \frac{\sigma_{\text{GE}}}{|\bar{\text{GE}}|}\]
@@ -788,7 +800,7 @@ Standard deviation of the gross exposure time series.
 **Citation:** Pearson (1896). For financial application: standard
 descriptive statistic; no single finance-specific source.
 
-### 6.19 Avg Exposure Utilization
+### 6.20 Avg Exposure Utilization
 
 \[\text{Utilization} = \frac{\bar{\text{GE}}}{\max_t \text{GE}_t}\]
 
@@ -796,7 +808,7 @@ Mean gross exposure as a fraction of maximum.
 
 **Citation:** Bacon (2008, §11.3).
 
-### 6.20 Exposure Directional Bias
+### 6.21 Exposure Directional Bias
 
 \[\text{Bias} = \frac{|\bar{\text{NE}}|}{\bar{\text{GE}}}\]
 
@@ -804,13 +816,13 @@ Absolute mean net exposure relative to mean gross exposure.
 
 **Citation:** Bacon (2008, §11.3); Ang (2014, Ch. 2).
 
-### 6.21 Exposure Percentiles
+### 6.22 Exposure Percentiles
 
 Percentiles at {25, 50, 75, 90, 95} of the gross exposure time series.
 
 **Citation:** Hyndman & Fan (1996); standard order statistics.
 
-### 6.22 Period Counts
+### 6.23 Period Counts
 
 Breakdown: total periods, periods with any position, long-only periods,
 short-only periods, idle (flat) periods.

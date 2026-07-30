@@ -111,8 +111,22 @@ def _compute_one(input_data: Any, metric_name: str, **kwargs: Any) -> MetricResu
     requires = entry["requires"]
 
     if requires == "returns":
-        inp = input_data if isinstance(input_data, ReturnsInput) else ReturnsInput(input_data)
-        return cast(MetricResult, func(inp, **kwargs))
+        ret_inp = (
+            input_data
+            if isinstance(input_data, ReturnsInput)
+            else ReturnsInput(input_data)
+        )
+        return cast(MetricResult, func(ret_inp, **kwargs))
+
+    if requires == "exposure":
+        from stratstat.inputs import ExposureInput
+
+        exp_inp = (
+            input_data
+            if isinstance(input_data, ExposureInput)
+            else ExposureInput(input_data)
+        )
+        return cast(MetricResult, func(exp_inp, **kwargs))
 
     # Other input tiers wired in later phases.
     raise NotImplementedError(
