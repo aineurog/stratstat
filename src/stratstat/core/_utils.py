@@ -57,6 +57,41 @@ def nanstd(
     return np.nanstd(a, axis=axis, ddof=ddof)  # type: ignore[no-any-return]
 
 
+def sample_skewness(a: NDArray[np.floating]) -> float:
+    """Bias-corrected (adjusted) sample skewness for a 1-D array.
+
+    Uses the same formula as ``_sample_skewness`` in ``inference.py``
+    and the ``skewness`` metric in ``descriptive.py``:
+
+    .. math::
+        \\gamma_1 = \\frac{n_{\\text{eff}}}
+        {(n_{\\text{eff}}-1)(n_{\\text{eff}}-2)}
+        \\sum_{i} z_i^3
+
+    where :math:`z_i = (a_i - \\bar{a}) / \\sigma` and
+    :math:`\\sigma` is the sample standard deviation (ddof=1).
+
+    Returns ``NaN`` for fewer than 3 valid observations or zero
+    variance.
+    """
+    valid_mask = np.isfinite(a)
+    n_eff = np.sum(valid_mask)
+    if n_eff < 3:
+        return np.nan
+
+    mean = np.nanmean(a)
+    std = np.nanstd(a, ddof=1)
+    if std < 1e-15:
+        return np.nan
+
+    z = (a - mean) / std
+    z = np.where(np.isnan(z), 0.0, z)
+    m3 = np.nansum(z**3)
+
+    factor = n_eff / ((n_eff - 1.0) * (n_eff - 2.0))
+    return float(factor * m3)
+
+
 def compute_cagr(r: NDArray[np.floating], periods_per_year: float) -> NDArray[np.floating]:
     """Compute CAGR for each strategy column.
 

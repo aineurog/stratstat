@@ -1013,7 +1013,7 @@ trades).
 
 **Citation:** Standard statistic. Fisher (1925).
 
-### 7.25 Geometric Mean Return (per Trade)
+### 7.25 Geometric Mean Return per Trade
 
 \[\bar{r}_{g,\text{trade}} = \exp\!\left(
 \frac{1}{N}\sum_{j=1}^{N}\ln(1 + \text{PnL}_j)\right) - 1\]

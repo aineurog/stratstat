@@ -128,6 +128,16 @@ def _compute_one(input_data: Any, metric_name: str, **kwargs: Any) -> MetricResu
         )
         return cast(MetricResult, func(exp_inp, **kwargs))
 
+    if requires == "trades":
+        from stratstat.inputs import TradeInput
+
+        trd_inp = (
+            input_data
+            if isinstance(input_data, TradeInput)
+            else TradeInput(trades=input_data)
+        )
+        return cast(MetricResult, func(trd_inp, **kwargs))
+
     # Other input tiers wired in later phases.
     raise NotImplementedError(
         f"Input tier {requires!r} not yet implemented for metric {metric_name!r}"
