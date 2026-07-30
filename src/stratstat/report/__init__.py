@@ -8,17 +8,40 @@ subpackage can be imported without plotly installed — only calling a
 visualization function triggers the import check.
 """
 
+from __future__ import annotations
 
-def _ensure_plotly() -> None:
-    """Check that plotly is installed; raise a helpful error if not."""
-    try:
-        import plotly  # noqa: F401
-    except ImportError as err:
-        raise ImportError(
-            "plotly is required for the report module. "
-            "Install it with: pip install stratstat[report]"
-        ) from err
+from typing import Any
 
+from stratstat.report._charts import (
+    _ensure_plotly,
+    benchmark_overlay_chart,
+    cumulative_return_chart,
+    drawdown_chart,
+    equity_curve,
+    monthly_heatmap,
+    rolling_metric_chart,
+    trade_markers_chart,
+)
+from stratstat.report._dashboard import dashboard
+from stratstat.report._export import to_html, to_image, to_json, to_latex, to_markdown
+from stratstat.report._tearsheet import tear_sheet
 
-# Visualization functions will be added in Phase 7.
-# Each will call _ensure_plotly() at the top of its body.
+__all__ = [
+    # Charts
+    "equity_curve",
+    "drawdown_chart",
+    "monthly_heatmap",
+    "rolling_metric_chart",
+    "cumulative_return_chart",
+    "benchmark_overlay_chart",
+    "trade_markers_chart",
+    # Compositions
+    "tear_sheet",
+    "dashboard",
+    # Export
+    "to_html",
+    "to_image",
+    "to_markdown",
+    "to_latex",
+    "to_json",
+]

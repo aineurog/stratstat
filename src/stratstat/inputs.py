@@ -670,7 +670,7 @@ class CompareInput:
                     f"Weights length {w.shape[0]} must match "
                     f"n_strategies {self.n_strategies}."
                 )
-            self.weights: NDArray[np.floating] = w
+            self.weights: NDArray[np.floating] | None = w
         else:
             self.weights = None
 

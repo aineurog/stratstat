@@ -32,7 +32,11 @@ def test_core_does_not_import_plotly():
     sys.modules.pop("plotly", None)
 
     import stratstat.core  # noqa: F401
+    import stratstat.core.benchmark  # noqa: F401
+    import stratstat.core.compare  # noqa: F401
+    import stratstat.core.exposure  # noqa: F401
     import stratstat.core.returns  # noqa: F401
+    import stratstat.core.trades  # noqa: F401
 
     assert "plotly" not in sys.modules, (
         "core module imported plotly — this violates the core/report boundary"
@@ -44,7 +48,11 @@ def test_core_does_not_import_report():
     sys.modules.pop("stratstat.report", None)
 
     import stratstat.core  # noqa: F401
+    import stratstat.core.benchmark  # noqa: F401
+    import stratstat.core.compare  # noqa: F401
+    import stratstat.core.exposure  # noqa: F401
     import stratstat.core.returns  # noqa: F401
+    import stratstat.core.trades  # noqa: F401
 
     assert "stratstat.report" not in sys.modules, (
         "core module imported stratstat.report — this violates the core/report boundary"
