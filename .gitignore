@@ -35,6 +35,9 @@ htmlcov/
 .ruff_cache/
 .benchmarks/
 
+# Documentation
+docs/build/
+
 # Jupyter
 .ipynb_checkpoints/
 
