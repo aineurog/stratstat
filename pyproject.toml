@@ -47,8 +47,13 @@ dependencies = [
 fast = ["numba>=0.58"]
 report = ["plotly>=5.0"]
 all = ["stratstat[fast,report]"]
+docs = [
+    "sphinx>=7",
+    "sphinx-rtd-theme>=1",
+    "myst-parser>=2",
+]
 dev = [
-    "stratstat[all]",
+    "stratstat[all,docs]",
     "pytest>=7.0",
     "pytest-cov>=4.0",
     "ruff>=0.1",
