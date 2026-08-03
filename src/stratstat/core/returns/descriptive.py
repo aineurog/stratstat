@@ -46,7 +46,7 @@ def cagr(input_data: ReturnsInput) -> MetricResult:
         1-D array (multi-strategy).
 
     Raises:
-        ValueError: If ``periods_per_year`` is None. 
+        ValueError: If ``periods_per_year`` is None.
     """
     if input_data.periods_per_year is None:
         raise ValueError(
