@@ -18,38 +18,24 @@ from stratstat.report._charts import (
     _monthly_heatmap_data,
     _to_array,
 )
+from stratstat.report._common import discover_and_format
 
 
 def _stats_table_data(
     r: NDArray[np.floating],
     periods_per_year: int | None,
-) -> dict[str, Any]:
-    """Compute a summary statistics dictionary for a single strategy.
+) -> list[dict[str, Any]]:
+    """Compute categorized summary statistics by querying the registry.
 
-    Delegates to registered metrics where possible.
+    Returns a list of ``{"section": str, "metrics": list[dict]}`` in
+    category display order.  Each metrics dict has ``name``, ``value``,
+    and ``ref`` keys.
     """
     from stratstat.inputs import ReturnsInput
-    from stratstat.registry import _compute_one
 
     inp = ReturnsInput(r.ravel(), periods_per_year=periods_per_year)
-    stats: dict[str, Any] = {}
-
-    metric_names = [
-        "cagr", "annualized_volatility", "sharpe_ratio", "sortino_ratio",
-        "max_drawdown", "calmar_ratio", "skewness", "excess_kurtosis",
-        "var", "cvar",
-    ]
-    for name in metric_names:
-        try:
-            result = _compute_one(inp, name)
-            val = result.value
-            if isinstance(val, np.ndarray) and val.shape != ():
-                val = float(val.flat[0])
-            stats[name] = float(val) if val is not None else np.nan
-        except (ValueError, KeyError):
-            stats[name] = np.nan
-
-    return stats
+    returns_categories = ["descriptive", "risk", "risk_adjusted"]
+    return discover_and_format(inp, returns_categories)
 
 
 def tear_sheet(
@@ -64,7 +50,7 @@ def tear_sheet(
     1. Equity curve (cumulative return)
     2. Drawdown chart
     3. Monthly returns heatmap
-    4. Summary statistics table
+    4. Summary statistics table (auto-discovered from registry)
 
     Parameters
     ----------
@@ -84,10 +70,10 @@ def tear_sheet(
     dd = _drawdown_series(strat.reshape(-1, 1))[:, 0]
     grid, years, months = _monthly_heatmap_data(strat)
 
-    # Stats
-    stats = _stats_table_data(strat, periods_per_year)
+    # Stats — auto-discovered from registry
+    stats_sections = _stats_table_data(strat, periods_per_year)
 
-    # Build figure with 2×2 subplots
+    # Build figure with 2x2 subplots
     fig = make_subplots(
         rows=2, cols=2,
         subplot_titles=(
@@ -149,20 +135,36 @@ def tear_sheet(
             showscale=False,
         ), row=2, col=1)
 
-    # -- Panel 4: Stats Table ---------------------------------------------
-    header_vals = list(stats.keys())
-    cell_vals = [[f"{stats[k]:.4f}" if not np.isnan(stats[k]) else "N/A"
-                   for k in header_vals]]
-    header_labels = [k.replace("_", " ").title() for k in header_vals]
+    # -- Panel 4: Stats Table (dynamic, sectioned) ------------------------
+    # Build a flat list with section-header rows
+    header_vals: list[str] = []
+    cell_vals: list[list[str]] = [[]]
+    for section in stats_sections:
+        sec_name = section["section"]
+        # Section header row
+        header_vals.append(f"▪ {sec_name}")
+        cell_vals[0].append("")
+        # Metric rows
+        for m in section["metrics"]:
+            display_name = m["name"].replace("_", " ").title()
+            val = m["value"]
+            if isinstance(val, (float, np.floating)):
+                val_str = f"{float(val):.4f}" if np.isfinite(val) else "N/A"
+            elif val is None:
+                val_str = "N/A"
+            else:
+                val_str = str(val)
+            header_vals.append("  " + display_name)
+            cell_vals[0].append(val_str)
 
     fig.add_trace(go.Table(
-        header={"values": header_labels,
-                    "font": {"size": 10},
-                    "align": "center"},
-        cells={"values": cell_vals,
-                   "font": {"size": 10},
-                   "align": "center",
-                   "height": 25},
+        header={"values": ["Metric", "Value"],
+                "font": {"size": 10},
+                "align": "center"},
+        cells={"values": [header_vals, cell_vals[0]],
+               "font": {"size": 10},
+               "align": ["left", "center"],
+               "height": 25},
     ), row=2, col=2)
 
     fig.update_layout(

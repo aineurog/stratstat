@@ -22,8 +22,10 @@ from stratstat.report._charts import (
     rolling_metric_chart,
     trade_markers_chart,
 )
+from stratstat.report._common import category_order, collect_metrics, discover_and_format
 from stratstat.report._dashboard import dashboard
 from stratstat.report._export import to_html, to_image, to_json, to_latex, to_markdown
+from stratstat.report._report import generate_report
 from stratstat.report._tearsheet import tear_sheet
 
 __all__ = [
@@ -38,6 +40,11 @@ __all__ = [
     # Compositions
     "tear_sheet",
     "dashboard",
+    "generate_report",
+    # Helpers
+    "collect_metrics",
+    "discover_and_format",
+    "category_order",
     # Export
     "to_html",
     "to_image",

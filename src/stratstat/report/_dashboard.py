@@ -18,6 +18,18 @@ from stratstat.report._charts import (
     _to_array,
 )
 
+# Key metrics shown in the ranking table.  These are the most commonly
+# used performance indicators.  Each must be a registered returns-tier
+# metric that accepts (ReturnsInput) and returns a scalar float value.
+_RANKING_METRICS = [
+    "cagr",
+    "annualized_volatility",
+    "sharpe_ratio",
+    "sortino_ratio",
+    "max_drawdown",
+    "calmar_ratio",
+]
+
 
 def _correlation_matrix(r: NDArray[np.floating]) -> NDArray[np.floating]:
     """Compute Pearson correlation matrix with NaN handling."""
@@ -45,7 +57,7 @@ def dashboard(
     1. Equity curves overlay (all strategies)
     2. Rolling Sharpe ratio overlay
     3. Correlation heatmap
-    4. Performance ranking table
+    4. Performance ranking table (auto-discovered metrics)
 
     Parameters
     ----------
@@ -75,7 +87,7 @@ def dashboard(
     # Correlation
     corr = _correlation_matrix(r)
 
-    # Compute performance stats for ranking
+    # Compute performance stats for ranking — dynamic discovery
     rankings = _compute_rankings(r, periods_per_year)
 
     fig = make_subplots(
@@ -125,22 +137,25 @@ def dashboard(
     ), row=2, col=1)
 
     # -- Panel 4: Rankings Table ------------------------------------------
-    header_vals = ["Strategy", "CAGR", "Sharpe", "Max DD", "Calmar"]
-    cell_vals = [
+    # Build columns: Strategy | metric_1 | metric_2 | ...
+    metric_names_ordered = sorted(
+        rankings, key=lambda n: _RANKING_METRICS.index(n) if n in _RANKING_METRICS else 99
+    )
+    header_vals = ["Strategy"] + [n.replace("_", " ").title() for n in metric_names_ordered]
+    cell_data: list[list[str]] = [
         labels,
-        [f"{rankings['cagr'][i]:.4f}" if not np.isnan(rankings['cagr'][i])
-         else "N/A" for i in range(n_strat)],
-        [f"{rankings['sharpe'][i]:.4f}" if not np.isnan(rankings['sharpe'][i])
-         else "N/A" for i in range(n_strat)],
-        [f"{rankings['max_dd'][i]:.4f}" if not np.isnan(rankings['max_dd'][i])
-         else "N/A" for i in range(n_strat)],
-        [f"{rankings['calmar'][i]:.4f}" if not np.isnan(rankings['calmar'][i])
-         else "N/A" for i in range(n_strat)],
     ]
+    for mname in metric_names_ordered:
+        arr = rankings[mname]
+        cell_data.append([
+            f"{arr[i]:.4f}" if not np.isnan(arr[i]) else "N/A"
+            for i in range(n_strat)
+        ])
+
     fig.add_trace(go.Table(
         header={"values": header_vals, "font": {"size": 10}, "align": "center"},
-        cells={"values": cell_vals, "font": {"size": 10}, "align": "center",
-                   "height": 25},
+        cells={"values": cell_data, "font": {"size": 10}, "align": "center",
+               "height": 25},
     ), row=2, col=2)
 
     fig.update_layout(
@@ -157,32 +172,34 @@ def _compute_rankings(
     r: NDArray[np.floating],
     periods_per_year: int | None,
 ) -> dict[str, NDArray[np.floating]]:
-    """Compute per-strategy performance metrics for the ranking table."""
+    """Compute per-strategy performance metrics for the ranking table.
+
+    Uses the registry to discover and compute all metrics listed in
+    ``_RANKING_METRICS``.  Returns a dict mapping metric name to an
+    ndarray of per-strategy values.
+    """
     from stratstat.inputs import ReturnsInput
     from stratstat.registry import _compute_one
 
     n_strat = r.shape[1]
-    cagr_vals = np.full(n_strat, np.nan)
-    sharpe_vals = np.full(n_strat, np.nan)
-    maxdd_vals = np.full(n_strat, np.nan)
-    calmar_vals = np.full(n_strat, np.nan)
+    results: dict[str, NDArray[np.floating]] = {}
 
-    for i in range(n_strat):
-        inp = ReturnsInput(r[:, i], periods_per_year=periods_per_year)
-        for metric_name, arr in [
-            ("cagr", cagr_vals), ("sharpe_ratio", sharpe_vals),
-            ("max_drawdown", maxdd_vals), ("calmar_ratio", calmar_vals),
-        ]:
+    for mname in _RANKING_METRICS:
+        arr = np.full(n_strat, np.nan, dtype=np.float64)
+        for i in range(n_strat):
+            inp = ReturnsInput(r[:, i], periods_per_year=periods_per_year)
             try:
-                result = _compute_one(inp, metric_name)
+                result = _compute_one(inp, mname)
                 val = result.value
-                arr[i] = float(val) if val is not None else np.nan
+                if isinstance(val, np.ndarray):
+                    if val.size == 1:
+                        arr[i] = float(val.flat[0])
+                    else:
+                        arr[i] = np.nan
+                else:
+                    arr[i] = float(val) if val is not None else np.nan
             except (ValueError, KeyError):
                 arr[i] = np.nan
+        results[mname] = arr
 
-    return {
-        "cagr": cagr_vals,
-        "sharpe": sharpe_vals,
-        "max_dd": maxdd_vals,
-        "calmar": calmar_vals,
-    }
+    return results

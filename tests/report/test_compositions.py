@@ -1,12 +1,16 @@
-"""Tests for tear sheet and dashboard compositions."""
+"""Tests for tear sheet, dashboard, and report compositions."""
 
 from __future__ import annotations
+
+import tempfile
+from pathlib import Path
 
 import numpy as np
 import pytest
 
 # Trigger core metric registration
 import stratstat.core.returns.descriptive  # noqa: F401
+import stratstat.core.returns.inference  # noqa: F401
 import stratstat.core.returns.risk  # noqa: F401
 import stratstat.core.returns.risk_adjusted  # noqa: F401
 from stratstat.inputs import ReturnsInput
@@ -68,17 +72,38 @@ class TestTearSheet:
                 break
         assert table_trace is not None, "Tear sheet should include a stats table"
 
-        # Header cells contain the metric names
-        header_texts = table_trace.header.values
-        assert any("cagr" in t.lower() or "CAGR" in t for t in header_texts), (
-            f"Stats table missing CAGR metric; headers: {header_texts}"
+        # Metric names are in the first column of cells (auto-discovered)
+        cell_texts = table_trace.cells.values[0]
+        all_text = " ".join(str(t).lower() for t in cell_texts)
+        assert "cagr" in all_text, (
+            f"Stats table missing CAGR; cells: {cell_texts}"
         )
-        assert any("sharpe" in t.lower() for t in header_texts), (
-            f"Stats table missing Sharpe metric; headers: {header_texts}"
+        assert "sharpe" in all_text, (
+            f"Stats table missing Sharpe; cells: {cell_texts}"
         )
-        assert any("excess" in t.lower() or "kurtosis" in t.lower()
-                   for t in header_texts), (
-            f"Stats table missing excess_kurtosis metric; headers: {header_texts}"
+        assert "kurtosis" in all_text or "excess" in all_text, (
+            f"Stats table missing kurtosis; cells: {cell_texts}"
+        )
+
+    def test_tear_sheet_stats_are_dynamic(self):
+        """Stats table includes metrics beyond the original hardcoded 10."""
+        rng = np.random.default_rng(42)
+        returns = rng.normal(0.001, 0.02, size=252)
+        fig = tear_sheet(returns, periods_per_year=252)
+
+        import plotly.graph_objects as go
+        table_trace = None
+        for trace in fig.data:
+            if isinstance(trace, go.Table):
+                table_trace = trace
+                break
+        assert table_trace is not None
+        cell_texts = table_trace.cells.values[0]
+        all_text = " ".join(str(t).lower() for t in cell_texts)
+        # Newer metrics that were NOT in the old hardcoded list of 10
+        assert "stability" in all_text or "hurst" in all_text or \
+            "fractal" in all_text or "upside" in all_text, (
+            f"Dynamic metrics missing; cells: {cell_texts[:10]}..."
         )
 
 
@@ -102,3 +127,121 @@ class TestDashboard:
         fig = dashboard(multi_returns, rolling_window=30,
                         periods_per_year=252)
         assert hasattr(fig, "data")
+
+    def test_dashboard_rankings_dynamic(self):
+        """Ranking table auto-discovers metrics from _RANKING_METRICS."""
+        rng = np.random.default_rng(42)
+        r = rng.normal(0.001, 0.02, size=(100, 3))
+        fig = dashboard(r, periods_per_year=252)
+
+        import plotly.graph_objects as go
+        table_trace = None
+        for trace in fig.data:
+            if isinstance(trace, go.Table):
+                table_trace = trace
+                break
+        assert table_trace is not None, "Dashboard should include a rankings table"
+        header_vals = table_trace.header.values
+        # Should include more than just the old 4 hardcoded columns
+        assert len(header_vals) >= 5, (
+            f"Expected >=5 ranking columns, got {len(header_vals)}: {header_vals}"
+        )
+        # Key metrics should be present
+        header_text = " ".join(str(h).lower() for h in header_vals)
+        assert "sharpe" in header_text
+        assert "sortino" in header_text or "calmar" in header_text
+
+
+# ---------------------------------------------------------------------------
+# HTML Report generation
+# ---------------------------------------------------------------------------
+
+
+class TestGenerateReport:
+    """Tests for generate_report()."""
+
+    def test_creates_file(self, daily_returns):
+        """generate_report writes an HTML file."""
+        from stratstat.report import generate_report
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "report.html"
+            generate_report(daily_returns, path, periods_per_year=252)
+            assert path.exists()
+            content = path.read_text()
+            assert "<!DOCTYPE html>" in content
+            assert "Strategy Analysis Report" in content
+
+    def test_custom_title(self, daily_returns):
+        """Custom title appears in output."""
+        from stratstat.report import generate_report
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "report.html"
+            generate_report(daily_returns, path, periods_per_year=252,
+                            title="My Custom Report")
+            content = path.read_text()
+            assert "My Custom Report" in content
+
+    def test_contains_chart_divs(self, daily_returns):
+        """Output contains plotly chart divs."""
+        from stratstat.report import generate_report
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "report.html"
+            generate_report(daily_returns, path, periods_per_year=252)
+            content = path.read_text()
+            assert "plotly-graph-div" in content
+
+    def test_contains_stats_tables(self, daily_returns):
+        """Output contains metric names in table cells."""
+        from stratstat.report import generate_report
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "report.html"
+            generate_report(daily_returns, path, periods_per_year=252)
+            content = path.read_text()
+            assert "sharpe_ratio" in content
+            assert "max_drawdown" in content
+
+    def test_contains_methodology(self, daily_returns):
+        """Output contains methodology references."""
+        from stratstat.report import generate_report
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "report.html"
+            generate_report(daily_returns, path, periods_per_year=252)
+            content = path.read_text()
+            assert "Methodology" in content
+
+    def test_with_benchmark(self, daily_returns):
+        """Benchmark section included when benchmark provided."""
+        from stratstat.report import generate_report
+
+        bench = np.random.default_rng(99).normal(0.0005, 0.015, size=252)
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "report.html"
+            generate_report(daily_returns, path, benchmark=bench,
+                            periods_per_year=252)
+            content = path.read_text()
+            assert "Benchmark" in content
+
+    def test_creates_parent_dirs(self, daily_returns):
+        """Output path parent directories are auto-created."""
+        from stratstat.report import generate_report
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "sub" / "deep" / "report.html"
+            generate_report(daily_returns, path, periods_per_year=252)
+            assert path.exists()
+
+    def test_short_series_does_not_crash(self):
+        """Very short return series should produce valid HTML."""
+        from stratstat.report import generate_report
+
+        r = np.array([0.01, -0.02, 0.03])
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "report.html"
+            generate_report(r, path, periods_per_year=12)
+            assert path.exists()
+            assert "<!DOCTYPE html>" in path.read_text()
