@@ -602,6 +602,7 @@ class TestRegistryIntegration:
             "sharpe_ci_analytic",
             "sharpe_ci_bootstrap",
             "min_track_record_length",
+            "block_bootstrap_ci",
         }
         assert names == expected
 
@@ -613,11 +614,24 @@ class TestRegistryIntegration:
         assert result.name == "psr"
         assert 0.0 <= result.value <= 1.0
 
-    def test_compute_all_inference(self, sample_input):
-        """compute_all(category='inference') returns all 7 registered metrics.
+    def test_compute_block_bootstrap_ci(self, sample_input):
+        """compute() dispatches block_bootstrap_ci via the registry."""
+        from stratstat import compute
 
-        Note: block_bootstrap_ci is intentionally not registered — it is a
-        generic wrapper (like rolling()) that calls other registered metrics.
+        result = compute(
+            sample_input, "block_bootstrap_ci",
+            target_metric="sharpe_ratio", n_reps=200, random_seed=42,
+        )
+        assert result.name == "sharpe_ratio_bootstrap_ci"
+        assert result.value[0] <= result.value[1]
+        assert result.meta["metric"] == "sharpe_ratio"
+
+    def test_compute_all_inference(self, sample_input):
+        """compute_all(category='inference') returns all inference metrics
+        that can be computed without extra parameters.
+
+        Note: block_bootstrap_ci is registered but requires target_metric;
+        it is tested separately via compute().
         """
         from stratstat import compute_all
 
@@ -625,4 +639,5 @@ class TestRegistryIntegration:
         names = {r.name for r in results}
         assert "jarque_bera" in names
         assert "psr" in names
-        assert "block_bootstrap_ci" not in names  # intentionally not registered
+        # block_bootstrap_ci registered but needs target_metric kwarg
+        assert "block_bootstrap_ci" not in names

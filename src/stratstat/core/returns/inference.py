@@ -804,9 +804,16 @@ _BOOT_CI_REF = (
 )
 
 
+@register_metric(
+    name="block_bootstrap_ci",
+    requires="returns",
+    category=("inference", "returns"),
+    backend="resampling",
+    ref=_BOOT_CI_REF,
+)
 def block_bootstrap_ci(
     input_data: ReturnsInput,
-    metric_name: str,
+    target_metric: str,
     confidence: float = 0.95,
     n_reps: int = 5000,
     block_len: int | None = None,
@@ -819,7 +826,7 @@ def block_bootstrap_ci(
 
     Args:
         input_data: A ``ReturnsInput`` (single-strategy only).
-        metric_name: Name of a registered returns-tier metric.
+        target_metric: Name of a registered returns-tier metric.
         confidence: Confidence level (default 0.95).
         n_reps: Bootstrap replicates (default 5000).
         block_len: Block length. If None, defaults to n^(1/3).
@@ -853,7 +860,7 @@ def block_bootstrap_ci(
         sample = r[indices[b]]
         # Create a new ReturnsInput for the bootstrap sample
         boot_inp = ReturnsInput(sample, periods_per_year=input_data.periods_per_year)
-        result = _compute_one(boot_inp, metric_name, **metric_kwargs)
+        result = _compute_one(boot_inp, target_metric, **metric_kwargs)
         val = result.value
         if isinstance(val, np.ndarray):
             val = val.flat[0]
@@ -864,13 +871,13 @@ def block_bootstrap_ci(
     if len(boot_vals) == 0:
         arr: NDArray[np.floating] = np.array([np.nan, np.nan], dtype=np.float64)
         return MetricResult(
-            name=f"{metric_name}_bootstrap_ci",
+            name=f"{target_metric}_bootstrap_ci",
             value=arr,
             category=("inference", "returns"),
             periods_per_year=input_data.periods_per_year,
             meta={
                 "ref": _BOOT_CI_REF,
-                "metric": metric_name,
+                "metric": target_metric,
                 "confidence": confidence,
                 "n_reps": n_reps,
                 "block_len": block_len,
@@ -886,13 +893,13 @@ def block_bootstrap_ci(
     arr = np.array([lower, upper], dtype=np.float64)
 
     return MetricResult(
-        name=f"{metric_name}_bootstrap_ci",
+        name=f"{target_metric}_bootstrap_ci",
         value=arr,
         category=("inference", "returns"),
         periods_per_year=input_data.periods_per_year,
         meta={
             "ref": _BOOT_CI_REF,
-            "metric": metric_name,
+            "metric": target_metric,
             "confidence": confidence,
             "n_reps": n_reps,
             "n_valid_reps": len(boot_vals),

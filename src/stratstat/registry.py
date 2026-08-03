@@ -7,6 +7,7 @@ Adding a new metric must never require editing a central dispatch block.
 
 from __future__ import annotations
 
+import contextlib
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, cast
 
@@ -165,11 +166,19 @@ def _compute_one(input_data: Any, metric_name: str, **kwargs: Any) -> MetricResu
 
 
 def _compute_all(input_data: Any, category: str | None = None, **kwargs: Any) -> MetricSet:
-    """Compute all matching metrics. Wired to the public compute_all() in __init__.py."""
+    """Compute all matching metrics. Wired to the public compute_all() in __init__.py.
+
+    Metrics that raise (e.g. because they require extra keyword arguments)
+    are silently skipped so that compute_all remains usable with generic
+    wrappers such as ``block_bootstrap_ci``.
+    """
     from stratstat.results import MetricSet
 
     matches = list_metrics(category=category)
     results = []
     for m in matches:
-        results.append(_compute_one(input_data, m["name"], **kwargs))
+        # Skip metrics that cannot be computed with the given kwargs
+        # (e.g. wrapper metrics that require extra parameters).
+        with contextlib.suppress(Exception):
+            results.append(_compute_one(input_data, m["name"], **kwargs))
     return MetricSet(results=results)

@@ -5,6 +5,7 @@ StratStat — Quantitative strategy evaluation statistics.
 from typing import Any
 
 from stratstat.conventions import get_default, set_default
+from stratstat.core.returns.wrappers import by_regime, rolling
 from stratstat.inputs import BenchmarkInput, CompareInput, ExposureInput, ReturnsInput, TradeInput
 from stratstat.registry import get_metric, list_metrics, register_metric
 from stratstat.results import MetricResult, MetricSet
@@ -22,6 +23,8 @@ __all__ = [
     "CompareInput",
     "get_default",
     "set_default",
+    "rolling",
+    "by_regime",
 ]
 
 # compute() and compute_all() are defined in registry.py and re-exported here

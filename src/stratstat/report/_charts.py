@@ -146,25 +146,28 @@ def _compute_rolling_metric(
     window: int,
     periods_per_year: int | None,
 ) -> NDArray[np.floating]:
-    """Compute a rolling metric over a returns series."""
+    """Compute a rolling metric over a returns series.
+
+    Delegates to :func:`stratstat.core.returns.wrappers.rolling` and
+    extracts the raw value array for charting.
+    """
+    from stratstat.core.returns.wrappers import rolling
     from stratstat.inputs import ReturnsInput
-    from stratstat.registry import _compute_one
 
     n = r.shape[0]
-    values = np.full(n, np.nan)
-    for t in range(window - 1, n):
-        win = r[t - window + 1 : t + 1]
-        inp = ReturnsInput(win, periods_per_year=periods_per_year)
-        try:
-            result = _compute_one(inp, metric_name)
-            val = result.value
-            if not isinstance(val, np.ndarray) or val.shape == ():
-                values[t] = float(val)
-            else:
-                values[t] = float(val.flat[0])
-        except (ValueError, KeyError):
-            values[t] = np.nan
-    return values
+
+    # If window exceeds data length, return all NaN (chart can still render).
+    if window > n:
+        out: NDArray[np.floating] = np.full(n, np.nan, dtype=np.float64)
+        return out
+
+    # Pass periods_per_year via a temporary ReturnsInput so that
+    # rolling() sets it on each window slice.  Do NOT pass it as a
+    # metric_kwarg — the underlying metric reads it from the input.
+    tmp = ReturnsInput(r.ravel(), periods_per_year=periods_per_year)
+    result = rolling(tmp, metric_name, window)
+    raw: NDArray[np.floating] = np.asarray(result.value, dtype=np.float64)
+    return raw
 
 
 # ---------------------------------------------------------------------------

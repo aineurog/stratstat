@@ -6,6 +6,7 @@ Organized by axis-2 classification (statistical nature):
   - risk: VaR, CVaR, max drawdown, drawdown duration, etc.
   - risk_adjusted: Sharpe, Sortino, Calmar, information ratio, etc.
   - inference: PSR, DSR, Lo-adjusted SE, bootstrap CIs, min track record, etc.
+  - wrappers: rolling(metric_name, window), by_regime(metric_name, labels).
 """
 
 # Re-exports from submodules will be added here as metrics are implemented.
