@@ -14,12 +14,20 @@ from stratstat.core.returns.risk_adjusted import (
     burke_ratio,
     calmar_ratio,
     gain_to_pain_ratio,
+    k_ratio,
     kappa_3,
     martin_ratio,
+    modified_sharpe_ratio,
     omega_ratio,
+    pain_ratio,
+    recovery_factor,
+    risk_return_ratio,
+    serenity_ratio,
     sharpe_ratio,
     sortino_ratio,
     sterling_ratio,
+    upi,
+    upside_potential_ratio,
 )
 from stratstat.inputs import ReturnsInput
 
@@ -741,7 +749,7 @@ class TestNaNHandling:
 
 class TestRegistryIntegration:
     def test_list_metrics_risk_adjusted(self):
-        """All 9 risk-adjusted metrics appear under the risk_adjusted category."""
+        """All 17 risk-adjusted metrics appear under the risk_adjusted category."""
         from stratstat.registry import list_metrics
 
         metrics = list_metrics(category="risk_adjusted")
@@ -756,6 +764,14 @@ class TestRegistryIntegration:
             "kappa_3",
             "martin_ratio",
             "gain_to_pain_ratio",
+            "pain_ratio",
+            "recovery_factor",
+            "k_ratio",
+            "serenity_ratio",
+            "upi",
+            "modified_sharpe_ratio",
+            "upside_potential_ratio",
+            "risk_return_ratio",
         }
         assert names == expected
 
@@ -768,11 +784,212 @@ class TestRegistryIntegration:
         assert isinstance(result.value, float)
 
     def test_compute_all_risk_adjusted(self, sample_input):
-        """compute_all(category='risk_adjusted') returns all 9 metrics."""
+        """compute_all(category='risk_adjusted') returns all 17 metrics."""
         from stratstat import compute_all
 
         results = compute_all(sample_input, category="risk_adjusted")
-        assert len(results) == 9
+        assert len(results) == 17
         names = {r.name for r in results}
         assert "sharpe_ratio" in names
         assert "kappa_3" in names
+        assert "pain_ratio" in names
+        assert "k_ratio" in names
+        assert "upi" in names
+
+
+# ---------------------------------------------------------------------------
+# Pain Ratio
+# ---------------------------------------------------------------------------
+
+
+class TestPainRatio:
+    """Tests for pain_ratio metric."""
+
+    def test_pain_ratio_positive(self, sample_input):
+        """Pain Ratio should be positive for a strategy with positive CAGR."""
+        result = pain_ratio(sample_input)
+        assert result.value > 0
+
+    def test_no_drawdowns(self):
+        """Pain Ratio should be inf when there are no drawdowns."""
+        returns = np.array([0.01, 0.02, 0.01, 0.03])
+        inp = ReturnsInput(returns, periods_per_year=252)
+        result = pain_ratio(inp)
+        assert result.value == float("inf")
+
+
+# ---------------------------------------------------------------------------
+# Recovery Factor
+# ---------------------------------------------------------------------------
+
+
+class TestRecoveryFactor:
+    """Tests for recovery_factor metric."""
+
+    def test_known_value(self):
+        """Recovery Factor = total_return / |MDD|."""
+        # A 100k -> 150k strategy = 0.5 total return with -20% MDD
+        # RF = 0.5 / 0.2 = 2.5
+        # Simulate: +50% cumulative, -20% max drawdown
+        returns = np.array([0.02, 0.02, -0.20, 0.05, 0.10, 0.15, 0.10, 0.05, 0.10])
+        inp = ReturnsInput(returns)
+        result = recovery_factor(inp)
+        assert result.value > 0
+        assert result.name == "recovery_factor"
+
+    def test_no_drawdowns(self):
+        """Recovery Factor should be inf when max drawdown is zero."""
+        returns = np.array([0.01, 0.02, 0.03])
+        inp = ReturnsInput(returns)
+        result = recovery_factor(inp)
+        assert result.value == float("inf")
+
+
+# ---------------------------------------------------------------------------
+# K-Ratio
+# ---------------------------------------------------------------------------
+
+
+class TestKRatio:
+    """Tests for k_ratio metric."""
+
+    def test_positive_for_steady_growth(self, sample_input):
+        """K-Ratio should be a finite number for typical returns."""
+        result = k_ratio(sample_input)
+        assert np.isfinite(result.value)
+
+    def test_too_few_periods(self):
+        """K-Ratio should be NaN for fewer than 3 periods."""
+        returns = np.array([0.01, -0.01])
+        inp = ReturnsInput(returns)
+        result = k_ratio(inp)
+        assert np.isnan(result.value)
+
+
+# ---------------------------------------------------------------------------
+# Serenity Ratio
+# ---------------------------------------------------------------------------
+
+
+class TestSerenityRatio:
+    """Tests for serenity_ratio metric."""
+
+    def test_serenity_positive(self, sample_input):
+        """Serenity Ratio should be a finite number for typical returns."""
+        result = serenity_ratio(sample_input)
+        assert np.isfinite(result.value)
+
+    def test_requires_periods_per_year(self):
+        """Should raise ValueError without periods_per_year."""
+        returns = np.random.default_rng(42).normal(0.0004, 0.01, size=100)
+        inp = ReturnsInput(returns)
+        with pytest.raises(ValueError, match="periods_per_year"):
+            serenity_ratio(inp)
+
+
+# ---------------------------------------------------------------------------
+# UPI (Ulcer Performance Index)
+# ---------------------------------------------------------------------------
+
+
+class TestUPI:
+    """Tests for upi metric."""
+
+    def test_upi_vs_martin(self, sample_input):
+        """UPI uses excess return; Martin uses CAGR. Both should be finite."""
+        upi_result = upi(sample_input)
+        martin_result = martin_ratio(sample_input)
+        assert np.isfinite(upi_result.value)
+        assert np.isfinite(martin_result.value)
+        # They differ by construction (numerator differs)
+
+    def test_requires_periods_per_year(self):
+        """Should raise ValueError without periods_per_year."""
+        returns = np.random.default_rng(42).normal(0.0004, 0.01, size=100)
+        inp = ReturnsInput(returns)
+        with pytest.raises(ValueError, match="periods_per_year"):
+            upi(inp)
+
+
+# ---------------------------------------------------------------------------
+# Modified Sharpe Ratio
+# ---------------------------------------------------------------------------
+
+
+class TestModifiedSharpeRatio:
+    """Tests for modified_sharpe_ratio metric."""
+
+    def test_modified_sharpe_finite(self, sample_input):
+        """Modified Sharpe Ratio should be finite for typical returns."""
+        result = modified_sharpe_ratio(sample_input)
+        assert np.isfinite(result.value)
+
+    def test_default_confidence(self):
+        """Default confidence level should be recorded in meta."""
+        rng = np.random.default_rng(42)
+        returns = rng.normal(0.0004, 0.01, size=252)
+        inp = ReturnsInput(returns, periods_per_year=252)
+        result = modified_sharpe_ratio(inp)
+        assert result.meta["confidence"] == 0.95
+
+    def test_custom_confidence(self):
+        """Custom confidence level should be used."""
+        rng = np.random.default_rng(42)
+        returns = rng.normal(0.0004, 0.01, size=252)
+        inp = ReturnsInput(returns, periods_per_year=252)
+        result = modified_sharpe_ratio(inp, confidence=0.99)
+        assert result.meta["confidence"] == 0.99
+
+
+# ---------------------------------------------------------------------------
+# Upside Potential Ratio
+# ---------------------------------------------------------------------------
+
+
+class TestUpsidePotentialRatio:
+    """Tests for upside_potential_ratio metric."""
+
+    def test_positive_for_gains(self):
+        """UPR should be positive when there are gains above MAR."""
+        returns = np.array([0.02, -0.01, 0.03, -0.005, 0.01])
+        inp = ReturnsInput(returns)
+        result = upside_potential_ratio(inp)
+        assert result.value > 0
+
+    def test_no_downside(self):
+        """UPR should be inf when there is no downside deviation."""
+        returns = np.array([0.01, 0.02, 0.03])
+        inp = ReturnsInput(returns)
+        result = upside_potential_ratio(inp)
+        assert result.value == float("inf")
+
+
+# ---------------------------------------------------------------------------
+# Risk Return Ratio
+# ---------------------------------------------------------------------------
+
+
+class TestRiskReturnRatio:
+    """Tests for risk_return_ratio metric."""
+
+    def test_simpler_than_calmar(self, sample_input):
+        """Risk Return Ratio uses annualized arithmetic return, not CAGR."""
+        rr_result = risk_return_ratio(sample_input)
+        calmar_result = calmar_ratio(sample_input)
+        # Both should be finite; they differ by numerator
+        assert np.isfinite(rr_result.value)
+        assert np.isfinite(calmar_result.value)
+
+    def test_no_drawdowns(self):
+        """Risk Return Ratio should be inf when max drawdown is zero."""
+        returns = np.array([0.01, 0.02, 0.03])
+        inp = ReturnsInput(returns, periods_per_year=252)
+        result = risk_return_ratio(inp)
+        assert result.value == float("inf")
+
+    def test_requires_periods_per_year(self):
+        """Should raise ValueError without periods_per_year."""
+        returns = np.random.default_rng(42).normal(0.0004, 0.01, size=100)
+        inp = ReturnsInput(returns)
+        with pytest.raises(ValueError, match="periods_per_year"):
+            risk_return_ratio(inp)

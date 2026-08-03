@@ -3,7 +3,8 @@
 Metrics: Jarque-Bera statistic, Probabilistic Sharpe Ratio (PSR),
 Deflated Sharpe Ratio (DSR), Lo's autocorrelation-adjusted Sharpe SE,
 Sharpe ratio CI (analytic), Sharpe ratio CI (bootstrap),
-minimum track record length, generic block-bootstrap CI.
+minimum track record length, generic block-bootstrap CI,
+bias ratio, skewness-adjusted Sharpe (ASR).
 
 All tagged: category=("inference", "returns"), backend="resampling".
 """
@@ -905,5 +906,184 @@ def block_bootstrap_ci(
             "n_valid_reps": len(boot_vals),
             "block_len": block_len,
             "output_index": ["lower", "upper"],
+        },
+    )
+
+
+# ---------------------------------------------------------------------------
+# 4.9 Bias Ratio
+# Reference: Abdulali (2006)
+# ---------------------------------------------------------------------------
+
+_BIAS_RATIO_REF = 'Abdulali (2006), "Detecting Smoothed Returns"'
+
+
+@register_metric(
+    name="bias_ratio",
+    requires="returns",
+    category=("inference", "returns"),
+    backend="vectorized",
+    ref=_BIAS_RATIO_REF,
+)
+def bias_ratio(
+    input_data: ReturnsInput, bandwidth: float = 1.0
+) -> MetricResult:
+    """Bias Ratio — detects smoothed or manipulated returns.
+
+    Measures the concentration of returns in a narrow band around zero
+    relative to returns outside that band. A high Bias Ratio suggests
+    return smoothing or artificial price manipulation.
+
+    Formula:
+        bias_ratio = count(|r| < bandwidth * sigma) /
+                     max(count(|r| >= bandwidth * sigma), 1)
+
+    where sigma is the sample standard deviation (ddof=1). The default
+    bandwidth of 1.0 uses ±1 sigma as the narrow band (Abdulali 2006).
+
+    The denominator is floored at 1 to avoid division by zero when all
+    returns fall within the narrow band.
+
+    Args:
+        input_data: A ``ReturnsInput``. Must have at least 2 periods.
+        bandwidth: Number of standard deviations defining the narrow band
+            around zero (default 1.0).
+
+    Returns:
+        MetricResult with Bias Ratio (non-negative float or array).
+        Higher values indicate more clustering around zero.
+    """
+    if bandwidth <= 0.0:
+        raise ValueError(
+            f"bandwidth must be positive, got {bandwidth}"
+        )
+
+    r = input_data.values  # (n_periods, n_strategies)
+    n_strat = r.shape[1]
+
+    bias_arr = np.zeros(n_strat, dtype=np.float64)
+    for col in range(n_strat):
+        col_data = r[:, col]
+        valid_data = col_data[~np.isnan(col_data)]
+        if len(valid_data) < 2:
+            bias_arr[col] = np.nan
+            continue
+
+        sigma = float(np.std(valid_data, ddof=1))
+        if sigma < 1e-15:
+            bias_arr[col] = np.nan
+            continue
+
+        threshold = bandwidth * sigma
+        in_band = np.sum(np.abs(valid_data) < threshold)
+        outside = max(len(valid_data) - in_band, 1)  # floor at 1
+
+        bias_arr[col] = float(in_band) / float(outside)
+
+    value: float | NDArray[np.floating]
+    value = float(bias_arr[0]) if input_data.is_single else bias_arr
+
+    return MetricResult(
+        name="bias_ratio",
+        value=value,
+        category=("inference", "returns"),
+        periods_per_year=input_data.periods_per_year,
+        meta={
+            "ref": _BIAS_RATIO_REF,
+            "bandwidth": bandwidth,
+        },
+    )
+
+
+# ---------------------------------------------------------------------------
+# 4.10 Skewness-Adjusted Sharpe Ratio (ASR)
+# Reference: Pezier & White (2008)
+# ---------------------------------------------------------------------------
+
+_ASR_REF = "Pezier & White (2008)"
+
+
+@register_metric(
+    name="skewness_adjusted_sharpe",
+    requires="returns",
+    category=("inference", "returns"),
+    backend="vectorized",
+    ref=_ASR_REF,
+)
+def skewness_adjusted_sharpe(
+    input_data: ReturnsInput,
+    rf: float = 0.0,
+    ddof: int = 1,
+) -> MetricResult:
+    """Skewness-Adjusted Sharpe Ratio (ASR).
+
+    Adjusts the standard Sharpe ratio for the skewness and kurtosis of
+    the return distribution using the Pezier & White (2008) expansion:
+
+    Formula:
+        ASR = SR * (1 + (gamma_3 / 6) * SR - (gamma_4 / 24) * SR^2)
+
+    where SR is the (annualized) Sharpe ratio, gamma_3 is the sample
+    skewness, and gamma_4 is the sample excess kurtosis.
+
+    For normally distributed returns (gamma_3 ≈ 0, gamma_4 ≈ 0),
+    ASR ≈ SR. Positive skewness increases ASR; excess kurtosis
+    decreases it (penalising fat tails).
+
+    Requires ``periods_per_year`` on the input and at least 4 observations.
+
+    Args:
+        input_data: A ``ReturnsInput`` with ``periods_per_year`` set.
+        rf: Risk-free rate per period (default 0.0).
+        ddof: Delta degrees of freedom for standard deviation — 1 for
+            sample (default), 0 for population.
+
+    Returns:
+        MetricResult with ASR (float or array). NaN when fewer than 4
+        observations or zero volatility.
+    """
+    if input_data.periods_per_year is None:
+        raise ValueError(
+            "ASR requires periods_per_year on the ReturnsInput"
+        )
+
+    r = input_data.values  # (n_periods, n_strategies)
+    p = float(input_data.periods_per_year)
+    n_strat = r.shape[1]
+
+    # Period Sharpe ratio per column
+    excess = np.nanmean(r, axis=0) - rf
+    sigma = np.nanstd(r, axis=0, ddof=ddof)
+    sigma_safe = np.where(sigma < 1e-15, np.nan, sigma)
+    sr_period = excess / sigma_safe
+    sr = sr_period * np.sqrt(p)  # annualized Sharpe
+
+    skew = _sample_skewness(r)  # (n_strat,)
+    excess_kurt = _sample_excess_kurtosis(r)  # (n_strat,)
+
+    # ASR expansion
+    term1 = (skew / 6.0) * sr
+    term2 = (excess_kurt / 24.0) * sr**2
+
+    with np.errstate(invalid="ignore"):
+        arr = sr * (1.0 + term1 - term2)
+
+    # If Sharpe is NaN (zero vol, too few obs), ASR should also be NaN
+    arr = np.where(np.isnan(sr), np.nan, arr)
+    # If skew/kurt are NaN (too few obs), ASR is NaN
+    arr = np.where(np.isnan(skew) | np.isnan(excess_kurt), np.nan, arr)
+
+    value: float | NDArray[np.floating]
+    value = float(arr[0]) if input_data.is_single else arr
+
+    return MetricResult(
+        name="skewness_adjusted_sharpe",
+        value=value,
+        category=("inference", "returns"),
+        periods_per_year=input_data.periods_per_year,
+        meta={
+            "ref": _ASR_REF,
+            "rf": rf,
+            "ddof": ddof,
         },
     )

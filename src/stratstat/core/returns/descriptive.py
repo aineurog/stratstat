@@ -3,7 +3,8 @@
 Metrics: CAGR, annualized volatility, cumulative return, arithmetic mean return,
 geometric mean return, skewness, excess kurtosis, best/worst period, positive-period
 ratio, autocorrelation (lag-1), variance, return range, percentiles, coefficient of
-variation, outlier count & percentage (IQR method).
+variation, outlier count & percentage (IQR method), stability of timeseries,
+Hurst exponent, fractal dimension, consecutive wins/losses (returns-level).
 
 All metrics are tagged: category=("descriptive", "returns"), backend="vectorized".
 """
@@ -918,5 +919,477 @@ def outlier_iqr(input_data: ReturnsInput) -> MetricResult:
             "ref": "Tukey (1977, Exploratory Data Analysis)",
             "method": "IQR (1.5 * IQR beyond Q1/Q3)",
             "output_index": ["count", "percentage"],
+        },
+    )
+
+
+# ---------------------------------------------------------------------------
+# 1.17 Stability of Timeseries
+# Reference: standard regression; cited in empyrical
+# ---------------------------------------------------------------------------
+
+_STABILITY_REF = "Standard regression; cited in empyrical"
+
+
+@register_metric(
+    name="stability",
+    requires="returns",
+    category=("descriptive", "returns"),
+    backend="vectorized",
+    ref=_STABILITY_REF,
+)
+def stability(input_data: ReturnsInput) -> MetricResult:
+    """Stability of the time series — R² of OLS fit to cumulative log returns.
+
+    Measures how linear/consistent the equity curve is. An R² close to 1
+    indicates a smooth, consistent growth path. An R² close to 0 indicates
+    an erratic equity curve.
+
+    Formula:
+        y_t = sum_{tau=1}^{t} ln(1 + r_tau)   (cumulative log returns)
+        y_t = alpha + beta * t + epsilon_t    (OLS regression on time)
+        Stability = R² = 1 - SS_res / SS_tot
+
+    Args:
+        input_data: A ``ReturnsInput``. Must have at least 3 periods.
+
+    Returns:
+        MetricResult with R² (float or array, 0 to 1). Returns NaN for
+        fewer than 3 observations.
+    """
+    r = input_data.values  # (n_periods, n_strategies)
+    n = input_data.n_periods
+    n_strat = r.shape[1]
+
+    if n < 3:
+        nan_arr = np.full(n_strat, np.nan, dtype=np.float64)
+        nan_value: float | NDArray[np.floating] = (
+            float(nan_arr[0]) if input_data.is_single else nan_arr
+        )
+        return MetricResult(
+            name="stability",
+            value=nan_value,
+            category=("descriptive", "returns"),
+            periods_per_year=input_data.periods_per_year,
+            meta={
+                "ref": _STABILITY_REF,
+                "note": "Requires at least 3 observations.",
+            },
+        )
+
+    # Time index: 1..n
+    x = np.arange(1, n + 1, dtype=np.float64).reshape(-1, 1)  # (n, 1)
+    x_bar = np.mean(x)
+
+    arr = np.zeros(n_strat, dtype=np.float64)
+    for col in range(n_strat):
+        col_data = r[:, col]
+        valid = ~np.isnan(col_data)
+        if np.sum(valid) < 3:
+            arr[col] = np.nan
+            continue
+
+        # Cumulative log returns, skipping NaN periods
+        log_ret = np.where(valid, np.log(1.0 + col_data), 0.0)
+        y = np.cumsum(log_ret)  # (n,)
+
+        # Only use points where both x and y are based on valid returns
+        y_bar = np.mean(y[valid])
+        x_valid = x[valid].ravel()
+
+        # OLS slope
+        ss_xy = np.sum((x_valid - x_bar) * (y[valid] - y_bar))
+        ss_xx = np.sum((x_valid - x_bar) ** 2)
+
+        if ss_xx < 1e-30:
+            arr[col] = np.nan
+            continue
+
+        beta = ss_xy / ss_xx
+        alpha = y_bar - beta * x_bar
+
+        y_pred = alpha + beta * x_valid
+        ss_res = np.sum((y[valid] - y_pred) ** 2)
+        ss_tot = np.sum((y[valid] - y_bar) ** 2)
+
+        if ss_tot < 1e-30:
+            arr[col] = np.nan
+        else:
+            arr[col] = 1.0 - ss_res / ss_tot
+
+    value: float | NDArray[np.floating]
+    value = float(arr[0]) if input_data.is_single else arr
+
+    return MetricResult(
+        name="stability",
+        value=value,
+        category=("descriptive", "returns"),
+        periods_per_year=input_data.periods_per_year,
+        meta={"ref": _STABILITY_REF},
+    )
+
+
+# ---------------------------------------------------------------------------
+# Helper: R/S Hurst exponent computation
+# ---------------------------------------------------------------------------
+
+
+def _hurst_rs(series: NDArray[np.floating]) -> float:
+    """Compute the Hurst exponent via R/S analysis for a 1-D array.
+
+    Uses lags at n // 2^k until fewer than 10 observations per partition.
+    Returns NaN for series shorter than 50 periods.
+
+    The R/S method (Hurst 1951, Mandelbrot 1972):
+    1. Partition the series at multiple lag scales tau.
+    2. For each block of length tau:
+       - Compute the cumulative deviate from the block mean.
+       - R = max(cum_deviate) - min(cum_deviate)
+       - S = standard deviation of the block
+       - (R/S)_tau = mean of R/S across blocks
+    3. Regress log(R/S)_tau on log(tau); slope = H.
+
+    Args:
+        series: 1-D array of returns (NaN-free — caller must clean).
+
+    Returns:
+        Hurst exponent H (float). H > 0.5 = trending, H < 0.5 = mean-reverting.
+    """
+    n = len(series)
+    if n < 50:
+        return float("nan")
+
+    # Generate lags: n // 2, n // 4, n // 8, ... until < 10
+    lags: list[int] = []
+    k = 1
+    while True:
+        lag = n // (2**k)
+        if lag < 10:
+            break
+        lags.append(lag)
+        k += 1
+
+    if len(lags) < 3:
+        return float("nan")
+
+    rs_values = np.zeros(len(lags), dtype=np.float64)
+    for i, lag in enumerate(lags):
+        n_blocks = n // lag
+        rs_block = np.zeros(n_blocks, dtype=np.float64)
+        for b in range(n_blocks):
+            block = series[b * lag : (b + 1) * lag]
+            block_mean = np.mean(block)
+            # Cumulative deviate from the mean
+            deviate = np.cumsum(block - block_mean)
+            r = float(np.max(deviate) - np.min(deviate))
+            s = float(np.std(block, ddof=1))
+            if s < 1e-15:
+                rs_block[b] = 0.0
+            else:
+                rs_block[b] = r / s
+        rs_values[i] = float(np.mean(rs_block))
+
+    # Log-log regression: log(RS) ~ H * log(lag) + c
+    log_lags = np.log(np.array(lags, dtype=np.float64))
+    log_rs = np.log(np.maximum(rs_values, 1e-15))
+
+    # OLS slope = H
+    x_bar = float(np.mean(log_lags))
+    y_bar = float(np.mean(log_rs))
+    ss_xy = float(np.sum((log_lags - x_bar) * (log_rs - y_bar)))
+    ss_xx = float(np.sum((log_lags - x_bar) ** 2))
+
+    if ss_xx < 1e-30:
+        return float("nan")
+
+    return ss_xy / ss_xx
+
+
+# ---------------------------------------------------------------------------
+# 1.18 Hurst Exponent
+# Reference: Hurst (1951); Mandelbrot (1972)
+# ---------------------------------------------------------------------------
+
+_HURST_REF = (
+    "Hurst (1951), 'Long-Term Storage Capacity of Reservoirs,' "
+    "Transactions of the American Society of Civil Engineers, 116; "
+    "Mandelbrot (1972), 'Statistical Methodology for Nonperiodic Cycles,' "
+    "Journal of Business, 45(3)"
+)
+
+
+@register_metric(
+    name="hurst_exponent",
+    requires="returns",
+    category=("descriptive", "returns"),
+    backend="sequential",
+    ref=_HURST_REF,
+)
+def hurst_exponent(input_data: ReturnsInput) -> MetricResult:
+    """Hurst exponent via R/S (rescaled range) analysis.
+
+    Measures long-memory / trend persistence in the return series.
+
+    - H > 0.5: trending (persistent) behaviour
+    - H ≈ 0.5: random walk (no memory)
+    - H < 0.5: mean-reverting (anti-persistent) behaviour
+
+    Lags are chosen at n // 2^k for k = 1, 2, ... until fewer than 10
+    observations per partition. Requires at least 50 periods; returns
+    NaN for shorter series.
+
+    Args:
+        input_data: A ``ReturnsInput``.
+
+    Returns:
+        MetricResult with Hurst exponent H (float or array). NaN when
+        fewer than 50 valid observations are available.
+    """
+    r = input_data.values
+    n_strat = r.shape[1]
+    hurst_arr = np.zeros(n_strat, dtype=np.float64)
+
+    for col in range(n_strat):
+        col_data = r[:, col]
+        valid_data = col_data[~np.isnan(col_data)]
+        hurst_arr[col] = _hurst_rs(valid_data)
+
+    value: float | NDArray[np.floating]
+    value = float(hurst_arr[0]) if input_data.is_single else hurst_arr
+
+    meta: dict[str, object] = {
+        "ref": _HURST_REF,
+        "method": "R/S analysis",
+        "min_periods": 50,
+    }
+    if np.any(np.isnan(hurst_arr)):
+        n_nan = int(np.sum(np.isnan(hurst_arr)))
+        meta["note"] = (
+            f"{n_nan} strategy column(s) returned NaN — "
+            "fewer than 50 valid observations or insufficient lags."
+        )
+
+    return MetricResult(
+        name="hurst_exponent",
+        value=value,
+        category=("descriptive", "returns"),
+        periods_per_year=input_data.periods_per_year,
+        meta=meta,
+    )
+
+
+# ---------------------------------------------------------------------------
+# 1.19 Fractal Dimension
+# Reference: Mandelbrot (1975)
+# ---------------------------------------------------------------------------
+
+_FRACTAL_DIM_REF = (
+    "Mandelbrot (1975), 'Les Objets Fractals: Forme, Hasard et Dimension'"
+)
+
+
+@register_metric(
+    name="fractal_dimension",
+    requires="returns",
+    category=("descriptive", "returns"),
+    backend="sequential",
+    ref=_FRACTAL_DIM_REF,
+)
+def fractal_dimension(input_data: ReturnsInput) -> MetricResult:
+    """Fractal dimension of the equity curve — related to the Hurst exponent.
+
+    Formula:
+        D = 2 - H
+
+    where H is the Hurst exponent from R/S analysis. D measures the
+    roughness of the equity curve:
+
+    - D ≈ 1.5: random walk (H ≈ 0.5)
+    - D < 1.5: smoother, trending curve (H > 0.5)
+    - D > 1.5: rougher, mean-reverting curve (H < 0.5)
+
+    Requires at least 50 periods (inherited from Hurst computation).
+
+    Args:
+        input_data: A ``ReturnsInput``.
+
+    Returns:
+        MetricResult with fractal dimension D (float or array, 1 ≤ D ≤ 2
+        for well-behaved financial time series). NaN when the underlying
+        Hurst estimate is undefined.
+    """
+    r = input_data.values
+    n_strat = r.shape[1]
+    dim_arr = np.zeros(n_strat, dtype=np.float64)
+
+    for col in range(n_strat):
+        col_data = r[:, col]
+        valid_data = col_data[~np.isnan(col_data)]
+        h = _hurst_rs(valid_data)
+        dim_arr[col] = 2.0 - h if not np.isnan(h) else np.nan
+
+    value: float | NDArray[np.floating]
+    value = float(dim_arr[0]) if input_data.is_single else dim_arr
+
+    meta: dict[str, object] = {
+        "ref": _FRACTAL_DIM_REF,
+        "method": "R/S analysis (via Hurst exponent)",
+        "min_periods": 50,
+    }
+    if np.any(np.isnan(dim_arr)):
+        n_nan = int(np.sum(np.isnan(dim_arr)))
+        meta["note"] = (
+            f"{n_nan} strategy column(s) returned NaN — "
+            "fewer than 50 valid observations or insufficient lags."
+        )
+
+    return MetricResult(
+        name="fractal_dimension",
+        value=value,
+        category=("descriptive", "returns"),
+        periods_per_year=input_data.periods_per_year,
+        meta=meta,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Helper: consecutive wins/losses walker
+# ---------------------------------------------------------------------------
+
+
+def _consecutive_wl(series: NDArray[np.floating]) -> dict[str, float]:
+    """Compute max and current consecutive win/loss streaks for a 1-D array.
+
+    A win is a period with a positive return (> 0). A loss is a negative
+    return (< 0). Zero is treated as neither (breaks streaks).
+
+    Args:
+        series: 1-D array of returns (may contain NaN — treated as
+            streak-breakers).
+
+    Returns:
+        Dict with keys ``max_win_streak``, ``max_loss_streak``,
+        ``current_win_streak``, ``current_loss_streak``.
+    """
+    max_win = 0
+    max_loss = 0
+    current_win = 0
+    current_loss = 0
+    final_win = 0
+    final_loss = 0
+
+    for val in series:
+        if np.isnan(val) or val == 0.0:
+            # Break all streaks
+            current_win = 0
+            current_loss = 0
+        elif val > 0:
+            current_win += 1
+            current_loss = 0
+            if current_win > max_win:
+                max_win = current_win
+        else:  # val < 0
+            current_loss += 1
+            current_win = 0
+            if current_loss > max_loss:
+                max_loss = current_loss
+
+    # Determine current streaks: walk from end backwards
+    rev = series[::-1]
+    for val in rev:
+        if np.isnan(val) or val == 0.0:
+            break
+        elif val > 0:
+            if final_loss > 0:
+                break
+            final_win += 1
+        else:
+            if final_win > 0:
+                break
+            final_loss += 1
+
+    return {
+        "max_win_streak": float(max_win),
+        "max_loss_streak": float(max_loss),
+        "current_win_streak": float(final_win),
+        "current_loss_streak": float(final_loss),
+    }
+
+
+# ---------------------------------------------------------------------------
+# 1.20 Consecutive Wins/Losses (returns-level)
+# Reference: Schwager (1995)
+# ---------------------------------------------------------------------------
+
+_CONSEC_WL_REF = "Schwager (1995, Schwager on Futures: Technical Analysis)"
+
+
+@register_metric(
+    name="consecutive_wins_losses",
+    requires="returns",
+    category=("descriptive", "returns"),
+    backend="sequential",
+    ref=_CONSEC_WL_REF,
+)
+def consecutive_wins_losses(input_data: ReturnsInput) -> MetricResult:
+    """Maximum and current streaks of consecutive positive/negative return periods.
+
+    A "win" is a period with a positive return (> 0). A "loss" is a period
+    with a negative return (< 0). Periods with zero return or NaN break
+    all streaks. This is the returns-level analogue of the trade-level
+    ``max_consecutive_wins`` / ``max_consecutive_losses`` metrics.
+
+    Args:
+        input_data: A ``ReturnsInput``.
+
+    Returns:
+        MetricResult whose value is a dict with keys ``max_win_streak``,
+        ``max_loss_streak``, ``current_win_streak``, ``current_loss_streak``
+        (each a float for single strategy, or arrays for multi-strategy).
+    """
+    r = input_data.values
+    n_strat = r.shape[1]
+
+    max_wins = np.zeros(n_strat, dtype=np.float64)
+    max_losses = np.zeros(n_strat, dtype=np.float64)
+    cur_wins = np.zeros(n_strat, dtype=np.float64)
+    cur_losses = np.zeros(n_strat, dtype=np.float64)
+
+    for col in range(n_strat):
+        result = _consecutive_wl(r[:, col])
+        max_wins[col] = result["max_win_streak"]
+        max_losses[col] = result["max_loss_streak"]
+        cur_wins[col] = result["current_win_streak"]
+        cur_losses[col] = result["current_loss_streak"]
+
+    value: dict[str, float | NDArray[np.floating]]
+    if input_data.is_single:
+        value = {
+            "max_win_streak": float(max_wins[0]),
+            "max_loss_streak": float(max_losses[0]),
+            "current_win_streak": float(cur_wins[0]),
+            "current_loss_streak": float(cur_losses[0]),
+        }
+    else:
+        value = {
+            "max_win_streak": max_wins,
+            "max_loss_streak": max_losses,
+            "current_win_streak": cur_wins,
+            "current_loss_streak": cur_losses,
+        }
+
+    return MetricResult(
+        name="consecutive_wins_losses",
+        value=value,
+        category=("descriptive", "returns"),
+        periods_per_year=input_data.periods_per_year,
+        meta={
+            "ref": _CONSEC_WL_REF,
+            "output_index": [
+                "max_win_streak",
+                "max_loss_streak",
+                "current_win_streak",
+                "current_loss_streak",
+            ],
         },
     )

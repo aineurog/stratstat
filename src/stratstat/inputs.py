@@ -102,6 +102,9 @@ class ExposureInput:
       book-return metrics (§6.6–§6.7) and beta metrics (§6.8–§6.9).
     * **Benchmark returns** (``benchmark=``) — needed for long/short
       beta (§6.8–§6.9).
+    * **Benchmark constituent weights** (``benchmark_weights=``) —
+      needed for active share (§6.23).  Shape ``(n_assets,)`` for
+      static weights or ``(n_periods, n_assets)`` for time-varying.
     * **Portfolio equity** (``equity=``) — needed for leverage (§6.3).
       If omitted but *returns* is provided, the equity curve is
       computed from the portfolio's cumulative return
@@ -128,6 +131,7 @@ class ExposureInput:
         positions: Any,
         returns: Any | None = None,
         benchmark: Any | None = None,
+        benchmark_weights: Any | None = None,
         equity: Any | None = None,
         periods_per_year: int | None = None,
     ) -> None:
@@ -171,6 +175,30 @@ class ExposureInput:
             self.benchmark: NDArray[np.floating] | None = bench
         else:
             self.benchmark = None
+
+        # -- benchmark constituent weights (optional) ---------------------
+        if benchmark_weights is not None:
+            bw = _to_numpy(benchmark_weights)
+            if bw.ndim == 1:
+                if bw.shape[0] != self.n_assets:
+                    raise ValueError(
+                        f"benchmark_weights length {bw.shape[0]} must match "
+                        f"n_assets {self.n_assets}."
+                    )
+                self.benchmark_weights: NDArray[np.floating] | None = bw
+            elif bw.ndim == 2:
+                if bw.shape != (self.n_periods, self.n_assets):
+                    raise ValueError(
+                        f"benchmark_weights shape {bw.shape} must match "
+                        f"(n_periods={self.n_periods}, n_assets={self.n_assets})."
+                    )
+                self.benchmark_weights = bw
+            else:
+                raise ValueError(
+                    f"benchmark_weights must be 1-D or 2-D, got {bw.ndim}-D array."
+                )
+        else:
+            self.benchmark_weights = None
 
         # -- equity (optional; can be derived from positions + returns) ---
         if equity is not None:
@@ -216,6 +244,11 @@ class ExposureInput:
         return self.benchmark is not None
 
     @property
+    def has_benchmark_weights(self) -> bool:
+        """True if benchmark constituent weights were provided."""
+        return self.benchmark_weights is not None
+
+    @property
     def has_equity(self) -> bool:
         """True if portfolio equity is available."""
         return self.equity is not None
@@ -226,6 +259,7 @@ class ExposureInput:
             f"n_assets={self.n_assets}, "
             f"has_returns={self.has_returns}, "
             f"has_benchmark={self.has_benchmark}, "
+            f"has_benchmark_weights={self.has_benchmark_weights}, "
             f"has_equity={self.has_equity}, "
             f"periods_per_year={self.periods_per_year})"
         )

@@ -24,6 +24,8 @@ from stratstat.core.returns.risk import (
     hill_tail_index,
     longest_drawdown_duration,
     max_drawdown,
+    pain_index,
+    prospect_ratio,
     risk_of_ruin,
     tail_ratio,
     time_to_recovery,
@@ -552,7 +554,7 @@ class TestDrawdownFamily:
 
 class TestRegistryIntegration:
     def test_all_risk_metrics_registered(self):
-        """All 20 risk metrics appear in the registry."""
+        """All 22 risk metrics appear in the registry."""
         from stratstat.registry import list_metrics
 
         risk_metrics = list_metrics(requires="returns", category="risk")
@@ -578,6 +580,8 @@ class TestRegistryIntegration:
             "current_drawdown",
             "current_drawdown_duration",
             "drawdown_total_duration",
+            "pain_index",
+            "prospect_ratio",
         }
         assert names == expected
 
@@ -835,3 +839,103 @@ class TestNumbaAgreement:
             assert pe["depth"] == pytest.approx(ne["depth"])
             assert pe["duration"] == ne["duration"]
             assert pe["recovered"] == ne["recovered"]
+
+
+# ---------------------------------------------------------------------------
+# Pain Index
+# ---------------------------------------------------------------------------
+
+
+class TestPainIndex:
+    """Tests for pain_index metric."""
+
+    def test_known_value(self):
+        """Pain Index should be less negative than average drawdown since it
+        includes zero-drawdown periods."""
+        returns = np.array([0.02, -0.01, 0.03, -0.02, 0.01, -0.005, 0.04, -0.03])
+        inp = ReturnsInput(returns)
+        result = pain_index(inp)
+        # Pain Index = mean of all drawdowns (including zeros)
+        assert result.value < 0  # negative (there are drawdowns)
+        assert result.name == "pain_index"
+
+    def test_pain_index_vs_average_drawdown(self):
+        """Pain Index is period-level (includes zeros); Average Drawdown is
+        episode-level (only underwater periods). Both should be negative
+        for a strategy with drawdowns."""
+        rng = np.random.default_rng(42)
+        returns = rng.normal(0.0004, 0.01, size=252)
+        inp = ReturnsInput(returns)
+
+        pi_result = pain_index(inp)
+        add_result = average_drawdown(inp)
+
+        # Both are negative when there are drawdowns
+        assert pi_result.value < 0
+        assert add_result.value < 0
+        # Pain Index should be ≤ 0 (could be 0 if no drawdowns)
+        assert pi_result.value <= 0
+
+    def test_no_drawdowns(self):
+        """Pain Index should be exactly 0 for strictly increasing equity."""
+        returns = np.array([0.01, 0.02, 0.01, 0.03, 0.02])
+        inp = ReturnsInput(returns)
+        result = pain_index(inp)
+        assert result.value == pytest.approx(0.0)
+
+    def test_multi_strategy(self):
+        """Pain Index should return an array for multi-strategy input."""
+        rng = np.random.default_rng(42)
+        returns = rng.normal(0.0004, 0.01, size=(252, 3))
+        inp = ReturnsInput(returns)
+        result = pain_index(inp)
+        assert hasattr(result.value, "shape")
+        assert result.value.shape == (3,)
+
+
+# ---------------------------------------------------------------------------
+# Prospect Ratio
+# ---------------------------------------------------------------------------
+
+
+class TestProspectRatio:
+    """Tests for prospect_ratio metric."""
+
+    def test_symmetric_returns(self):
+        """Prospect Ratio should be near 1 for symmetric return distributions."""
+        rng = np.random.default_rng(42)
+        returns = rng.normal(0.0, 0.01, size=1000)
+        inp = ReturnsInput(returns)
+        result = prospect_ratio(inp)
+        # Should be close to 1 for a symmetric distribution
+        assert result.value == pytest.approx(1.0, rel=0.2)
+
+    def test_positive_skew(self):
+        """Prospect Ratio > 1 when upside semivariance > downside semivariance."""
+        # Positive skew: large gains, small losses
+        returns = np.array([0.05, 0.02, -0.005, 0.03, -0.01, 0.04, -0.005, -0.01])
+        inp = ReturnsInput(returns)
+        result = prospect_ratio(inp)
+        assert result.value > 1.0
+
+    def test_no_downside(self):
+        """Prospect Ratio should be inf when there is no downside semivariance."""
+        returns = np.array([0.01, 0.02, 0.03, 0.01, 0.02])
+        inp = ReturnsInput(returns)
+        result = prospect_ratio(inp)
+        assert result.value == float("inf")
+
+    def test_all_zero(self):
+        """Prospect Ratio should be NaN for all-zero returns."""
+        returns = np.zeros(100)
+        inp = ReturnsInput(returns)
+        result = prospect_ratio(inp)
+        assert np.isnan(result.value)
+
+    def test_with_mar(self):
+        """Prospect Ratio with non-zero MAR."""
+        returns = np.array([0.02, -0.01, 0.03, -0.02, 0.01])
+        inp = ReturnsInput(returns)
+        result = prospect_ratio(inp, mar=0.01)
+        assert result.value > 0
+        assert result.meta["mar"] == 0.01

@@ -12,6 +12,7 @@ import pytest
 
 # Import triggers @register_metric decorators
 import stratstat.core.exposure  # noqa: F401
+from stratstat.core.exposure import active_share
 from stratstat.inputs import ExposureInput
 
 # ---------------------------------------------------------------------------
@@ -1374,9 +1375,10 @@ class TestRegistry:
             "exposure_directional_bias",
             "exposure_percentiles",
             "period_counts",
+            "active_share",
         }
         assert names == expected
-        assert len(metrics) == 23
+        assert len(metrics) == 24
 
     def test_compute_single(self, inp_no_ret):
         from stratstat import compute
@@ -1479,3 +1481,101 @@ class TestExposureInputFeatures:
         inp = ExposureInput(positions=positions, returns=returns)
         assert inp.has_returns
         assert inp.returns.shape == (3, 1)
+
+    def test_benchmark_weights_1d(self):
+        """1-D benchmark weights should be stored correctly."""
+        positions = np.array([[0.3, 0.3, 0.4], [0.25, 0.35, 0.4]])
+        bw = np.array([0.4, 0.3, 0.3])
+        inp = ExposureInput(positions=positions, benchmark_weights=bw)
+        assert inp.has_benchmark_weights
+        assert inp.benchmark_weights.shape == (3,)
+
+    def test_benchmark_weights_2d(self):
+        """2-D benchmark weights should be stored correctly."""
+        positions = np.array([[0.3, 0.3, 0.4], [0.25, 0.35, 0.4]])
+        bw = np.array([[0.4, 0.3, 0.3], [0.35, 0.35, 0.3]])
+        inp = ExposureInput(positions=positions, benchmark_weights=bw)
+        assert inp.has_benchmark_weights
+        assert inp.benchmark_weights.shape == (2, 3)
+
+    def test_benchmark_weights_wrong_shape(self):
+        """Mismatched benchmark_weights shape should raise."""
+        positions = np.array([[0.3, 0.3, 0.4]])
+        bw = np.array([0.4, 0.3])  # wrong length
+        with pytest.raises(ValueError, match="benchmark_weights"):
+            ExposureInput(positions=positions, benchmark_weights=bw)
+
+
+# ---------------------------------------------------------------------------
+# Active Share
+# ---------------------------------------------------------------------------
+
+
+class TestActiveShare:
+    """Tests for active_share metric."""
+
+    def test_perfect_match(self):
+        """Active Share should be 0 when portfolio matches benchmark."""
+        positions = np.array([[0.4, 0.3, 0.3], [0.4, 0.3, 0.3]])
+        bw = np.array([0.4, 0.3, 0.3])
+        inp = ExposureInput(positions=positions, benchmark_weights=bw)
+        result = active_share(inp)
+        assert result.value == pytest.approx(0.0, abs=1e-10)
+
+    def test_no_overlap(self):
+        """Active Share should be 1.0 when there is zero overlap."""
+        positions = np.array([[1.0, 0.0], [1.0, 0.0]])
+        bw = np.array([0.0, 1.0])
+        inp = ExposureInput(positions=positions, benchmark_weights=bw)
+        result = active_share(inp)
+        assert result.value == pytest.approx(1.0, abs=1e-10)
+
+    def test_partial_overlap(self):
+        """Active Share for a known partial-overlap case."""
+        # Portfolio: [0.6, 0.4], Benchmark: [0.5, 0.5]
+        # AS = 0.5 * (|0.6-0.5| + |0.4-0.5|) = 0.5 * (0.1 + 0.1) = 0.1
+        positions = np.array([[0.6, 0.4]])
+        bw = np.array([0.5, 0.5])
+        inp = ExposureInput(positions=positions, benchmark_weights=bw)
+        result = active_share(inp)
+        assert result.value == pytest.approx(0.1, abs=1e-10)
+
+    def test_time_varying_benchmark(self):
+        """Active Share with time-varying benchmark weights."""
+        positions = np.array([
+            [0.6, 0.4],
+            [0.5, 0.5],
+            [0.3, 0.7],
+        ])
+        bw = np.array([
+            [0.5, 0.5],
+            [0.6, 0.4],
+            [0.4, 0.6],
+        ])
+        inp = ExposureInput(positions=positions, benchmark_weights=bw)
+        result = active_share(inp)
+        assert 0.0 <= result.value <= 1.0
+        assert "series" in result.meta
+
+    def test_series_in_meta(self):
+        """Per-period active share series should be stored in meta."""
+        positions = np.array([[0.6, 0.4], [0.3, 0.7]])
+        bw = np.array([0.5, 0.5])
+        inp = ExposureInput(positions=positions, benchmark_weights=bw)
+        result = active_share(inp)
+
+        series = result.meta["series"]
+        assert series.shape == (2,)
+        # First period: 0.5 * (|0.6-0.5| + |0.4-0.5|) = 0.5 * 0.2 = 0.1
+        assert series[0] == pytest.approx(0.1, abs=1e-10)
+        # Second period: 0.5 * (|0.3-0.5| + |0.7-0.5|) = 0.5 * 0.4 = 0.2
+        assert series[1] == pytest.approx(0.2, abs=1e-10)
+        # Mean: (0.1 + 0.2) / 2 = 0.15
+        assert result.value == pytest.approx(0.15, abs=1e-10)
+
+    def test_requires_benchmark_weights(self):
+        """Active Share should raise when benchmark_weights is missing."""
+        positions = np.array([[0.6, 0.4]])
+        inp = ExposureInput(positions=positions)
+        with pytest.raises(ValueError, match="benchmark_weights"):
+            active_share(inp)

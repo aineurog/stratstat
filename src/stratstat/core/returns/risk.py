@@ -4,7 +4,8 @@ Metrics: max drawdown, longest drawdown duration, time to recovery,
 average drawdown, average drawdown duration, ulcer index, downside deviation,
 upside deviation, VaR, CVaR, tail ratio, common-sense ratio, Hill tail index,
 GPD tail fit, risk of ruin, drawdown volatility, drawdown periods count,
-current drawdown, current drawdown duration, drawdown total duration.
+current drawdown, current drawdown duration, drawdown total duration,
+pain index, prospect ratio.
 
 All tagged: category=("risk", "returns"). Backend varies: mostly "vectorized",
 drawdown walks are "sequential".
@@ -1773,4 +1774,125 @@ def drawdown_total_duration(input_data: ReturnsInput) -> MetricResult:
         category=("risk", "returns"),
         periods_per_year=input_data.periods_per_year,
         meta={"ref": _DD_TOT_REF},
+    )
+
+
+# ---------------------------------------------------------------------------
+# 2.21 Pain Index
+# Reference: Zephyr Associates; Becker (2006)
+# ---------------------------------------------------------------------------
+
+_PAIN_INDEX_REF = "Zephyr Associates; Becker (2006)"
+
+
+@register_metric(
+    name="pain_index",
+    requires="returns",
+    category=("risk", "returns"),
+    backend="vectorized",
+    ref=_PAIN_INDEX_REF,
+)
+def pain_index(input_data: ReturnsInput) -> MetricResult:
+    """Pain Index — mean of percentage drawdowns over all periods.
+
+    Formula:
+        PI = (1/n) * sum(d_t)
+
+    where d_t = (P_t - max_{tau <= t} P_tau) / max_{tau <= t} P_tau
+    is the percentage drawdown at each period. Unlike ``average_drawdown``,
+    which averages only across underwater episodes, Pain Index includes
+    periods at zero drawdown in the mean, producing a smaller (less negative)
+    value for strategies that spend time at new highs.
+
+    Args:
+        input_data: A ``ReturnsInput``.
+
+    Returns:
+        MetricResult with Pain Index (negative float or array, ≤ 0).
+    """
+    r = input_data.values
+    equity = _equity_curve(r, "simple")
+    _, dd = _drawdown_series(equity)
+
+    # Mean of all drawdowns including zeros (periods at new highs).
+    arr = np.nanmean(dd, axis=0)
+
+    value: float | NDArray[np.floating]
+    value = float(arr[0]) if input_data.is_single else arr
+
+    return MetricResult(
+        name="pain_index",
+        value=value,
+        category=("risk", "returns"),
+        periods_per_year=input_data.periods_per_year,
+        meta={"ref": _PAIN_INDEX_REF},
+    )
+
+
+# ---------------------------------------------------------------------------
+# 2.22 Prospect Ratio
+# Reference: Watanabe (2005)
+# ---------------------------------------------------------------------------
+
+_PROSPECT_RATIO_REF = "Watanabe (2005)"
+
+
+@register_metric(
+    name="prospect_ratio",
+    requires="returns",
+    category=("risk", "returns"),
+    backend="vectorized",
+    ref=_PROSPECT_RATIO_REF,
+)
+def prospect_ratio(
+    input_data: ReturnsInput, mar: float = 0.0
+) -> MetricResult:
+    """Prospect Ratio — upside semivariance divided by downside semivariance.
+
+    Formula:
+        PR = USV / DSV
+
+    where:
+        USV = (1/n) * sum(max(r_t - mar, 0)^2)
+        DSV = (1/n) * sum(min(r_t - mar, 0)^2)
+
+    Measures the asymmetry of gains vs losses. Values > 1 indicate
+    gain dispersion exceeds loss dispersion; values < 1 indicate
+    loss dispersion dominates.
+
+    Args:
+        input_data: A ``ReturnsInput``.
+        mar: Minimum acceptable return (default 0.0).
+
+    Returns:
+        MetricResult with Prospect Ratio (non-negative float or array).
+        Returns ``inf`` when downside semivariance is zero (no downside);
+        ``NaN`` when both are zero (no data).
+    """
+    r = input_data.values
+
+    above = np.maximum(r - mar, 0.0)  # positive excess returns
+    below = np.minimum(r - mar, 0.0)  # negative excess returns
+
+    usv = np.nanmean(above**2, axis=0)  # upside semivariance
+    dsv = np.nanmean(below**2, axis=0)  # downside semivariance
+
+    with np.errstate(divide="ignore", invalid="ignore"):
+        arr = np.where(dsv < 1e-15, np.inf, usv / dsv)
+
+    both_zero = (usv < 1e-15) & (dsv < 1e-15)
+    arr = np.where(both_zero, np.nan, arr)
+
+    value: float | NDArray[np.floating]
+    value = float(arr[0]) if input_data.is_single else arr
+
+    return MetricResult(
+        name="prospect_ratio",
+        value=value,
+        category=("risk", "returns"),
+        periods_per_year=input_data.periods_per_year,
+        meta={
+            "ref": _PROSPECT_RATIO_REF,
+            "mar": mar,
+        },
     )

@@ -5,7 +5,7 @@ leverage, long/short exposure percentages, long/short book contribution,
 long/short beta, position concentration (HHI), effective N positions,
 turnover, average holding weight, position coverage, exposure volatility,
 exposure CV, exposure utilization, exposure directional bias, exposure
-percentiles, period counts.
+percentiles, period counts, active share.
 
 All tagged: category varies, requires="exposure".
 """
@@ -1039,5 +1039,82 @@ def period_counts(inp: ExposureInput) -> MetricResult:
                 "long_short",
                 "idle",
             ],
+        },
+    )
+
+
+# ---------------------------------------------------------------------------
+# 6.23 Active Share
+# Reference: Cremers & Petajisto (2009)
+# ---------------------------------------------------------------------------
+
+_ACTIVE_SHARE_REF = (
+    "Cremers & Petajisto (2009), "
+    '"How Active Is Your Fund Manager? A New Measure That Predicts Performance," '
+    "Review of Financial Studies, 22(9)"
+)
+
+
+@register_metric(
+    name="active_share",
+    requires="exposure",
+    category=("relative", "exposure"),
+    backend="vectorized",
+    ref=_ACTIVE_SHARE_REF,
+)
+def active_share(inp: ExposureInput) -> MetricResult:
+    """Active Share — fraction of the portfolio that differs from the benchmark.
+
+    Formula (per period):
+        AS_t = (1/2) * sum_i |w_{i,t} - w_{b,i,t}|
+
+    where w_{i,t} are portfolio position weights and w_{b,i,t} are benchmark
+    constituent weights for asset i at time t. Active Share ranges from 0
+    (perfectly matching the benchmark) to 1 (zero overlap).
+
+    Returns the time-series mean as the primary value and stores the full
+    per-period series in ``meta["series"]``.
+
+    Requires ``benchmark_weights`` on the ``ExposureInput``.
+
+    Args:
+        inp: An ``ExposureInput`` with ``benchmark_weights`` set.
+
+    Returns:
+        MetricResult with mean Active Share (float) and per-period series
+        in ``meta["series"]``.
+
+    Raises:
+        ValueError: If ``benchmark_weights`` is not set on the input.
+    """
+    if inp.benchmark_weights is None:
+        raise ValueError(
+            "Active Share requires benchmark_weights on the ExposureInput. "
+            "Pass benchmark_weights=<array> to ExposureInput."
+        )
+
+    positions = inp.positions  # (n_periods, n_assets)
+    bw = inp.benchmark_weights  # (n_assets,) or (n_periods, n_assets)
+
+    if bw.ndim == 1:
+        # Static benchmark weights — broadcast across all periods
+        bw_2d = bw[np.newaxis, :]  # (1, n_assets)
+        diff = np.abs(positions - bw_2d)
+    else:
+        diff = np.abs(positions - bw)
+
+    # Per-period Active Share
+    active_share_series: NDArray[np.floating] = 0.5 * np.nansum(diff, axis=1)
+
+    mean_as = float(np.nanmean(active_share_series))
+
+    return MetricResult(
+        name="active_share",
+        value=mean_as,
+        category=("relative", "exposure"),
+        periods_per_year=inp.periods_per_year,
+        meta={
+            "ref": _ACTIVE_SHARE_REF,
+            "series": active_share_series,
         },
     )

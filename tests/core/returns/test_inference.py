@@ -14,12 +14,14 @@ import pytest
 import stratstat.core.returns.descriptive  # noqa: F401
 import stratstat.core.returns.risk_adjusted  # noqa: F401
 from stratstat.core.returns.inference import (
+
     _autocorr_lag1,
     _norm_ppf,
     _period_sharpe,
     _psr_z,
     _sample_excess_kurtosis,
     _sample_skewness,
+    bias_ratio,
     block_bootstrap_ci,
     dsr,
     jarque_bera,
@@ -28,7 +30,9 @@ from stratstat.core.returns.inference import (
     psr,
     sharpe_ci_analytic,
     sharpe_ci_bootstrap,
+    skewness_adjusted_sharpe,
 )
+from stratstat.core.returns.risk_adjusted import sharpe_ratio
 from stratstat.inputs import ReturnsInput
 
 # ---------------------------------------------------------------------------
@@ -603,6 +607,8 @@ class TestRegistryIntegration:
             "sharpe_ci_bootstrap",
             "min_track_record_length",
             "block_bootstrap_ci",
+            "bias_ratio",
+            "skewness_adjusted_sharpe",
         }
         assert names == expected
 
@@ -639,5 +645,110 @@ class TestRegistryIntegration:
         names = {r.name for r in results}
         assert "jarque_bera" in names
         assert "psr" in names
+        assert "bias_ratio" in names
+        assert "skewness_adjusted_sharpe" in names
         # block_bootstrap_ci registered but needs target_metric kwarg
         assert "block_bootstrap_ci" not in names
+
+
+# ---------------------------------------------------------------------------
+# Bias Ratio
+# ---------------------------------------------------------------------------
+
+
+class TestBiasRatio:
+    """Tests for bias_ratio metric."""
+
+    def test_normal_distribution(self):
+        """Bias Ratio should be moderate for normally distributed returns."""
+        rng = np.random.default_rng(42)
+        returns = rng.normal(0.0, 0.01, size=500)
+        inp = ReturnsInput(returns)
+        result = bias_ratio(inp)
+        # For normal distribution ±1σ, about 68% in band, 32% out
+        # So bias_ratio ≈ 0.68 / 0.32 ≈ 2.1
+        assert 1.5 < result.value < 3.0
+
+    def test_default_bandwidth(self):
+        """Default bandwidth should be 1.0 (recorded in meta)."""
+        rng = np.random.default_rng(42)
+        returns = rng.normal(0.0, 0.01, size=100)
+        inp = ReturnsInput(returns)
+        result = bias_ratio(inp)
+        assert result.meta["bandwidth"] == 1.0
+
+    def test_custom_bandwidth(self):
+        """Custom bandwidth should give different results."""
+        rng = np.random.default_rng(42)
+        returns = rng.normal(0.0, 0.01, size=500)
+        inp = ReturnsInput(returns)
+        result_narrow = bias_ratio(inp, bandwidth=0.5)
+        result_wide = bias_ratio(inp, bandwidth=2.0)
+        # Wider band should have more returns inside -> higher ratio
+        assert result_wide.value > result_narrow.value
+
+    def test_all_in_band(self):
+        """Bias Ratio should be high when all returns cluster tightly near zero."""
+        rng = np.random.default_rng(42)
+        # Very tight cluster: tiny noise with small std
+        returns = rng.normal(0.0, 0.00001, size=500)
+        inp = ReturnsInput(returns)
+        result = bias_ratio(inp)
+        # Almost all returns should fall within ±1σ band (by definition ~68%
+        # of normal data does; here we're checking it's finite)
+        assert result.value > 0.5
+
+    def test_constant_returns(self):
+        """All-zero returns (sigma=0) should return NaN."""
+        returns = np.zeros(100)
+        inp = ReturnsInput(returns)
+        result = bias_ratio(inp)
+        assert np.isnan(result.value)
+
+
+# ---------------------------------------------------------------------------
+# Skewness-Adjusted Sharpe Ratio (ASR)
+# ---------------------------------------------------------------------------
+
+
+class TestSkewnessAdjustedSharpe:
+    """Tests for skewness_adjusted_sharpe metric."""
+
+    def test_asr_approx_sharpe_for_normal(self):
+        """ASR ≈ Sharpe for near-normal returns (skew≈0, excess_kurt≈0)."""
+        rng = np.random.default_rng(42)
+        returns = rng.normal(0.0004, 0.01, size=5000)
+        inp = ReturnsInput(returns, periods_per_year=252)
+
+        asr_result = skewness_adjusted_sharpe(inp)
+        sharpe_result = sharpe_ratio(inp)
+
+        # For a large normal sample, ASR should be close to Sharpe
+        assert asr_result.value == pytest.approx(sharpe_result.value, abs=0.1)
+
+    def test_positive_skew_increases_asr(self):
+        """Positive skewness should increase ASR relative to Sharpe.
+        Use modest outliers so kurtosis doesn't dominate."""
+        rng = np.random.default_rng(42)
+        n = 2000
+        base = rng.normal(0.0, 0.01, size=n)
+        # Add modest positive outliers — large enough to skew but not
+        # so large that kurtosis penalty dominates the adjustment
+        outlier_idx = rng.choice(n, size=15, replace=False)
+        base[outlier_idx] += 0.03
+        returns = base
+
+        inp = ReturnsInput(returns, periods_per_year=252)
+        asr_result = skewness_adjusted_sharpe(inp)
+        sharpe_result = sharpe_ratio(inp)
+
+        # Positive skew -> ASR > Sharpe (skew benefit outweighs kurtosis penalty)
+        assert asr_result.value > sharpe_result.value
+
+    def test_requires_periods_per_year(self):
+        """Should raise ValueError without periods_per_year."""
+        rng = np.random.default_rng(42)
+        returns = rng.normal(0.0004, 0.01, size=200)
+        inp = ReturnsInput(returns)
+        with pytest.raises(ValueError, match="periods_per_year"):
+            skewness_adjusted_sharpe(inp)

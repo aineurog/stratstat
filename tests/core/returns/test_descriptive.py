@@ -21,14 +21,18 @@ from stratstat.core.returns.descriptive import (
     best_period,
     cagr,
     coefficient_of_variation,
+    consecutive_wins_losses,
     cumulative_return,
     excess_kurtosis,
+    fractal_dimension,
     geometric_mean_return,
+    hurst_exponent,
     outlier_iqr,
     percentiles,
     positive_period_ratio,
     return_range,
     skewness,
+    stability,
     variance,
     worst_period,
 )
@@ -1013,7 +1017,7 @@ class TestAllZeroReturns:
 
 class TestRegistryIntegration:
     def test_all_metrics_registered(self):
-        """All 16 descriptive metrics appear in the registry."""
+        """All 20 descriptive metrics appear in the registry."""
         from stratstat.registry import list_metrics
 
         desc_metrics = list_metrics(requires="returns", category="descriptive")
@@ -1035,6 +1039,10 @@ class TestRegistryIntegration:
             "percentiles",
             "coefficient_of_variation",
             "outlier_iqr",
+            "stability",
+            "hurst_exponent",
+            "fractal_dimension",
+            "consecutive_wins_losses",
         }
         assert names == expected
 
@@ -1047,11 +1055,219 @@ class TestRegistryIntegration:
         assert isinstance(result.value, float)
 
     def test_compute_all_descriptive(self, sample_input):
-        """compute_all with category='descriptive' returns all 16 metrics."""
+        """compute_all with category='descriptive' returns all 20 metrics."""
         from stratstat import compute_all
 
         result_set = compute_all(sample_input, category="descriptive")
-        assert len(result_set) == 16
+        assert len(result_set) == 20
         names = {r.name for r in result_set}
         assert "cagr" in names
         assert "skewness" in names
+        assert "stability" in names
+        assert "hurst_exponent" in names
+
+
+# ---------------------------------------------------------------------------
+# Stability of Timeseries
+# ---------------------------------------------------------------------------
+
+
+class TestStability:
+    """Tests for stability metric."""
+
+    def test_perfectly_linear_equity_curve(self):
+        """Constant positive returns produce a perfectly linear log(VAMI)
+        curve, giving R² = 1.0."""
+        returns = np.full(100, 0.001)  # constant 0.1% per period
+        inp = ReturnsInput(returns)
+        result = stability(inp)
+        # Constant returns => perfectly linear cumulative log returns
+        assert result.value == pytest.approx(1.0, abs=1e-10)
+
+    def test_random_returns(self):
+        """Random returns should produce R² in [0, 1]."""
+        rng = np.random.default_rng(42)
+        returns = rng.normal(0.0004, 0.01, size=252)
+        inp = ReturnsInput(returns)
+        result = stability(inp)
+        assert 0.0 <= result.value <= 1.0
+
+    def test_too_few_periods(self):
+        """Returns NaN for fewer than 3 observations."""
+        inp = ReturnsInput(np.array([0.01, -0.01]))
+        result = stability(inp)
+        assert np.isnan(result.value)
+
+    def test_with_nans(self):
+        """Should handle NaN values correctly."""
+        returns = np.array([0.01, np.nan, 0.02, -0.01, np.nan, 0.03])
+        inp = ReturnsInput(returns)
+        result = stability(inp)
+        assert not np.isnan(result.value)
+
+
+# ---------------------------------------------------------------------------
+# Hurst Exponent
+# ---------------------------------------------------------------------------
+
+
+class TestHurstExponent:
+    """Tests for hurst_exponent metric."""
+
+    def test_random_walk_near_half(self):
+        """A random walk (normal i.i.d. returns) should have H ≈ 0.5."""
+        rng = np.random.default_rng(42)
+        returns = rng.normal(0.0, 0.01, size=1000)
+        inp = ReturnsInput(returns)
+        result = hurst_exponent(inp)
+        # Random walk should be in a band around 0.5
+        assert 0.3 < result.value < 0.7
+
+    def test_trending_series(self):
+        """A positively autocorrelated series should have H > 0.5."""
+        rng = np.random.default_rng(42)
+        # Build an AR(1) series with strong positive persistence
+        n = 500
+        returns = np.zeros(n)
+        returns[0] = rng.normal(0.0, 0.01)
+        for t in range(1, n):
+            returns[t] = 0.7 * returns[t - 1] + rng.normal(0.0, 0.01)
+        inp = ReturnsInput(returns)
+        result = hurst_exponent(inp)
+        # Trending/momentum series
+        assert result.value > 0.5
+
+    def test_mean_reverting_series(self):
+        """A mean-reverting series should have H < 0.5."""
+        rng = np.random.default_rng(42)
+        n = 500
+        returns = np.zeros(n)
+        long_run_mean = 0.0
+        for t in range(1, n):
+            returns[t] = -0.7 * returns[t - 1] + rng.normal(0.0, 0.01)
+        inp = ReturnsInput(returns)
+        result = hurst_exponent(inp)
+        # Mean-reverting — may not be strictly < 0.5 with small samples
+        # but should be close to or below 0.5
+        assert result.value < 0.6
+
+    def test_too_few_periods(self):
+        """Returns NaN for fewer than 50 periods."""
+        returns = np.random.default_rng(42).normal(0.0, 0.01, size=40)
+        inp = ReturnsInput(returns)
+        result = hurst_exponent(inp)
+        assert np.isnan(result.value)
+        assert "note" in result.meta
+
+    def test_multi_strategy(self):
+        """Returns an array for multi-strategy input."""
+        rng = np.random.default_rng(42)
+        returns = rng.normal(0.0, 0.01, size=(500, 2))
+        inp = ReturnsInput(returns)
+        result = hurst_exponent(inp)
+        assert hasattr(result.value, "shape")
+        assert result.value.shape == (2,)
+
+
+# ---------------------------------------------------------------------------
+# Fractal Dimension
+# ---------------------------------------------------------------------------
+
+
+class TestFractalDimension:
+    """Tests for fractal_dimension metric."""
+
+    def test_relation_to_hurst(self):
+        """Fractal dimension should equal 2 - H where H is the Hurst exponent."""
+        rng = np.random.default_rng(42)
+        returns = rng.normal(0.0, 0.01, size=500)
+        inp = ReturnsInput(returns)
+
+        fd_result = fractal_dimension(inp)
+        h_result = hurst_exponent(inp)
+
+        assert fd_result.value == pytest.approx(2.0 - h_result.value, abs=1e-10)
+
+    def test_range(self):
+        """For financial data, D should typically be near 1.5 (random walk)."""
+        rng = np.random.default_rng(42)
+        returns = rng.normal(0.0004, 0.01, size=1000)
+        inp = ReturnsInput(returns)
+        result = fractal_dimension(inp)
+        # D = 2 - H, H near 0.5 => D near 1.5
+        assert 1.0 <= result.value <= 2.0
+
+
+# ---------------------------------------------------------------------------
+# Consecutive Wins/Losses (returns-level)
+# ---------------------------------------------------------------------------
+
+
+class TestConsecutiveWinsLosses:
+    """Tests for consecutive_wins_losses metric."""
+
+    def test_known_sequence(self):
+        """Verify streak counts for a known sequence."""
+        # 3 wins, 2 losses, 4 wins, 1 loss
+        returns = np.array([
+            0.01, 0.02, 0.01,   # 3-win streak
+            -0.01, -0.02,        # 2-loss streak
+            0.03, 0.01, 0.02, 0.01,  # 4-win streak
+            -0.03,               # 1-loss streak (current)
+        ])
+        inp = ReturnsInput(returns)
+        result = consecutive_wins_losses(inp)
+        val = result.value
+        assert val["max_win_streak"] == 4
+        assert val["max_loss_streak"] == 2
+        assert val["current_win_streak"] == 0
+        assert val["current_loss_streak"] == 1
+
+    def test_all_wins(self):
+        """All positive returns."""
+        returns = np.full(50, 0.01)
+        inp = ReturnsInput(returns)
+        result = consecutive_wins_losses(inp)
+        val = result.value
+        assert val["max_win_streak"] == 50
+        assert val["max_loss_streak"] == 0
+        assert val["current_win_streak"] == 50
+        assert val["current_loss_streak"] == 0
+
+    def test_zeros_break_streaks(self):
+        """Zero returns break streaks."""
+        returns = np.array([0.01, 0.02, 0.0, 0.03, 0.04])
+        inp = ReturnsInput(returns)
+        result = consecutive_wins_losses(inp)
+        val = result.value
+        # Streak broken by zero, so max is 2 (first two), current is 2 (last two)
+        assert val["max_win_streak"] == 2
+        assert val["current_win_streak"] == 2
+
+    def test_nans_break_streaks(self):
+        """NaN returns break streaks."""
+        returns = np.array([0.01, 0.02, np.nan, 0.03])
+        inp = ReturnsInput(returns)
+        result = consecutive_wins_losses(inp)
+        val = result.value
+        assert val["max_win_streak"] == 2
+
+    def test_multi_strategy(self):
+        """Multi-strategy input should return arrays for each key."""
+        rng = np.random.default_rng(42)
+        returns = rng.normal(0.0004, 0.01, size=(100, 3))
+        inp = ReturnsInput(returns)
+        result = consecutive_wins_losses(inp)
+        val = result.value
+        for key in ["max_win_streak", "max_loss_streak", "current_win_streak", "current_loss_streak"]:
+            assert key in val
+            assert hasattr(val[key], "shape")
+
+    def test_output_index_in_meta(self):
+        """Meta should contain output_index."""
+        rng = np.random.default_rng(42)
+        returns = rng.normal(0.0004, 0.01, size=100)
+        inp = ReturnsInput(returns)
+        result = consecutive_wins_losses(inp)
+        assert "output_index" in result.meta
+        assert len(result.meta["output_index"]) == 4

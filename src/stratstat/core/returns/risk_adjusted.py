@@ -1,7 +1,9 @@
 """Risk-adjusted return metrics.
 
 Metrics: Sharpe ratio, Sortino ratio, Calmar ratio, Omega ratio, Sterling ratio,
-Burke ratio, Kappa-3, Martin ratio, Gain-to-Pain ratio.
+Burke ratio, Kappa-3, Martin ratio, Gain-to-Pain ratio, pain ratio, recovery
+factor, K-ratio, serenity ratio, UPI (Ulcer Performance Index), modified Sharpe
+ratio, upside potential ratio, risk return ratio.
 
 All tagged: category=("risk_adjusted", "returns"), backend="vectorized".
 """
@@ -16,7 +18,7 @@ from stratstat.inputs import ReturnsInput
 from stratstat.registry import register_metric
 from stratstat.results import MetricResult
 
-from .risk import _analyse_drawdowns, _drawdown_series, _equity_curve
+from .risk import _analyse_drawdowns, _drawdown_series, _equity_curve, _var_cornish_fisher
 
 # ---------------------------------------------------------------------------
 # 3.1 Sharpe Ratio
@@ -643,4 +645,606 @@ def gain_to_pain_ratio(input_data: ReturnsInput) -> MetricResult:
         category=("risk_adjusted", "returns"),
         periods_per_year=input_data.periods_per_year,
         meta={"ref": _GPR_REF},
+    )
+
+
+# ---------------------------------------------------------------------------
+# 3.10 Pain Ratio
+# Reference: Zephyr Associates
+# ---------------------------------------------------------------------------
+
+_PAIN_RATIO_REF = "Zephyr Associates"
+
+
+@register_metric(
+    name="pain_ratio",
+    requires="returns",
+    category=("risk_adjusted", "returns"),
+    backend="vectorized",
+    ref=_PAIN_RATIO_REF,
+)
+def pain_ratio(input_data: ReturnsInput) -> MetricResult:
+    """Pain Ratio — CAGR divided by the absolute value of the Pain Index.
+
+    Formula:
+        Pain Ratio = CAGR / |PI|
+
+    where PI = mean(d_t) over all periods (including zero-drawdown periods).
+    Higher values indicate a better return per unit of drawdown pain.
+
+    Args:
+        input_data: A ``ReturnsInput`` with ``periods_per_year`` set.
+
+    Returns:
+        MetricResult with Pain Ratio (float or array). +inf when Pain Index
+        is zero (no drawdowns at all). NaN when CAGR is undefined.
+
+    Raises:
+        ValueError: If ``periods_per_year`` is None.
+    """
+    if input_data.periods_per_year is None:
+        raise ValueError(
+            "Pain ratio requires periods_per_year on the ReturnsInput"
+        )
+
+    r = input_data.values
+    p = float(input_data.periods_per_year)
+
+    cagr_arr = compute_cagr(r, p)
+
+    equity = _equity_curve(r, "simple")
+    _, dd = _drawdown_series(equity)
+    pain_idx = np.nanmean(dd, axis=0)  # Pain Index = mean of all drawdowns
+
+    with np.errstate(divide="ignore", invalid="ignore"):
+        arr = np.where(np.abs(pain_idx) < 1e-15, np.inf, cagr_arr / np.abs(pain_idx))
+
+    value: float | NDArray[np.floating]
+    value = float(arr[0]) if input_data.is_single else arr
+
+    return MetricResult(
+        name="pain_ratio",
+        value=value,
+        category=("risk_adjusted", "returns"),
+        periods_per_year=input_data.periods_per_year,
+        meta={"ref": _PAIN_RATIO_REF},
+    )
+
+
+# ---------------------------------------------------------------------------
+# 3.11 Recovery Factor
+# Reference: Industry convention
+# ---------------------------------------------------------------------------
+
+_RECOVERY_FACTOR_REF = "Industry convention"
+
+
+@register_metric(
+    name="recovery_factor",
+    requires="returns",
+    category=("risk_adjusted", "returns"),
+    backend="vectorized",
+    ref=_RECOVERY_FACTOR_REF,
+)
+def recovery_factor(input_data: ReturnsInput) -> MetricResult:
+    """Recovery Factor — total cumulative return divided by absolute max drawdown.
+
+    Formula:
+        RF = total_cumulative_return / |MDD|
+
+    Where total_cumulative_return = prod(1+r) - 1 and MDD is the maximum
+    drawdown (a negative number). Uses TOTAL return, not CAGR (which is
+    the Calmar ratio).
+
+    A 100k→150k strategy with a -20% max drawdown:
+        RF = 0.5 / 0.2 = 2.5
+
+    Args:
+        input_data: A ``ReturnsInput``.
+
+    Returns:
+        MetricResult with Recovery Factor (float or array). +inf when
+        max drawdown is zero; NaN when cumulative return is undefined.
+    """
+    r = input_data.values
+
+    total_return = np.nanprod(1.0 + r, axis=0) - 1.0
+
+    equity = _equity_curve(r, "simple")
+    _, dd = _drawdown_series(equity)
+    mdd = np.nanmin(dd, axis=0)  # most negative drawdown
+
+    with np.errstate(divide="ignore", invalid="ignore"):
+        arr = np.where(np.abs(mdd) < 1e-15, np.inf, total_return / np.abs(mdd))
+
+    value: float | NDArray[np.floating]
+    value = float(arr[0]) if input_data.is_single else arr
+
+    return MetricResult(
+        name="recovery_factor",
+        value=value,
+        category=("risk_adjusted", "returns"),
+        periods_per_year=input_data.periods_per_year,
+        meta={"ref": _RECOVERY_FACTOR_REF},
+    )
+
+
+# ---------------------------------------------------------------------------
+# 3.12 K-Ratio
+# Reference: Kestner (1996), revised 2003
+# ---------------------------------------------------------------------------
+
+_K_RATIO_REF = "Kestner (1996), revised 2003"
+
+
+@register_metric(
+    name="k_ratio",
+    requires="returns",
+    category=("risk_adjusted", "returns"),
+    backend="vectorized",
+    ref=_K_RATIO_REF,
+)
+def k_ratio(input_data: ReturnsInput) -> MetricResult:
+    """K-Ratio — slope of the log(VAMI) regression line divided by its standard error.
+
+    Measures the consistency of equity curve growth. A higher K-Ratio
+    indicates a smoother, more linear equity curve. Penalises erratic
+    or inconsistent growth patterns.
+
+    Formula:
+        y_t = sum_{tau=1}^{t} ln(1 + r_tau)   (log VAMI)
+        y_t = alpha + beta * t + epsilon_t
+        K = beta / SE(beta)
+
+    where SE(beta) = sqrt( MSE / sum((t - t_bar)^2) ).
+
+    Requires at least 3 periods.
+
+    Args:
+        input_data: A ``ReturnsInput``.
+
+    Returns:
+        MetricResult with K-Ratio (float or array). NaN for fewer than 3
+        observations or when the equity curve is perfectly flat.
+    """
+    r = input_data.values  # (n_periods, n_strategies)
+    n = input_data.n_periods
+    n_strat = r.shape[1]
+
+    if n < 3:
+        nan_arr = np.full(n_strat, np.nan, dtype=np.float64)
+        nan_value: float | NDArray[np.floating] = (
+            float(nan_arr[0]) if input_data.is_single else nan_arr
+        )
+        return MetricResult(
+            name="k_ratio",
+            value=nan_value,
+            category=("risk_adjusted", "returns"),
+            periods_per_year=input_data.periods_per_year,
+            meta={
+                "ref": _K_RATIO_REF,
+                "note": "Requires at least 3 observations.",
+            },
+        )
+
+    # Time index 1..n
+    x = np.arange(1, n + 1, dtype=np.float64)
+    x_bar = np.mean(x)
+    ss_xx = float(np.sum((x - x_bar) ** 2))
+
+    arr = np.zeros(n_strat, dtype=np.float64)
+    for col in range(n_strat):
+        col_data = r[:, col]
+        valid = ~np.isnan(col_data)
+        n_valid = int(np.sum(valid))
+        if n_valid < 3:
+            arr[col] = np.nan
+            continue
+
+        # Log VAMI = cumulative sum of log(1+r)
+        log_ret = np.where(valid, np.log(1.0 + col_data), 0.0)
+        y = np.cumsum(log_ret)  # (n,)
+
+        y_valid = y[valid]
+        x_valid = x[valid]
+        y_bar = np.mean(y_valid)
+
+        # OLS slope
+        ss_xy = float(np.sum((x_valid - x_bar) * (y_valid - y_bar)))
+        ss_xx_valid = float(np.sum((x_valid - x_bar) ** 2))
+
+        if ss_xx_valid < 1e-30:
+            arr[col] = np.nan
+            continue
+
+        beta = ss_xy / ss_xx_valid
+        alpha = y_bar - beta * x_bar
+
+        y_pred = alpha + beta * x_valid
+        residuals = y_valid - y_pred
+        mse = np.sum(residuals**2) / (n_valid - 2) if n_valid > 2 else np.inf
+
+        if mse < 1e-30:
+            # Perfect fit — infinite K-Ratio (or cap?)
+            arr[col] = np.inf
+        else:
+            se_beta = np.sqrt(mse / ss_xx_valid)
+            arr[col] = beta / se_beta
+
+    value: float | NDArray[np.floating]
+    value = float(arr[0]) if input_data.is_single else arr
+
+    return MetricResult(
+        name="k_ratio",
+        value=value,
+        category=("risk_adjusted", "returns"),
+        periods_per_year=input_data.periods_per_year,
+        meta={"ref": _K_RATIO_REF},
+    )
+
+
+# ---------------------------------------------------------------------------
+# 3.13 Serenity Ratio
+# Reference: Industry metric; used by PortfolioMetrics
+# ---------------------------------------------------------------------------
+
+_SERENITY_REF = "Industry metric; used by PortfolioMetrics"
+
+
+@register_metric(
+    name="serenity_ratio",
+    requires="returns",
+    category=("risk_adjusted", "returns"),
+    backend="vectorized",
+    ref=_SERENITY_REF,
+)
+def serenity_ratio(
+    input_data: ReturnsInput, rf: float = 0.0
+) -> MetricResult:
+    """Serenity Ratio — excess return divided by the product of volatility and Ulcer Index.
+
+    Formula:
+        SR = (Rp - Rf) / (sigma_p * UI)
+
+    where Rp is the annualized arithmetic mean return, Rf is the annualized
+    risk-free rate, sigma_p is the annualized volatility, and UI is the
+    Ulcer Index. Both volatility risk and drawdown risk must be low for a
+    high score.
+
+    Args:
+        input_data: A ``ReturnsInput`` with ``periods_per_year`` set.
+        rf: Risk-free rate per period (default 0.0).
+
+    Returns:
+        MetricResult with Serenity Ratio (float or array). NaN when
+        volatility or Ulcer Index is zero.
+
+    Raises:
+        ValueError: If ``periods_per_year`` is None.
+    """
+    if input_data.periods_per_year is None:
+        raise ValueError(
+            "Serenity ratio requires periods_per_year on the ReturnsInput"
+        )
+
+    r = input_data.values
+    p = float(input_data.periods_per_year)
+
+    mean_ret = np.nanmean(r, axis=0)  # per-period mean
+    ann_ret = mean_ret * p  # annualized
+    rf_ann = rf * p  # annualized risk-free
+    excess = ann_ret - rf_ann
+
+    sigma = np.nanstd(r, axis=0, ddof=1) * np.sqrt(p)  # annualized vol
+
+    equity = _equity_curve(r, "simple")
+    _, dd = _drawdown_series(equity)
+    ui = np.sqrt(np.nanmean(dd**2, axis=0))  # Ulcer Index
+
+    denom = sigma * ui
+    with np.errstate(divide="ignore", invalid="ignore"):
+        arr = np.where(denom < 1e-15, np.nan, excess / denom)
+
+    value: float | NDArray[np.floating]
+    value = float(arr[0]) if input_data.is_single else arr
+
+    return MetricResult(
+        name="serenity_ratio",
+        value=value,
+        category=("risk_adjusted", "returns"),
+        periods_per_year=input_data.periods_per_year,
+        meta={
+            "ref": _SERENITY_REF,
+            "rf": rf,
+        },
+    )
+
+
+# ---------------------------------------------------------------------------
+# 3.14 UPI (Ulcer Performance Index)
+# Reference: Martin & McCann (1989)
+# ---------------------------------------------------------------------------
+
+_UPI_REF = "Martin & McCann (1989, 'The Investor's Guide to Fidelity Funds')"
+
+
+@register_metric(
+    name="upi",
+    requires="returns",
+    category=("risk_adjusted", "returns"),
+    backend="vectorized",
+    ref=_UPI_REF,
+)
+def upi(
+    input_data: ReturnsInput, rf: float = 0.0
+) -> MetricResult:
+    """Ulcer Performance Index — excess return divided by the Ulcer Index.
+
+    Formula:
+        UPI = (Rp - Rf) / UI
+
+    where Rp is the annualized arithmetic mean return, Rf is the
+    annualized risk-free rate, and UI is the Ulcer Index.
+
+    Differs from the Martin ratio (which uses CAGR in the numerator):
+        Martin = CAGR / UI
+        UPI    = (Rp - Rf) / UI
+
+    Args:
+        input_data: A ``ReturnsInput`` with ``periods_per_year`` set.
+        rf: Risk-free rate per period (default 0.0).
+
+    Returns:
+        MetricResult with UPI (float or array). NaN when Ulcer Index
+        is zero.
+
+    Raises:
+        ValueError: If ``periods_per_year`` is None.
+    """
+    if input_data.periods_per_year is None:
+        raise ValueError(
+            "UPI requires periods_per_year on the ReturnsInput"
+        )
+
+    r = input_data.values
+    p = float(input_data.periods_per_year)
+
+    mean_ret = np.nanmean(r, axis=0)
+    ann_ret = mean_ret * p
+    rf_ann = rf * p
+    excess = ann_ret - rf_ann
+
+    equity = _equity_curve(r, "simple")
+    _, dd = _drawdown_series(equity)
+    ui = np.sqrt(np.nanmean(dd**2, axis=0))
+
+    ui_safe = np.where(ui < 1e-15, np.nan, ui)
+    with np.errstate(invalid="ignore"):
+        arr = excess / ui_safe
+
+    value: float | NDArray[np.floating]
+    value = float(arr[0]) if input_data.is_single else arr
+
+    return MetricResult(
+        name="upi",
+        value=value,
+        category=("risk_adjusted", "returns"),
+        periods_per_year=input_data.periods_per_year,
+        meta={
+            "ref": _UPI_REF,
+            "rf": rf,
+        },
+    )
+
+
+# ---------------------------------------------------------------------------
+# 3.15 Modified Sharpe Ratio
+# Reference: Gregoriou & Gueyie (2003)
+# ---------------------------------------------------------------------------
+
+_MOD_SHARPE_REF = "Gregoriou & Gueyie (2003)"
+
+
+@register_metric(
+    name="modified_sharpe_ratio",
+    requires="returns",
+    category=("risk_adjusted", "returns"),
+    backend="vectorized",
+    ref=_MOD_SHARPE_REF,
+)
+def modified_sharpe_ratio(
+    input_data: ReturnsInput,
+    rf: float = 0.0,
+    confidence: float = 0.95,
+) -> MetricResult:
+    """Modified Sharpe Ratio — excess return divided by Modified VaR.
+
+    Formula:
+        MSR = (Rp - Rf) / Modified_VaR
+
+    where Modified VaR uses the Cornish-Fisher expansion to adjust for
+    skewness and excess kurtosis (rather than assuming normality).
+
+    Args:
+        input_data: A ``ReturnsInput`` with ``periods_per_year`` set.
+        rf: Risk-free rate per period (default 0.0).
+        confidence: Confidence level for Modified VaR (default 0.95).
+
+    Returns:
+        MetricResult with Modified Sharpe Ratio (float or array). NaN
+        when Modified VaR is zero or undefined.
+
+    Raises:
+        ValueError: If ``periods_per_year`` is None.
+    """
+    if input_data.periods_per_year is None:
+        raise ValueError(
+            "Modified Sharpe ratio requires periods_per_year on the ReturnsInput"
+        )
+    if not 0.0 < confidence < 1.0:
+        raise ValueError(
+            f"confidence must be in (0, 1), got {confidence}"
+        )
+
+    r = input_data.values
+    p = float(input_data.periods_per_year)
+
+    mean_ret = np.nanmean(r, axis=0)
+    ann_ret = mean_ret * p
+    rf_ann = rf * p
+    excess = ann_ret - rf_ann
+
+    # Modified VaR using Cornish-Fisher (annualized)
+    mod_var = _var_cornish_fisher(r, confidence) * np.sqrt(p)
+
+    mod_var_safe = np.where(np.abs(mod_var) < 1e-15, np.nan, mod_var)
+    with np.errstate(invalid="ignore"):
+        arr = excess / mod_var_safe
+
+    value: float | NDArray[np.floating]
+    value = float(arr[0]) if input_data.is_single else arr
+
+    return MetricResult(
+        name="modified_sharpe_ratio",
+        value=value,
+        category=("risk_adjusted", "returns"),
+        periods_per_year=input_data.periods_per_year,
+        meta={
+            "ref": _MOD_SHARPE_REF,
+            "rf": rf,
+            "confidence": confidence,
+        },
+    )
+
+
+# ---------------------------------------------------------------------------
+# 3.16 Upside Potential Ratio
+# Reference: Sortino, van der Meer & Plantinga (1999)
+# ---------------------------------------------------------------------------
+
+_UPR_REF = "Sortino, van der Meer & Plantinga (1999)"
+
+
+@register_metric(
+    name="upside_potential_ratio",
+    requires="returns",
+    category=("risk_adjusted", "returns"),
+    backend="vectorized",
+    ref=_UPR_REF,
+)
+def upside_potential_ratio(
+    input_data: ReturnsInput, mar: float = 0.0
+) -> MetricResult:
+    """Upside Potential Ratio — upside potential divided by downside deviation.
+
+    Formula:
+        UPR = upside_potential / DD
+
+    where:
+        upside_potential = (1/n) * sum(max(r_t - mar, 0))
+        DD = sqrt((1/n) * sum(min(r_t - mar, 0)^2))
+
+    This is a Sortino variant that replaces the mean excess return in the
+    numerator with upside potential (average of only positive excess returns).
+
+    Args:
+        input_data: A ``ReturnsInput``.
+        mar: Minimum acceptable return (default 0.0).
+
+    Returns:
+        MetricResult with Upside Potential Ratio (float or array). +inf
+        when downside deviation is zero (no downside); NaN when there is
+        no upside potential either.
+    """
+    r = input_data.values
+
+    excess = r - mar
+    upside = np.maximum(excess, 0.0)  # positive excess returns
+    downside = np.minimum(excess, 0.0)  # negative excess returns
+
+    up_pot = np.nanmean(upside, axis=0)  # upside potential
+    dd = np.sqrt(np.nanmean(downside**2, axis=0))  # downside deviation
+
+    with np.errstate(divide="ignore", invalid="ignore"):
+        arr = np.where(dd < 1e-15, np.inf, up_pot / dd)
+
+    both_zero = (up_pot < 1e-15) & (dd < 1e-15)
+    arr = np.where(both_zero, np.nan, arr)
+
+    value: float | NDArray[np.floating]
+    value = float(arr[0]) if input_data.is_single else arr
+
+    return MetricResult(
+        name="upside_potential_ratio",
+        value=value,
+        category=("risk_adjusted", "returns"),
+        periods_per_year=input_data.periods_per_year,
+        meta={
+            "ref": _UPR_REF,
+            "mar": mar,
+        },
+    )
+
+
+# ---------------------------------------------------------------------------
+# 3.17 Risk Return Ratio
+# Reference: Industry convention
+# ---------------------------------------------------------------------------
+
+_RISK_RETURN_REF = "Industry convention"
+
+
+@register_metric(
+    name="risk_return_ratio",
+    requires="returns",
+    category=("risk_adjusted", "returns"),
+    backend="vectorized",
+    ref=_RISK_RETURN_REF,
+)
+def risk_return_ratio(input_data: ReturnsInput) -> MetricResult:
+    """Risk Return Ratio — annualized return divided by absolute max drawdown.
+
+    Formula:
+        RRR = annualized_return / |MDD|
+
+    where annualized_return = mean(r) * periods_per_year and MDD is the
+    maximum drawdown. Simpler than the Calmar ratio (which uses CAGR).
+    Both use MDD as the risk denominator.
+
+    Args:
+        input_data: A ``ReturnsInput`` with ``periods_per_year`` set.
+
+    Returns:
+        MetricResult with Risk Return Ratio (float or array). +inf when
+        max drawdown is zero.
+
+    Raises:
+        ValueError: If ``periods_per_year`` is None.
+    """
+    if input_data.periods_per_year is None:
+        raise ValueError(
+            "Risk return ratio requires periods_per_year on the ReturnsInput"
+        )
+
+    r = input_data.values
+    p = float(input_data.periods_per_year)
+
+    ann_ret = np.nanmean(r, axis=0) * p  # annualized arithmetic return
+
+    equity = _equity_curve(r, "simple")
+    _, dd = _drawdown_series(equity)
+    mdd = np.nanmin(dd, axis=0)
+
+    with np.errstate(divide="ignore", invalid="ignore"):
+        arr = np.where(np.abs(mdd) < 1e-15, np.inf, ann_ret / np.abs(mdd))
+
+    value: float | NDArray[np.floating]
+    value = float(arr[0]) if input_data.is_single else arr
+
+    return MetricResult(
+        name="risk_return_ratio",
+        value=value,
+        category=("risk_adjusted", "returns"),
+        periods_per_year=input_data.periods_per_year,
+        meta={"ref": _RISK_RETURN_REF},
     )
