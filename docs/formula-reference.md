@@ -40,26 +40,26 @@ All tagged `("descriptive", "returns")`, backend `"vectorized"`.
 
 ### 1.1 CAGR (Compound Annual Growth Rate)
 
-\[\text{CAGR} = \exp\!\left(\frac{1}{T}\sum_{t=1}^{n}\ln(1+r_t)\right) - 1\]
+$$\text{CAGR} = \exp\!\left(\frac{1}{T}\sum_{t=1}^{n}\ln(1+r_t)\right) - 1$$
 
-where \(T\) is the length of the series in years. Equivalent to
-\((V_f/V_i)^{1/T} - 1\).
+where $T$ is the length of the series in years. Equivalent to
+$(V_f/V_i)^{1/T} - 1$.
 
 **Citation:** Damodaran (2012, *Investment Valuation*, 3rd ed., Ch. 3).
 
 ### 1.2 Annualized Volatility
 
-\[\sigma_{\text{ann}} = \sigma \cdot \sqrt{P}\]
+$$\sigma_{\text{ann}} = \sigma \cdot \sqrt{P}$$
 
-where \(\sigma\) is the sample standard deviation (ddof = 1) of period
-returns and \(P\) is `periods_per_year`.
+where $\sigma$ is the sample standard deviation (ddof = 1) of period
+returns and $P$ is `periods_per_year`.
 
 **Citation:** CFA Institute, *Quantitative Methods* (CFA Program
 Curriculum, Level I, Vol. 1).
 
 ### 1.3 Cumulative Return
 
-\[R_{\text{cum}} = \prod_{t=1}^{n}(1 + r_t) - 1\]
+$$R_{\text{cum}} = \prod_{t=1}^{n}(1 + r_t) - 1$$
 
 **Citation:** Bacon (2008, *Practical Portfolio Performance Measurement
 and Attribution*, 2nd ed., §2.1). Elementary computation; the citation
@@ -67,7 +67,7 @@ establishes the standard compounding convention.
 
 ### 1.4 Arithmetic Mean Return
 
-\[\bar{r} = \frac{1}{n}\sum_{t=1}^{n} r_t\]
+$$\bar{r} = \frac{1}{n}\sum_{t=1}^{n} r_t$$
 
 **Citation:** No single canonical source — elementary statistic. The
 sample mean is unbiased under IID returns; see any introductory statistics
@@ -75,15 +75,15 @@ text (e.g., Casella & Berger 2002, *Statistical Inference*, §5.2).
 
 ### 1.5 Geometric Mean Return
 
-\[\bar{r}_g = \left(\prod_{t=1}^{n}(1 + r_t)\right)^{\!1/n} - 1\]
+$$\bar{r}_g = \left(\prod_{t=1}^{n}(1 + r_t)\right)^{\!1/n} - 1$$
 
 **Citation:** Campbell, Lo & MacKinlay (1997, *The Econometrics of
 Financial Markets*, §1.4).
 
 ### 1.6 Skewness
 
-\[\gamma_1 = \frac{n}{(n-1)(n-2)}\sum_{t=1}^{n}\!\left(\frac{r_t -
-\bar{r}}{\sigma}\right)^{\!3}\]
+$$\gamma_1 = \frac{n}{(n-1)(n-2)}\sum_{t=1}^{n}\!\left(\frac{r_t -
+\bar{r}}{\sigma}\right)^{\!3}$$
 
 Adjusted (sample) skewness.
 
@@ -93,9 +93,9 @@ Samples of Measures of Departure from Normality." Also Cramér (1946,
 
 ### 1.7 Excess Kurtosis
 
-\[\gamma_2 = \frac{n(n+1)}{(n-1)(n-2)(n-3)}
+$$\gamma_2 = \frac{n(n+1)}{(n-1)(n-2)(n-3)}
 \sum_{t=1}^{n}\!\left(\frac{r_t - \bar{r}}{\sigma}\right)^{\!4}
-- \frac{3(n-1)^2}{(n-2)(n-3)}\]
+- \frac{3(n-1)^2}{(n-2)(n-3)}$$
 
 Returns 0 for a normal distribution (`fisher=True`).
 
@@ -103,7 +103,7 @@ Returns 0 for a normal distribution (`fisher=True`).
 
 ### 1.8 Best Period
 
-\[r_{\text{best}} = \max_t r_t\]
+$$r_{\text{best}} = \max_t r_t$$
 
 At the data's native frequency.
 
@@ -112,13 +112,13 @@ best/worst-period as standard performance analytics.
 
 ### 1.9 Worst Period
 
-\[r_{\text{worst}} = \min_t r_t\]
+$$r_{\text{worst}} = \min_t r_t$$
 
 **Citation:** As §1.8. Bacon (2008, §3.10).
 
 ### 1.10 Positive-Period Ratio
 
-\[\text{PPR} = \frac{1}{n}\sum_{t=1}^{n}\mathbf{1}_{[r_t > 0]}\]
+$$\text{PPR} = \frac{1}{n}\sum_{t=1}^{n}\mathbf{1}_{[r_t > 0]}$$
 
 Strictly positive (> 0); zero is non-positive.
 
@@ -126,14 +126,14 @@ Strictly positive (> 0); zero is non-positive.
 
 ### 1.11 Autocorrelation (Lag-1)
 
-\[\rho_1 = \frac{\sum_{t=2}^{n}(r_t - \bar{r})(r_{t-1} - \bar{r})}
-{\sum_{t=1}^{n}(r_t - \bar{r})^2}\]
+$$\rho_1 = \frac{\sum_{t=2}^{n}(r_t - \bar{r})(r_{t-1} - \bar{r})}
+{\sum_{t=1}^{n}(r_t - \bar{r})^2}$$
 
 **Citation:** Campbell, Lo & MacKinlay (1997, §2.4).
 
 ### 1.12 Variance
 
-\[s^2 = \frac{1}{n-1}\sum_{t=1}^{n}(r_t - \bar{r})^2\]
+$$s^2 = \frac{1}{n-1}\sum_{t=1}^{n}(r_t - \bar{r})^2$$
 
 Sample variance (ddof = 1).
 
@@ -142,14 +142,14 @@ Research Workers*) established n−1 degrees-of-freedom correction.
 
 ### 1.13 Return Range
 
-\[R_{\text{range}} = \max_t r_t - \min_t r_t\]
+$$R_{\text{range}} = \max_t r_t - \min_t r_t$$
 
 **Citation:** Elementary order statistic. Bacon (2008, §3.10) uses range
 in the context of period-return dispersion.
 
 ### 1.14 Percentiles
 
-The \(p\)-th percentile at levels \(p \in \{1, 5, 10, 25, 50, 75, 90,
+The $p$-th percentile at levels \(p \in \{1, 5, 10, 25, 50, 75, 90,
 95, 99\}\) of the empirical return distribution, via linear interpolation
 (Hyndman & Fan 1996, type 7).
 
@@ -158,7 +158,7 @@ Packages," *The American Statistician*, 50(4).
 
 ### 1.15 Coefficient of Variation
 
-\[\text{CV} = \frac{\sigma}{|\bar{r}|}\]
+$$\text{CV} = \frac{\sigma}{|\bar{r}|}$$
 
 **Citation:** Pearson (1896), "Mathematical Contributions to the Theory of
 Evolution. III. Regression, Heredity, and Panmixia." Also documented in
@@ -166,10 +166,10 @@ Everitt & Skrondal (2010, *The Cambridge Dictionary of Statistics*).
 
 ### 1.16 Outlier Count & % (IQR Method)
 
-\[r_t \text{ is an outlier if } r_t < Q_1 - 1.5 \times \text{IQR}
-\;\text{ or }\; r_t > Q_3 + 1.5 \times \text{IQR}\]
+$$r_t \text{ is an outlier if } r_t < Q_1 - 1.5 \times \text{IQR}
+\;\text{ or }\; r_t > Q_3 + 1.5 \times \text{IQR}$$
 
-where \(\text{IQR} = Q_3 - Q_1\).
+where $\text{IQR} = Q_3 - Q_1$.
 
 **Citation:** Tukey (1977, *Exploratory Data Analysis*).
 
@@ -183,10 +183,10 @@ drawdown walks are `"sequential"`.
 ### 2.1 Max Drawdown
 
 **Simple-return method (default):** Build the cumulative return index
-\(P_t = \prod_{\tau=1}^{t}(1 + r_\tau)\), then:
+$P_t = \prod_{\tau=1}^{t}(1 + r_\tau)$, then:
 
-\[\text{MDD} = \max_{t}\frac{P_t - \max_{\tau \leq t} P_\tau}
-{\max_{\tau \leq t} P_\tau}\]
+$$\text{MDD} = \max_{t}\frac{P_t - \max_{\tau \leq t} P_\tau}
+{\max_{\tau \leq t} P_\tau}$$
 
 **Log-return method (`return_type="log"`):** Build the cumulative log-return
 index \(P_t^{\log} = \exp(\sum_{\tau=1}^{t} \ln(1 + r_\tau)) =
@@ -194,7 +194,7 @@ index \(P_t^{\log} = \exp(\sum_{\tau=1}^{t} \ln(1 + r_\tau)) =
 formula. The two methods produce identical equity curves when the index
 is built multiplicatively from simple returns vs. via log-return
 compounding. The distinction matters only when the returns themselves
-are log returns: in that case, \(P_t = \exp(\sum r_\tau^{\log})\) and the
+are log returns: in that case, $P_t = \exp(\sum r_\tau^{\log})$ and the
 drawdown is computed on the exponentiated index.
 
 **Citation:** Pospisil & Vecer (2011), "Maximum Drawdown of a Brownian
@@ -203,8 +203,8 @@ Motion," *Journal of Applied Probability*, 48(3). Convention parameter:
 
 ### 2.2 Longest Drawdown Duration
 
-\[T_{\text{DD}}^{\max} = \max_k\!\left(\tau_{\text{end}}^{(k)} -
-\tau_{\text{start}}^{(k)}\right)\]
+$$T_{\text{DD}}^{\max} = \max_k\!\left(\tau_{\text{end}}^{(k)} -
+\tau_{\text{start}}^{(k)}\right)$$
 
 Longest contiguous underwater period. A drawdown episode begins when the
 equity curve falls below its running maximum and ends when it first
@@ -215,33 +215,33 @@ Convention parameter: `units` — `"periods"` (default) or `"years"`.
 
 ### 2.3 Time to Recovery
 
-For each drawdown episode \(k\), the time in periods from
-\(t_{\text{peak}}\) to the first subsequent period where the cumulative
-return reaches or exceeds the running-maximum level at \(t_{\text{peak}}\).
+For each drawdown episode $k$, the time in periods from
+$t_{\text{peak}}$ to the first subsequent period where the cumulative
+return reaches or exceeds the running-maximum level at $t_{\text{peak}}$.
 Report mean, median, and maximum across all episodes in the series.
 
 **Citation:** Bacon (2008, §7.2), "Drawdown Analysis."
 
 ### 2.4 Average Drawdown
 
-\[\text{ADD} = \frac{1}{K}\sum_{k=1}^{K} D^{(k)}\]
+$$\text{ADD} = \frac{1}{K}\sum_{k=1}^{K} D^{(k)}$$
 
-where \(D^{(k)}\) is the peak-to-trough depth of the \(k\)-th episode
+where $D^{(k)}$ is the peak-to-trough depth of the $k$-th episode
 (as a negative percentage; absolute value used in display).
 
 **Citation:** Bacon (2008, §7.2).
 
 ### 2.5 Average Drawdown Duration
 
-\[\bar{T}_{\text{DD}} = \frac{1}{K}\sum_{k=1}^{K} T_{\text{DD}}^{(k)}\]
+$$\bar{T}_{\text{DD}} = \frac{1}{K}\sum_{k=1}^{K} T_{\text{DD}}^{(k)}$$
 
 **Citation:** Bacon (2008, §7.2).
 
 ### 2.6 Ulcer Index
 
-\[\text{UI} = \sqrt{\frac{1}{n}\sum_{t=1}^{n}
+$$\text{UI} = \sqrt{\frac{1}{n}\sum_{t=1}^{n}
 \left(\frac{P_t - \max_{\tau \leq t} P_\tau}
-{\max_{\tau \leq t} P_\tau}\right)^{\!2}}\]
+{\max_{\tau \leq t} P_\tau}\right)^{\!2}}$$
 
 Root-mean-square of percentage drawdowns.
 
@@ -250,15 +250,15 @@ Funds*); Martin (1993).
 
 ### 2.7 Downside Deviation
 
-\[\text{DD} = \sqrt{\frac{1}{n}\sum_{t=1}^{n}\min(r_t - \tau,\; 0)^2}\]
+$$\text{DD} = \sqrt{\frac{1}{n}\sum_{t=1}^{n}\min(r_t - \tau,\; 0)^2}$$
 
-With \(\tau = 0\) (MAR), this is semi-deviation.
+With $\tau = 0$ (MAR), this is semi-deviation.
 
 **Citation:** Sortino & van der Meer (1991); Sortino & Price (1994).
 
 ### 2.8 Upside Deviation
 
-\[\text{UD} = \sqrt{\frac{1}{n}\sum_{t=1}^{n}\max(r_t - \tau,\; 0)^2}\]
+$$\text{UD} = \sqrt{\frac{1}{n}\sum_{t=1}^{n}\max(r_t - \tau,\; 0)^2}$$
 
 Mirror of downside deviation.
 
@@ -268,13 +268,13 @@ as complementary risk measures.
 ### 2.9 VaR (Value at Risk)
 
 **Historical (default):**
-\(\text{VaR}_\alpha = -F_r^{-1}(\alpha)\)
+$\text{VaR}_\alpha = -F_r^{-1}(\alpha)$
 
 **Parametric:**
-\(\text{VaR}_\alpha = -(\bar{r} + z_\alpha \cdot \sigma)\)
+$\text{VaR}_\alpha = -(\bar{r} + z_\alpha \cdot \sigma)$
 
 **Cornish-Fisher:**
-Same as parametric with \(z_\alpha\) replaced by the CF expansion:
+Same as parametric with $z_\alpha$ replaced by the CF expansion:
 \(z_{\text{CF}} = z_\alpha + \frac{\gamma_1}{6}(z_\alpha^2 - 1) +
 \frac{\gamma_2}{24}(z_\alpha^3 - 3z_\alpha) -
 \frac{\gamma_1^2}{36}(2z_\alpha^3 - 5z_\alpha)\)
@@ -289,10 +289,10 @@ Convention parameters: `method` (`"historical"`, `"parametric"`,
 ### 2.10 CVaR / Expected Shortfall
 
 **Historical (default):**
-\(\text{CVaR}_\alpha = -\mathbb{E}[r \mid r \leq -\text{VaR}_\alpha]\)
+$\text{CVaR}_\alpha = -\mathbb{E}[r \mid r \leq -\text{VaR}_\alpha]$
 
 **Parametric:**
-\(\text{CVaR}_\alpha = -\bar{r} + \sigma \cdot \phi(z_\alpha) / \alpha\)
+$\text{CVaR}_\alpha = -\bar{r} + \sigma \cdot \phi(z_\alpha) / \alpha$
 
 **Citation:** Rockafellar & Uryasev (2000), "Optimization of Conditional
 Value-at-Risk," *Journal of Risk*, 2(3); Acerbi & Tasche (2002). Convention
@@ -301,11 +301,11 @@ parameter: `method` (`"historical"`, `"parametric"`), `confidence`
 
 ### 2.11 Tail Ratio
 
-\[\text{TR}_\alpha = \frac{\mathbb{E}[r_t \mid r_t \geq q_{1-\alpha}]}
-{|\mathbb{E}[r_t \mid r_t \leq q_\alpha]|}\]
+$$\text{TR}_\alpha = \frac{\mathbb{E}[r_t \mid r_t \geq q_{1-\alpha}]}
+{|\mathbb{E}[r_t \mid r_t \leq q_\alpha]|}$$
 
-Ratio of the conditional mean of returns in the upper \(\alpha\)-tail to
-the absolute conditional mean of returns in the lower \(\alpha\)-tail.
+Ratio of the conditional mean of returns in the upper $\alpha$-tail to
+the absolute conditional mean of returns in the lower $\alpha$-tail.
 (Note: `stats.md` §2 #11's "95th percentile / |5th percentile|" is a
 plain-language shorthand; the formal definition uses tail conditional
 expectations, not raw percentile values.)
@@ -315,19 +315,19 @@ Analysis*, Ch. 9). Convention parameter: `tail_cutoff` — default `0.05`.
 
 ### 2.12 Common-Sense Ratio
 
-\[\text{CSR} = \text{TR}_\alpha \times
+$$\text{CSR} = \text{TR}_\alpha \times
 \frac{\sum\max(r_t,0)}{|\sum\min(r_t,0)|}
-= \text{TR}_\alpha \times \text{Gain-to-Pain Ratio}\]
+= \text{TR}_\alpha \times \text{Gain-to-Pain Ratio}$$
 
 **Citation:** Bacon (2008, §7.5).
 
 ### 2.13 Hill Tail Index (EVT)
 
-\[\hat{\xi} = \frac{1}{k}\sum_{i=1}^{k}
-\ln\frac{X_{(i)}}{X_{(k+1)}}\]
+$$\hat{\xi} = \frac{1}{k}\sum_{i=1}^{k}
+\ln\frac{X_{(i)}}{X_{(k+1)}}$$
 
-where \(X_{(i)}\) are descending order statistics of the upper tail and
-\(k\) = `tail_fraction` × \(n\).
+where $X_{(i)}$ are descending order statistics of the upper tail and
+$k$ = `tail_fraction` × $n$.
 
 **Citation:** Hill (1975), "A Simple General Approach to Inference About
 the Tail of a Distribution," *Annals of Statistics*, 3(5). Convention
@@ -336,17 +336,17 @@ parameter: `tail_fraction` — default `0.10`.
 ### 2.14 GPD Tail Fit
 
 Fit the Generalized Pareto Distribution to exceedances above threshold
-\(u\) (90th percentile of negative returns):
+$u$ (90th percentile of negative returns):
 
-\[G_{\xi,\beta}(x) = 1 - \left(1 + \xi\frac{x}{\beta}\right)^{\!-1/\xi}\]
+$$G_{\xi,\beta}(x) = 1 - \left(1 + \xi\frac{x}{\beta}\right)^{\!-1/\xi}$$
 
 **Citation:** Pickands (1975); Hosking & Wallis (1987); Embrechts,
 Klüppelberg & Mikosch (1997, *Modelling Extremal Events*, Springer).
 
 ### 2.15 Risk of Ruin
 
-\[P_{\text{ruin}} = \Phi\!\left(
-\frac{-\bar{r} \cdot T}{\sigma\sqrt{T}}\right)\]
+$$P_{\text{ruin}} = \Phi\!\left(
+\frac{-\bar{r} \cdot T}{\sigma\sqrt{T}}\right)$$
 
 Normal-approximation probability of 100 % loss.
 
@@ -359,26 +359,26 @@ in risk-of-ruin literature.
 
 ### 2.16 Drawdown Volatility
 
-\[\sigma_{\text{DD}} = \text{std}(d_1, \dots, d_n)\]
+$$\sigma_{\text{DD}} = \text{std}(d_1, \dots, d_n)$$
 
-where \(d_t = (P_t - \max_{\tau \leq t}P_\tau) / \max_{\tau \leq t}P_\tau\)
+where $d_t = (P_t - \max_{\tau \leq t}P_\tau) / \max_{\tau \leq t}P_\tau$
 is the drawdown time series.
 
 **Citation:** Bacon (2008, §7.3) discusses drawdown-series statistics.
 
 ### 2.17 Drawdown Periods Count
 
-\[K = \text{number of distinct drawdown episodes}\]
+$$K = \text{number of distinct drawdown episodes}$$
 
-An episode begins when \(P_t\) falls below the running maximum and ends
+An episode begins when $P_t$ falls below the running maximum and ends
 when it next returns to the running maximum.
 
 **Citation:** Bacon (2008, §7.2).
 
 ### 2.18 Current Drawdown
 
-\[d_{\text{current}} = \frac{P_n - \max_{\tau \leq n}P_\tau}
-{\max_{\tau \leq n}P_\tau}\]
+$$d_{\text{current}} = \frac{P_n - \max_{\tau \leq n}P_\tau}
+{\max_{\tau \leq n}P_\tau}$$
 
 Drawdown at the most recent observation.
 
@@ -393,7 +393,7 @@ observation.
 
 ### 2.20 Drawdown Total Duration
 
-\[T_{\text{DD}}^{\text{total}} = \sum_{k=1}^{K} T_{\text{DD}}^{(k)}\]
+$$T_{\text{DD}}^{\text{total}} = \sum_{k=1}^{K} T_{\text{DD}}^{(k)}$$
 
 Sum of all underwater-period lengths.
 
@@ -407,9 +407,9 @@ Tagged `("risk_adjusted", "returns")`, backend `"vectorized"`.
 
 ### 3.1 Sharpe Ratio
 
-\[\text{SR} = \frac{\bar{r}_{\text{excess}}}{\sigma} \cdot \sqrt{P}\]
+$$\text{SR} = \frac{\bar{r}_{\text{excess}}}{\sigma} \cdot \sqrt{P}$$
 
-where \(\bar{r}_{\text{excess}} = \bar{r} - r_f\) (risk-free rate, default
+where $\bar{r}_{\text{excess}} = \bar{r} - r_f$ (risk-free rate, default
 0). Annualization via √P is applied pre-division: (r̄_excess · √P) / σ
 is equivalent to (r̄_excess · P) / (σ · √P). The `periods_per_year` factor
 used for annualization comes from the input container, not from a
@@ -422,8 +422,8 @@ Convention parameter: `ddof` — `1` (default, sample std) or `0`
 
 ### 3.2 Sortino Ratio
 
-\[\text{Sortino} = \frac{\bar{r}_{\text{excess}} \cdot P}
-{\text{DD} \cdot \sqrt{P}}\]
+$$\text{Sortino} = \frac{\bar{r}_{\text{excess}} \cdot P}
+{\text{DD} \cdot \sqrt{P}}$$
 
 where DD is downside deviation (§2.7).
 
@@ -435,24 +435,24 @@ sqrt of mean squared downside over all periods) or `"downside_only"`
 
 ### 3.3 Calmar Ratio
 
-\[\text{Calmar} = \frac{\text{CAGR}}{|\text{MDD}|}\]
+$$\text{Calmar} = \frac{\text{CAGR}}{|\text{MDD}|}$$
 
 **Citation:** Young (1991), "Calmar Ratio: A Smoother Tool," *Futures*,
 20(10).
 
 ### 3.4 Omega Ratio
 
-\[\Omega(\tau) = \frac{\sum_{t=1}^{n}\max(r_t - \tau,\, 0)}
-{|\sum_{t=1}^{n}\min(r_t - \tau,\, 0)|}\]
+$$\Omega(\tau) = \frac{\sum_{t=1}^{n}\max(r_t - \tau,\, 0)}
+{|\sum_{t=1}^{n}\min(r_t - \tau,\, 0)|}$$
 
 **Citation:** Keating & Shadwick (2002), "A Universal Performance
-Measure," *JPM*, 6(3). Default threshold \(\tau = 0\).
+Measure," *JPM*, 6(3). Default threshold $\tau = 0$.
 
 ### 3.5 Sterling Ratio
 
-\[\text{Sterling} = \frac{\text{CAGR}}{|\text{ADD}| + k}\]
+$$\text{Sterling} = \frac{\text{CAGR}}{|\text{ADD}| + k}$$
 
-where \(k\) is a floor constant to avoid division by zero for strategies
+where $k$ is a floor constant to avoid division by zero for strategies
 with very shallow drawdowns.
 
 **Citation:** Industry convention; Bacon (2008, §8.3). Convention
@@ -460,9 +460,9 @@ parameter: `floor` — default `0.10` (10 %).
 
 ### 3.6 Burke Ratio
 
-\[\text{Burke} = \frac{\text{CAGR}}{\sqrt{\sum_{t=1}^{n} d_t^{2}}}\]
+$$\text{Burke} = \frac{\text{CAGR}}{\sqrt{\sum_{t=1}^{n} d_t^{2}}}$$
 
-where \(d_t = (P_t - \max_{\tau \leq t}P_\tau) / \max_{\tau \leq t}P_\tau\)
+where $d_t = (P_t - \max_{\tau \leq t}P_\tau) / \max_{\tau \leq t}P_\tau$
 is the per-period percentage drawdown.
 
 **⚠ Note:** This definition (CAGR divided by root of sum of squared
@@ -475,8 +475,8 @@ review.
 
 ### 3.7 Kappa-3
 
-\[\text{Kappa}_3(\tau) = \frac{\bar{r} - \tau}
-{\sqrt[3]{\frac{1}{n}\sum_{t=1}^{n}\max(\tau - r_t,\; 0)^3}}\]
+$$\text{Kappa}_3(\tau) = \frac{\bar{r} - \tau}
+{\sqrt[3]{\frac{1}{n}\sum_{t=1}^{n}\max(\tau - r_t,\; 0)^3}}$$
 
 Lower partial moment of order 3.
 
@@ -486,7 +486,7 @@ default `0.0`.
 
 ### 3.8 Martin Ratio (CAGR / Ulcer)
 
-\[\text{Martin} = \frac{\text{CAGR}}{\text{UI}}\]
+$$\text{Martin} = \frac{\text{CAGR}}{\text{UI}}$$
 
 CAGR divided by Ulcer Index (§2.6). Matches `stats.md` §3 #8 note:
 "CAGR / ulcer index."
@@ -495,8 +495,8 @@ CAGR divided by Ulcer Index (§2.6). Matches `stats.md` §3 #8 note:
 
 ### 3.9 Gain-to-Pain Ratio
 
-\[\text{GPR} = \frac{\sum_{t=1}^{n}\max(r_t, 0)}
-{|\sum_{t=1}^{n}\min(r_t, 0)|}\]
+$$\text{GPR} = \frac{\sum_{t=1}^{n}\max(r_t, 0)}
+{|\sum_{t=1}^{n}\min(r_t, 0)|}$$
 
 **Citation:** Bacon (2008, §8.4).
 
@@ -508,13 +508,13 @@ Tagged `("inference", "returns")`, backend `"resampling"`.
 
 ### 4.1 Jarque-Bera Statistic
 
-\[\text{JB} = \frac{n}{6}\!\left(\gamma_1^2 +
-\frac{\gamma_2^2}{4}\right)\]
+$$\text{JB} = \frac{n}{6}\!\left(\gamma_1^2 +
+\frac{\gamma_2^2}{4}\right)$$
 
-where \(\gamma_1\) is sample skewness (§1.6) and \(\gamma_2\) is sample
+where $\gamma_1$ is sample skewness (§1.6) and $\gamma_2$ is sample
 excess kurtosis (§1.7). Under the null of normality, \(\text{JB} \sim
 \chi^2(2)\). (Equivalently: \(\text{JB} = \frac{n}{6}(S^2 +
-\frac{(K-3)^2}{4})\) where \(S\) is skewness and \(K\) is raw kurtosis;
+\frac{(K-3)^2}{4})\) where $S$ is skewness and $K$ is raw kurtosis;
 the form above uses excess kurtosis directly.)
 
 **Citation:** Jarque & Bera (1987), "A Test for Normality of Observations
@@ -522,12 +522,12 @@ and Regression Residuals," *International Statistical Review*, 55(2).
 
 ### 4.2 Probabilistic Sharpe Ratio (PSR)
 
-\[\text{PSR}(SR^*) = \Phi\!\left(
+$$\text{PSR}(SR^*) = \Phi\!\left(
 \frac{(\hat{SR} - SR^*)\sqrt{T-1}}
 {\sqrt{1 - \hat{\gamma}_3\hat{SR} +
-\frac{\hat{\gamma}_4-1}{4}\hat{SR}^2}}\right)\]
+\frac{\hat{\gamma}_4-1}{4}\hat{SR}^2}}\right)$$
 
-Probability that true SR exceeds benchmark \(SR^*\), adjusted for skewness
+Probability that true SR exceeds benchmark $SR^*$, adjusted for skewness
 and kurtosis.
 
 **Citation:** Bailey & López de Prado (2012), "The Sharpe Ratio Efficient
@@ -537,15 +537,15 @@ Financial Machine Learning*, Ch. 14). Convention parameter:
 
 ### 4.3 Deflated Sharpe Ratio (DSR)
 
-\[\text{DSR} = \Phi\!\left(
+$$\text{DSR} = \Phi\!\left(
 \frac{(\hat{SR} - SR^*)\sqrt{T-1}}
 {\sqrt{1 - \hat{\gamma}_3\hat{SR} +
 \frac{\hat{\gamma}_4-1}{4}\hat{SR}^2}}
 \cdot \left(1 - \frac{1}{M}\sum_{m=1}^{M}
-\mathbf{1}_{[\text{SR}_m^{(b)} < \hat{SR}]}\right)\!\right)\]
+\mathbf{1}_{[\text{SR}_m^{(b)} < \hat{SR}]}\right)\!\right)$$
 
 PSR deflated by the probability of multiple-testing false discovery among
-\(M\) trials.
+$M$ trials.
 
 **Citation:** Bailey & López de Prado (2014), "The Deflated Sharpe Ratio:
 Correcting for Selection Bias, Backtest Overfitting, and Non-Normality,"
@@ -553,19 +553,19 @@ Correcting for Selection Bias, Backtest Overfitting, and Non-Normality,"
 
 ### 4.4 Lo's Autocorrelation-Adjusted Sharpe SE
 
-\[\text{SE}_{\text{IID}}(\hat{SR}) = \sqrt{\frac{1}{T}
+$$\text{SE}_{\text{IID}}(\hat{SR}) = \sqrt{\frac{1}{T}
 \!\left(1 + \frac{1}{2}\hat{SR}^2 - \hat{\gamma}_3\hat{SR} +
-\frac{\hat{\gamma}_4-3}{4}\hat{SR}^2\right)}\]
+\frac{\hat{\gamma}_4-3}{4}\hat{SR}^2\right)}$$
 
-\[\text{SE}_{\text{adj}} = \text{SE}_{\text{IID}} \cdot
-\sqrt{\frac{1+\rho_1}{1-\rho_1}}\]
+$$\text{SE}_{\text{adj}} = \text{SE}_{\text{IID}} \cdot
+\sqrt{\frac{1+\rho_1}{1-\rho_1}}$$
 
 **Citation:** Lo (2002), "The Statistics of Sharpe Ratios," *Financial
 Analysts Journal*, 58(4).
 
 ### 4.5 Sharpe Ratio CI — Analytic
 
-\[\hat{SR} \pm z_{1-\alpha/2} \cdot \text{SE}(\hat{SR})\]
+$$\hat{SR} \pm z_{1-\alpha/2} \cdot \text{SE}(\hat{SR})$$
 
 using Lo's SE (IID or adjusted per §4.4).
 
@@ -584,21 +584,21 @@ automatic block length, 95 % CI.
 
 ### 4.7 Minimum Track Record Length
 
-\[T_{\min} = 1 + \left(\frac{z_{1-\alpha}}{\hat{SR} - SR^*}\right)^{\!2}
+$$T_{\min} = 1 + \left(\frac{z_{1-\alpha}}{\hat{SR} - SR^*}\right)^{\!2}
 \cdot \left(1 - \hat{\gamma}_3\hat{SR} +
-\frac{\hat{\gamma}_4-1}{4}\hat{SR}^2\right)\]
+\frac{\hat{\gamma}_4-1}{4}\hat{SR}^2\right)$$
 
-where \(z_{1-\alpha} = \Phi^{-1}(1-\alpha)\) is the critical value and
-\(\hat{\gamma}_3, \hat{\gamma}_4\) are sample skewness and raw kurtosis
+where $z_{1-\alpha} = \Phi^{-1}(1-\alpha)$ is the critical value and
+$\hat{\gamma}_3, \hat{\gamma}_4$ are sample skewness and raw kurtosis
 respectively.
 
 **Citation:** Bailey & López de Prado (2012); de Prado (2018, Ch. 14).
-Default \(\alpha = 0.05\).
+Default $\alpha = 0.05$.
 
 ### 4.8 Generic Block-Bootstrap CI Wrapper
 
 Moving-block bootstrap: for any registered `returns`-tier metric function
-\(f\), resample blocks of length \(l\) with replacement, recompute \(f\) on
+$f$, resample blocks of length $l$ with replacement, recompute $f$ on
 each resample, return empirical CI.
 
 **Citation:** Efron & Tibshirani (1994); Künsch (1989), "The Jackknife
@@ -639,8 +639,8 @@ Tagged `requires="exposure"`. Category tags vary.
 
 ### 6.1 Gross Exposure
 
-\[\text{GE}_t = \sum_{i=1}^{N} \left|\frac{\text{position\_value}_{i,t}}
-{\text{portfolio\_value}_t}\right|\]
+$$\text{GE}_t = \sum_{i=1}^{N} \left|\frac{\text{position\_value}_{i,t}}
+{\text{portfolio\_value}_t}\right|$$
 
 Report: current, max, average.
 
@@ -649,8 +649,8 @@ Factor Investing*, Oxford University Press, Ch. 2).
 
 ### 6.2 Net Exposure
 
-\[\text{NE}_t = \sum_{i=1}^{N} \frac{\text{position\_value}_{i,t}}
-{\text{portfolio\_value}_t}\]
+$$\text{NE}_t = \sum_{i=1}^{N} \frac{\text{position\_value}_{i,t}}
+{\text{portfolio\_value}_t}$$
 
 Report: current, max, min, average, range.
 
@@ -658,7 +658,7 @@ Report: current, max, min, average, range.
 
 ### 6.3 Leverage
 
-\[\text{Leverage}_t = \frac{\text{gross\_exposure}_t}{\text{equity}_t}\]
+$$\text{Leverage}_t = \frac{\text{gross\_exposure}_t}{\text{equity}_t}$$
 
 Ratio of gross exposure to equity.
 
@@ -666,7 +666,7 @@ Ratio of gross exposure to equity.
 
 ### 6.4 Long Exposure %
 
-\[\text{LE}\%_t = \sum_{i} w_{i,t} \cdot \mathbf{1}_{[w_{i,t} > 0]}\]
+$$\text{LE}\%_t = \sum_{i} w_{i,t} \cdot \mathbf{1}_{[w_{i,t} > 0]}$$
 
 Fraction of gross exposure allocated long.
 
@@ -675,7 +675,7 @@ Fraction of gross exposure allocated long.
 
 ### 6.5 Short Exposure %
 
-\[\text{SE}\%_t = \sum_{i} |w_{i,t}| \cdot \mathbf{1}_{[w_{i,t} < 0]}\]
+$$\text{SE}\%_t = \sum_{i} |w_{i,t}| \cdot \mathbf{1}_{[w_{i,t} < 0]}$$
 
 Fraction of gross exposure allocated short.
 
@@ -683,22 +683,22 @@ Fraction of gross exposure allocated short.
 
 ### 6.6 Long-Book Contribution to Return
 
-\[R_t^{\text{long}} = \sum_{i} w_{i,t-1} \cdot r_{i,t} \cdot
-\mathbf{1}_{[w_{i,t-1} > 0]}\]
+$$R_t^{\text{long}} = \sum_{i} w_{i,t-1} \cdot r_{i,t} \cdot
+\mathbf{1}_{[w_{i,t-1} > 0]}$$
 
 **Citation:** Bacon (2008, §11.5), "Performance Attribution."
 
 ### 6.7 Short-Book Contribution to Return
 
-\[R_t^{\text{short}} = \sum_{i} w_{i,t-1} \cdot r_{i,t} \cdot
-\mathbf{1}_{[w_{i,t-1} < 0]}\]
+$$R_t^{\text{short}} = \sum_{i} w_{i,t-1} \cdot r_{i,t} \cdot
+\mathbf{1}_{[w_{i,t-1} < 0]}$$
 
 **Citation:** As §6.6.
 
 ### 6.8 Long Beta
 
-\[\beta_{\text{long}} = \frac{\text{Cov}(R^{\text{long}}, R_m)}
-{\text{Var}(R_m)}\]
+$$\beta_{\text{long}} = \frac{\text{Cov}(R^{\text{long}}, R_m)}
+{\text{Var}(R_m)}$$
 
 **Requires:** optional benchmark field on `ExposureInput`. If benchmark is
 not provided, raises `ValueError`.
@@ -708,8 +708,8 @@ Without Industry Bets," *Financial Analysts Journal*, 70(4).
 
 ### 6.9 Short Beta
 
-\[\beta_{\text{short}} = \frac{\text{Cov}(R^{\text{short}}, R_m)}
-{\text{Var}(R_m)}\]
+$$\beta_{\text{short}} = \frac{\text{Cov}(R^{\text{short}}, R_m)}
+{\text{Var}(R_m)}$$
 
 **Requires:** optional benchmark field on `ExposureInput`. Same failure
 mode as §6.8.
@@ -718,8 +718,8 @@ mode as §6.8.
 
 ### 6.10 Position Concentration (HHI)
 
-\[\text{HHI}_t = \sum_{i=1}^{N}
-\left(\frac{w_{i,t}}{\sum_j |w_{j,t}|}\right)^{\!2}\]
+$$\text{HHI}_t = \sum_{i=1}^{N}
+\left(\frac{w_{i,t}}{\sum_j |w_{j,t}|}\right)^{\!2}$$
 
 Herfindahl-Hirschman Index on normalized position weights.
 
@@ -728,7 +728,7 @@ Economic Review*, 54(5); SEC regulation for concentration reporting.
 
 ### 6.11 Effective N Positions
 
-\[N_{\text{eff},t} = \frac{1}{\text{HHI}_t}\]
+$$N_{\text{eff},t} = \frac{1}{\text{HHI}_t}$$
 
 Reciprocal HHI.
 
@@ -737,24 +737,24 @@ as a Numbers-Equivalent," *Review of Economics and Statistics*, 51(1).
 
 ### 6.12 Turnover
 
-\[\text{TO}_t = \frac{1}{2}\sum_{i=1}^{N}
-|\Delta w_{i,t}|\]
+$$\text{TO}_t = \frac{1}{2}\sum_{i=1}^{N}
+|\Delta w_{i,t}|$$
 
-Annualized: mean period turnover × \(P\).
+Annualized: mean period turnover × $P$.
 
 **Citation:** Morningstar (2020), *Morningstar Portfolio Turnover
 Methodology*; also Bacon (2008, §11.6).
 
 ### 6.13 Average Holding Weight per Position
 
-\[\bar{w}_t = \frac{1}{N_t}\sum_{i=1}^{N_t} |w_{i,t}|\]
+$$\bar{w}_t = \frac{1}{N_t}\sum_{i=1}^{N_t} |w_{i,t}|$$
 
 **Citation:** Bacon (2008, §11.2).
 
 ### 6.14 Position Coverage %
 
-\[\text{Coverage} = \frac{1}{n}\sum_{t=1}^{n}
-\mathbf{1}_{[\exists i: w_{i,t} \neq 0]}\]
+$$\text{Coverage} = \frac{1}{n}\sum_{t=1}^{n}
+\mathbf{1}_{[\exists i: w_{i,t} \neq 0]}$$
 
 Fraction of periods with at least one non-zero position.
 
@@ -762,8 +762,8 @@ Fraction of periods with at least one non-zero position.
 
 ### 6.15 Long Position Coverage %
 
-\[\text{Coverage}_{\text{long}} = \frac{1}{n}\sum_{t=1}^{n}
-\mathbf{1}_{[\exists i: w_{i,t} > 0]}\]
+$$\text{Coverage}_{\text{long}} = \frac{1}{n}\sum_{t=1}^{n}
+\mathbf{1}_{[\exists i: w_{i,t} > 0]}$$
 
 Fraction of periods with at least one long (strictly positive) position.
 
@@ -771,8 +771,8 @@ Fraction of periods with at least one long (strictly positive) position.
 
 ### 6.16 Short Position Coverage %
 
-\[\text{Coverage}_{\text{short}} = \frac{1}{n}\sum_{t=1}^{n}
-\mathbf{1}_{[\exists i: w_{i,t} < 0]}\]
+$$\text{Coverage}_{\text{short}} = \frac{1}{n}\sum_{t=1}^{n}
+\mathbf{1}_{[\exists i: w_{i,t} < 0]}$$
 
 Fraction of periods with at least one short (strictly negative) position.
 
@@ -780,7 +780,7 @@ Fraction of periods with at least one short (strictly negative) position.
 
 ### 6.17 Exposure Volatility
 
-\[\sigma_{\text{GE}} = \text{std}(\text{GE}_1, \dots, \text{GE}_n)\]
+$$\sigma_{\text{GE}} = \text{std}(\text{GE}_1, \dots, \text{GE}_n)$$
 
 Standard deviation of the gross exposure time series.
 
@@ -788,21 +788,21 @@ Standard deviation of the gross exposure time series.
 
 ### 6.18 Net Exposure Volatility
 
-\[\sigma_{\text{NE}} = \text{std}(\text{NE}_1, \dots, \text{NE}_n)\]
+$$\sigma_{\text{NE}} = \text{std}(\text{NE}_1, \dots, \text{NE}_n)$$
 
 **Citation:** As §6.17.
 
 ### 6.19 Exposure Coefficient of Variation
 
-\[\text{CV}_{\text{exp}} =
-\frac{\sigma_{\text{GE}}}{|\bar{\text{GE}}|}\]
+$$\text{CV}_{\text{exp}} =
+\frac{\sigma_{\text{GE}}}{|\bar{\text{GE}}|}$$
 
 **Citation:** Pearson (1896). For financial application: standard
 descriptive statistic; no single finance-specific source.
 
 ### 6.20 Avg Exposure Utilization
 
-\[\text{Utilization} = \frac{\bar{\text{GE}}}{\max_t \text{GE}_t}\]
+$$\text{Utilization} = \frac{\bar{\text{GE}}}{\max_t \text{GE}_t}$$
 
 Mean gross exposure as a fraction of maximum.
 
@@ -810,7 +810,7 @@ Mean gross exposure as a fraction of maximum.
 
 ### 6.21 Exposure Directional Bias
 
-\[\text{Bias} = \frac{|\bar{\text{NE}}|}{\bar{\text{GE}}}\]
+$$\text{Bias} = \frac{|\bar{\text{NE}}|}{\bar{\text{GE}}}$$
 
 Absolute mean net exposure relative to mean gross exposure.
 
@@ -841,13 +841,13 @@ Analysis*, Wiley). Additional sources cited per metric where applicable.
 
 ### 7.1 Total Trades
 
-\[N = \text{number of round-trip trades}\]
+$$N = \text{number of round-trip trades}$$
 
 **Citation:** Schwager (1995, Ch. 38).
 
 ### 7.2 Win Rate (Overall)
 
-\[\text{WR} = \frac{N_{\text{win}}}{N}\]
+$$\text{WR} = \frac{N_{\text{win}}}{N}$$
 
 Fraction of trades with positive P&L.
 
@@ -865,13 +865,13 @@ Same formula, restricted to trades opened short.
 
 ### 7.5 Average Win
 
-\[\bar{W} = \frac{1}{N_{\text{win}}}\sum_{j:\text{win}}\text{PnL}_j\]
+$$\bar{W} = \frac{1}{N_{\text{win}}}\sum_{j:\text{win}}\text{PnL}_j$$
 
 **Citation:** Schwager (1995, Ch. 38).
 
 ### 7.6 Average Loss
 
-\[\bar{L} = \frac{1}{N_{\text{loss}}}\sum_{j:\text{loss}}\text{PnL}_j\]
+$$\bar{L} = \frac{1}{N_{\text{loss}}}\sum_{j:\text{loss}}\text{PnL}_j$$
 
 Reported as absolute value for display; sign preserved in the
 `MetricResult.value` field.
@@ -880,31 +880,31 @@ Reported as absolute value for display; sign preserved in the
 
 ### 7.7 Win/Loss Ratio
 
-\[\text{WLR} = \frac{N_{\text{win}}}{N_{\text{loss}}}\]
+$$\text{WLR} = \frac{N_{\text{win}}}{N_{\text{loss}}}$$
 
 **Citation:** Schwager (1995, Ch. 38).
 
 ### 7.8 Profit Factor
 
-\[\text{PF} = \frac{\sum_{j}\max(\text{PnL}_j, 0)}
-{|\sum_{j}\min(\text{PnL}_j, 0)|}\]
+$$\text{PF} = \frac{\sum_{j}\max(\text{PnL}_j, 0)}
+{|\sum_{j}\min(\text{PnL}_j, 0)|}$$
 
 **Citation:** Schwager (1995, Ch. 38).
 
 ### 7.9 Expectancy per Trade
 
-\[\mathbb{E}[\text{PnL}] = \text{WR} \cdot \bar{W} +
-(1 - \text{WR}) \cdot \bar{L}\]
+$$\mathbb{E}[\text{PnL}] = \text{WR} \cdot \bar{W} +
+(1 - \text{WR}) \cdot \bar{L}$$
 
-with \(\bar{L}\) as a negative number.
+with $\bar{L}$ as a negative number.
 
 **Citation:** Tharp (1998, *Trade Your Way to Financial Freedom*,
 McGraw-Hill, Ch. 5).
 
 ### 7.10 Average Holding Period
 
-\[\bar{H} = \frac{1}{N}\sum_{j=1}^{N}(t_{j,\text{exit}} -
-t_{j,\text{entry}})\]
+$$\bar{H} = \frac{1}{N}\sum_{j=1}^{N}(t_{j,\text{exit}} -
+t_{j,\text{entry}})$$
 
 **Citation:** Schwager (1995, Ch. 38).
 
@@ -936,9 +936,9 @@ Summary statistics of per-trade P&L: mean, median, std, skewness,
 
 ### 7.15 Implementation Shortfall
 
-\[\text{IS}_j = \text{side}_j \cdot
+$$\text{IS}_j = \text{side}_j \cdot
 \frac{P_{\text{fill},j} - P_{\text{decision},j}}
-{P_{\text{decision},j}}\]
+{P_{\text{decision},j}}$$
 
 **Required optional fields on the trade log:**
 `fill_price`, `decision_price`, `side` (sign: +1 for buy, −1 for sell).
@@ -951,33 +951,33 @@ Reality," *JPM*, 14(3).
 
 ### 7.16 Best Trade
 
-\[\max_j \text{PnL}_j\]
+$$\max_j \text{PnL}_j$$
 
 **Citation:** Schwager (1995, Ch. 38).
 
 ### 7.17 Worst Trade
 
-\[\min_j \text{PnL}_j\]
+$$\min_j \text{PnL}_j$$
 
 **Citation:** As §7.16.
 
 ### 7.18 Avg Winning Trade Duration
 
-\[\bar{H}_{\text{win}} = \frac{1}{N_{\text{win}}}
-\sum_{j:\text{win}}(t_{j,\text{exit}} - t_{j,\text{entry}})\]
+$$\bar{H}_{\text{win}} = \frac{1}{N_{\text{win}}}
+\sum_{j:\text{win}}(t_{j,\text{exit}} - t_{j,\text{entry}})$$
 
 **Citation:** Schwager (1995, Ch. 38).
 
 ### 7.19 Avg Losing Trade Duration
 
-\[\bar{H}_{\text{loss}} = \frac{1}{N_{\text{loss}}}
-\sum_{j:\text{loss}}(t_{j,\text{exit}} - t_{j,\text{entry}})\]
+$$\bar{H}_{\text{loss}} = \frac{1}{N_{\text{loss}}}
+\sum_{j:\text{loss}}(t_{j,\text{exit}} - t_{j,\text{entry}})$$
 
 **Citation:** As §7.18.
 
 ### 7.20 Payoff Ratio
 
-\[\text{Payoff} = \frac{\bar{W}}{|\bar{L}|}\]
+$$\text{Payoff} = \frac{\bar{W}}{|\bar{L}|}$$
 
 Average win divided by absolute average loss.
 
@@ -985,7 +985,7 @@ Average win divided by absolute average loss.
 
 ### 7.21 CPC Ratio
 
-\[\text{CPC} = \text{PF} \times \text{Payoff} \times \text{WR}\]
+$$\text{CPC} = \text{PF} \times \text{Payoff} \times \text{WR}$$
 
 Young's CPC Index: profit factor × payoff ratio × win rate.
 
@@ -993,8 +993,8 @@ Young's CPC Index: profit factor × payoff ratio × win rate.
 
 ### 7.22 SQN (System Quality Number)
 
-\[\text{SQN} = \frac{\bar{r}_{\text{trade}}}
-{\sigma_{\text{trade}}} \cdot \sqrt{N}\]
+$$\text{SQN} = \frac{\bar{r}_{\text{trade}}}
+{\sigma_{\text{trade}}} \cdot \sqrt{N}$$
 
 Mean trade return divided by trade return std, scaled by √(number of
 trades).
@@ -1003,20 +1003,20 @@ trades).
 
 ### 7.23 Trade Duration Std
 
-\[\sigma_H = \text{std}(H_1, \dots, H_N)\]
+$$\sigma_H = \text{std}(H_1, \dots, H_N)$$
 
 **Citation:** Standard statistic. Fisher (1925).
 
 ### 7.24 Trade Return Std
 
-\[\sigma_{\text{trade}} = \text{std}(\text{PnL}_1, \dots, \text{PnL}_N)\]
+$$\sigma_{\text{trade}} = \text{std}(\text{PnL}_1, \dots, \text{PnL}_N)$$
 
 **Citation:** Standard statistic. Fisher (1925).
 
 ### 7.25 Geometric Mean Return per Trade
 
-\[\bar{r}_{g,\text{trade}} = \exp\!\left(
-\frac{1}{N}\sum_{j=1}^{N}\ln(1 + \text{PnL}_j)\right) - 1\]
+$$\bar{r}_{g,\text{trade}} = \exp\!\left(
+\frac{1}{N}\sum_{j=1}^{N}\ln(1 + \text{PnL}_j)\right) - 1$$
 
 **Citation:** Standard geometric mean; see Campbell, Lo & MacKinlay
 (1997, §1.4) for context on compounding.
@@ -1030,7 +1030,7 @@ Fraction of winning trades with P&L exceeding \(Q_3 + 1.5 \times
 
 ### 7.27 Outlier Loss Ratio
 
-Fraction of losing trades with P&L below \(Q_1 - 1.5 \times \text{IQR}\)
+Fraction of losing trades with P&L below $Q_1 - 1.5 \times \text{IQR}$
 of the losing-trade P&L distribution.
 
 **Citation:** As §7.26.
@@ -1060,7 +1060,7 @@ failure mode: raises `ValueError` if the field is absent.
 
 ### 7.30 Kelly Criterion
 
-\[f^* = W - \frac{1-W}{\bar{W}/|\bar{L}|}\]
+$$f^* = W - \frac{1-W}{\bar{W}/|\bar{L}|}$$
 
 Estimated optimal bet fraction. Assumes independent, identically
 distributed trade returns.
@@ -1071,53 +1071,53 @@ Criterion in Blackjack, Sports Betting, and the Stock Market."
 
 ### 7.31 Long/Short Trade Count
 
-\[N_{\text{long}} = \sum_{j=1}^{N} \mathbf{1}_{[\text{side}_j = \text{long}]},
-\quad N_{\text{short}} = \sum_{j=1}^{N} \mathbf{1}_{[\text{side}_j = \text{short}]}\]
+$$N_{\text{long}} = \sum_{j=1}^{N} \mathbf{1}_{[\text{side}_j = \text{long}]},
+\quad N_{\text{short}} = \sum_{j=1}^{N} \mathbf{1}_{[\text{side}_j = \text{short}]}$$
 
 Number of trades opened long (short). The `side` field in the trade log
 determines classification.
 
 ### 7.32 Long/Short Trade %
 
-\[p_{\text{long}} = \frac{N_{\text{long}}}{N},\quad
-p_{\text{short}} = \frac{N_{\text{short}}}{N}\]
+$$p_{\text{long}} = \frac{N_{\text{long}}}{N},\quad
+p_{\text{short}} = \frac{N_{\text{short}}}{N}$$
 
 Fraction of all trades opened long (short).
 
 ### 7.33 Long/Short Winning/Losing Trades
 
-\[\begin{aligned}
+$$\begin{aligned}
 N_{\text{long,win}} &= \sum_{j: \text{side}_j = \text{long}} \mathbf{1}_{[\text{PnL}_j > 0]} \\
 N_{\text{long,loss}} &= \sum_{j: \text{side}_j = \text{long}} \mathbf{1}_{[\text{PnL}_j < 0]} \\
 N_{\text{short,win}} &= \sum_{j: \text{side}_j = \text{short}} \mathbf{1}_{[\text{PnL}_j > 0]} \\
 N_{\text{short,loss}} &= \sum_{j: \text{side}_j = \text{short}} \mathbf{1}_{[\text{PnL}_j < 0]}
-\end{aligned}\]
+\end{aligned}$$
 
 ### 7.34 Long/Short Avg Duration
 
-\[\bar{H}_{\text{long}} = \frac{1}{N_{\text{long}}}
+$$\bar{H}_{\text{long}} = \frac{1}{N_{\text{long}}}
 \sum_{j: \text{side}_j = \text{long}} H_j,\quad
 \bar{H}_{\text{short}} = \frac{1}{N_{\text{short}}}
-\sum_{j: \text{side}_j = \text{short}} H_j\]
+\sum_{j: \text{side}_j = \text{short}} H_j$$
 
 ### 7.35 Long/Short Total PnL %
 
-\[\text{PnL}_{\text{long,total}} = \sum_{j: \text{side}_j = \text{long}} \text{PnL}_j,\quad
-\text{PnL}_{\text{short,total}} = \sum_{j: \text{side}_j = \text{short}} \text{PnL}_j\]
+$$\text{PnL}_{\text{long,total}} = \sum_{j: \text{side}_j = \text{long}} \text{PnL}_j,\quad
+\text{PnL}_{\text{short,total}} = \sum_{j: \text{side}_j = \text{short}} \text{PnL}_j$$
 
 ### 7.36 Long/Short Avg PnL %
 
-\[\overline{\text{PnL}}_{\text{long}} = \frac{\text{PnL}_{\text{long,total}}}{N_{\text{long}}},\quad
-\overline{\text{PnL}}_{\text{short}} = \frac{\text{PnL}_{\text{short,total}}}{N_{\text{short}}}\]
+$$\overline{\text{PnL}}_{\text{long}} = \frac{\text{PnL}_{\text{long,total}}}{N_{\text{long}}},\quad
+\overline{\text{PnL}}_{\text{short}} = \frac{\text{PnL}_{\text{short,total}}}{N_{\text{short}}}$$
 
 ### 7.37 Long/Short Best/Worst Trade %
 
-\[\begin{aligned}
+$$\begin{aligned}
 \text{Best}_{\text{long}} &= \max_{j: \text{side}_j = \text{long}} \text{PnL}_j,
 \quad \text{Worst}_{\text{long}} = \min_{j: \text{side}_j = \text{long}} \text{PnL}_j \\
 \text{Best}_{\text{short}} &= \max_{j: \text{side}_j = \text{short}} \text{PnL}_j,
 \quad \text{Worst}_{\text{short}} = \min_{j: \text{side}_j = \text{short}} \text{PnL}_j
-\end{aligned}\]
+\end{aligned}$$
 
 ---
 
@@ -1127,15 +1127,15 @@ Tagged `requires="benchmark"`. Category tags vary.
 
 ### 8.1 Alpha (Jensen's)
 
-\[\alpha_{\text{ann}} = \text{CAGR} - (r_f + \beta \cdot
-(\text{CAGR}_m - r_f))\]
+$$\alpha_{\text{ann}} = \text{CAGR} - (r_f + \beta \cdot
+(\text{CAGR}_m - r_f))$$
 
 **Citation:** Jensen (1968), "The Performance of Mutual Funds in the
 Period 1945–1964," *Journal of Finance*, 23(2).
 
 ### 8.2 Beta
 
-\[\beta = \frac{\text{Cov}(r, r_m)}{\text{Var}(r_m)}\]
+$$\beta = \frac{\text{Cov}(r, r_m)}{\text{Var}(r_m)}$$
 
 **Citation:** Sharpe (1964), "Capital Asset Prices: A Theory of Market
 Equilibrium Under Conditions of Risk," *Journal of Finance*, 19(3).
@@ -1143,32 +1143,32 @@ Convention parameter: `variant` — `"least_squares"` (default, OLS).
 
 ### 8.3 R²
 
-\[R^2 = 1 - \frac{\text{Var}(r - \hat{r})}{\text{Var}(r)}\]
+$$R^2 = 1 - \frac{\text{Var}(r - \hat{r})}{\text{Var}(r)}$$
 
-where \(\hat{r} = \alpha + \beta r_m\).
+where $\hat{r} = \alpha + \beta r_m$.
 
 **Citation:** Greene (2018, *Econometric Analysis*, 8th ed., §3.5); the
 coefficient of determination in the OLS context.
 
 ### 8.4 Tracking Error
 
-\[\text{TE}_{\text{ann}} = \sigma(r - r_m) \cdot \sqrt{P}\]
+$$\text{TE}_{\text{ann}} = \sigma(r - r_m) \cdot \sqrt{P}$$
 
 **Citation:** Roll (1992), "A Mean/Variance Analysis of Tracking Error,"
 *JPM*, 18(4).
 
 ### 8.5 Information Ratio
 
-\[\text{IR}_{\text{ann}} = \frac{(\bar{r} - \bar{r}_m) \cdot P}
-{\sigma(r - r_m) \cdot \sqrt{P}}\]
+$$\text{IR}_{\text{ann}} = \frac{(\bar{r} - \bar{r}_m) \cdot P}
+{\sigma(r - r_m) \cdot \sqrt{P}}$$
 
 **Citation:** Goodwin (1998), "The Information Ratio," *Financial
 Analysts Journal*, 54(4).
 
 ### 8.6 Up-Capture Ratio
 
-\[\text{UC} = \frac{\text{mean}_{t: r_{m,t} > 0}(r_t)}
-{\text{mean}_{t: r_{m,t} > 0}(r_{m,t})}\]
+$$\text{UC} = \frac{\text{mean}_{t: r_{m,t} > 0}(r_t)}
+{\text{mean}_{t: r_{m,t} > 0}(r_{m,t})}$$
 
 Ratio of mean strategy return to mean benchmark return in up-market
 periods.
@@ -1178,20 +1178,20 @@ Methodology*; Bacon (2008, §9.4).
 
 ### 8.7 Down-Capture Ratio
 
-\[\text{DC} = \frac{\text{mean}_{t: r_{m,t} < 0}(r_t)}
-{\text{mean}_{t: r_{m,t} < 0}(r_{m,t})}\]
+$$\text{DC} = \frac{\text{mean}_{t: r_{m,t} < 0}(r_t)}
+{\text{mean}_{t: r_{m,t} < 0}(r_{m,t})}$$
 
 **Citation:** As §8.6.
 
 ### 8.8 Up/Down Capture Ratio
 
-\[\text{UDR} = \frac{\text{UC}}{|\text{DC}|}\]
+$$\text{UDR} = \frac{\text{UC}}{|\text{DC}|}$$
 
 **Citation:** Bacon (2008, §9.4).
 
 ### 8.9 Correlation
 
-\[\rho = \frac{\text{Cov}(r, r_m)}{\sigma(r)\cdot\sigma(r_m)}\]
+$$\rho = \frac{\text{Cov}(r, r_m)}{\sigma(r)\cdot\sigma(r_m)}$$
 
 Pearson correlation with benchmark.
 
@@ -1199,28 +1199,28 @@ Pearson correlation with benchmark.
 
 ### 8.10 Active Return
 
-\[\bar{r}_{\text{active, ann}} = (\bar{r} - \bar{r}_m) \cdot P\]
+$$\bar{r}_{\text{active, ann}} = (\bar{r} - \bar{r}_m) \cdot P$$
 
 **Citation:** Bacon (2008, §9.2); CFA Institute, *Performance
 Attribution*.
 
 ### 8.11 Batting Average vs Benchmark
 
-\[\text{BA} = \frac{1}{n}\sum_{t=1}^{n}
-\mathbf{1}_{[r_t > r_{m,t}]}\]
+$$\text{BA} = \frac{1}{n}\sum_{t=1}^{n}
+\mathbf{1}_{[r_t > r_{m,t}]}$$
 
 **Citation:** Bacon (2008, §9.5).
 
 ### 8.12 Treynor Ratio
 
-\[\text{Treynor} = \frac{\bar{r}_{\text{excess}} \cdot P}{\beta}\]
+$$\text{Treynor} = \frac{\bar{r}_{\text{excess}} \cdot P}{\beta}$$
 
 **Citation:** Treynor (1965), "How to Rate Management of Investment
 Funds," *Harvard Business Review*, 43(1).
 
 ### 8.13 Outperformance
 
-\[R_{\text{out}} = R_{\text{cum}} - R_{m,\text{cum}}\]
+$$R_{\text{out}} = R_{\text{cum}} - R_{m,\text{cum}}$$
 
 Total cumulative return difference vs. benchmark.
 
@@ -1228,20 +1228,20 @@ Total cumulative return difference vs. benchmark.
 
 ### 8.14 Outperformance Ratio
 
-\[\text{OR} = \frac{1 + R_{\text{cum}}}{1 + R_{m,\text{cum}}}\]
+$$\text{OR} = \frac{1 + R_{\text{cum}}}{1 + R_{m,\text{cum}}}$$
 
 **Citation:** Bacon (2008, §9.2).
 
 ### 8.15 Underperforming Periods / %
 
-Count and fraction of periods where \(r_t < r_{m,t}\).
+Count and fraction of periods where $r_t < r_{m,t}$.
 
 **Citation:** Bacon (2008, §9.5).
 
 ### 8.16 Max Outperformance
 
 Maximum value of the cumulative active return series
-\(\sum_{\tau=1}^{t}(r_\tau - r_{m,\tau})\) over the full period.
+$\sum_{\tau=1}^{t}(r_\tau - r_{m,\tau})$ over the full period.
 
 **Citation:** Bacon (2008, §9.3).
 
@@ -1254,7 +1254,7 @@ deepest cumulative underperformance vs. benchmark).
 
 ### 8.18 Benchmark Volatility
 
-\[\sigma_{m,\text{ann}} = \sigma(r_m) \cdot \sqrt{P}\]
+$$\sigma_{m,\text{ann}} = \sigma(r_m) \cdot \sqrt{P}$$
 
 **Citation:** Standard risk metric; CFA Institute, *Quantitative
 Methods*.
@@ -1267,8 +1267,8 @@ Tagged `requires="compare"`, `category=("relative", "compare")`.
 
 ### 9.1 Correlation Matrix
 
-\[\Sigma_{ij} = \text{Corr}(r^{(i)}, r^{(j)})\]
-for \(i,j = 1,\dots,K\).
+$$\Sigma_{ij} = \text{Corr}(r^{(i)}, r^{(j)})$$
+for $i,j = 1,\dots,K$.
 
 **Citation:** Pearson (1895); standard multivariate statistic. See
 Johnson & Wichern (2007, *Applied Multivariate Statistical Analysis*,
@@ -1276,7 +1276,7 @@ Johnson & Wichern (2007, *Applied Multivariate Statistical Analysis*,
 
 ### 9.2 Diversification Ratio
 
-\[\text{DR} = \frac{\sum_{i=1}^{K} w_i\sigma_i}{\sigma_p}\]
+$$\text{DR} = \frac{\sum_{i=1}^{K} w_i\sigma_i}{\sigma_p}$$
 
 with equal-weight (default) or user-specified weights.
 
@@ -1285,13 +1285,13 @@ Diversification," *JPM*, 35(1).
 
 ### 9.3 Pairwise Sharpe-Difference Test (Jobson-Korkie, Memmel)
 
-\[z = \frac{\hat{SR}_1 - \hat{SR}_2}{\sqrt{\hat{\sigma}^2}}
-\sim \mathcal{N}(0,1)\]
+$$z = \frac{\hat{SR}_1 - \hat{SR}_2}{\sqrt{\hat{\sigma}^2}}
+\sim \mathcal{N}(0,1)$$
 
-\[\hat{\sigma}^2 = \frac{1}{T}\!\left[2 - 2\rho_{12} +
+$$\hat{\sigma}^2 = \frac{1}{T}\!\left[2 - 2\rho_{12} +
 \frac{1}{2}(\hat{SR}_1^2 + \hat{SR}_2^2) -
 \rho_{12}^2\hat{SR}_1\hat{SR}_2 -
-(\gamma_{3,1}\hat{SR}_1 - \gamma_{3,2}\hat{SR}_2)\cdot 2\rho_{12}\right]\]
+(\gamma_{3,1}\hat{SR}_1 - \gamma_{3,2}\hat{SR}_2)\cdot 2\rho_{12}\right]$$
 
 **Citation:** Jobson & Korkie (1981), "Performance Hypothesis Testing
 with the Sharpe and Treynor Measures," *J. Finance*, 36(4); Memmel
@@ -1300,7 +1300,7 @@ with the Sharpe and Treynor Measures," *J. Finance*, 36(4); Memmel
 
 ### 9.4 White's Reality Check / SPA Test
 
-White's RC: \(\bar{V} = \max_k \sqrt{T} \cdot \bar{f}_k\), bootstrap the
+White's RC: $\bar{V} = \max_k \sqrt{T} \cdot \bar{f}_k$, bootstrap the
 distribution of the max statistic under the null. SPA (Hansen 2005)
 studentizes the statistic for improved power.
 
@@ -1321,9 +1321,9 @@ Ch. 11–13).
 
 ### 9.6 Marginal Contribution to Portfolio Risk
 
-\[\text{MCR}_i = w_i \cdot \frac{(\Sigma w)_i}{\sigma_p}\]
+$$\text{MCR}_i = w_i \cdot \frac{(\Sigma w)_i}{\sigma_p}$$
 
-where \(\Sigma\) is the covariance matrix of strategy returns and \(w\) the
+where $\Sigma$ is the covariance matrix of strategy returns and $w$ the
 weight vector.
 
 **Citation:** Litterman (1996); Qian (2005), "Risk Parity and
@@ -1331,14 +1331,14 @@ Diversification," *J. of Investing*, 14(3).
 
 ### 9.7 Component VaR
 
-\[\text{CVaR}_i = w_i \cdot \frac{\partial \text{VaR}}{\partial w_i}
-= w_i \cdot (-\beta_i \cdot \text{VaR}_p)\]
+$$\text{CVaR}_i = w_i \cdot \frac{\partial \text{VaR}}{\partial w_i}
+= w_i \cdot (-\beta_i \cdot \text{VaR}_p)$$
 
 **Assumption:** The formula above holds for parametric (linear) VaR
 decomposition. When VaR is computed via the historical method (the
 default per conventions table), the linear decomposition via beta is an
 approximation. The implementation computes component VaR via marginal
-revaluation: remove position \(i\) and recompute VaR, then take the
+revaluation: remove position $i$ and recompute VaR, then take the
 difference.
 
 **Citation:** Jorion (2006, *Value at Risk*, 3rd ed., Ch. 7);
