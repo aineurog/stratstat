@@ -22,6 +22,7 @@ from stratstat.core.returns.risk_adjusted import (
     pain_ratio,
     recovery_factor,
     risk_return_ratio,
+    roys_safety_first,
     serenity_ratio,
     sharpe_ratio,
     sortino_ratio,
@@ -749,7 +750,7 @@ class TestNaNHandling:
 
 class TestRegistryIntegration:
     def test_list_metrics_risk_adjusted(self):
-        """All 17 risk-adjusted metrics appear under the risk_adjusted category."""
+        """All 18 risk-adjusted metrics appear under the risk_adjusted category."""
         from stratstat.registry import list_metrics
 
         metrics = list_metrics(category="risk_adjusted")
@@ -772,6 +773,7 @@ class TestRegistryIntegration:
             "modified_sharpe_ratio",
             "upside_potential_ratio",
             "risk_return_ratio",
+            "roys_safety_first",
         }
         assert names == expected
 
@@ -784,11 +786,11 @@ class TestRegistryIntegration:
         assert isinstance(result.value, float)
 
     def test_compute_all_risk_adjusted(self, sample_input):
-        """compute_all(category='risk_adjusted') returns all 17 metrics."""
+        """compute_all(category='risk_adjusted') returns all 18 metrics."""
         from stratstat import compute_all
 
         results = compute_all(sample_input, category="risk_adjusted")
-        assert len(results) == 17
+        assert len(results) == 18
         names = {r.name for r in results}
         assert "sharpe_ratio" in names
         assert "kappa_3" in names
@@ -993,3 +995,37 @@ class TestRiskReturnRatio:
         inp = ReturnsInput(returns)
         with pytest.raises(ValueError, match="periods_per_year"):
             risk_return_ratio(inp)
+
+
+# ---------------------------------------------------------------------------
+# Roy's Safety-First Ratio
+# ---------------------------------------------------------------------------
+
+
+class TestRoysSafetyFirst:
+    """Tests for roys_safety_first metric."""
+
+    def test_equals_sharpe_when_mar_equals_rf(self):
+        """When MAR = rf = 0, RSF should equal Sharpe ratio."""
+        rng = np.random.default_rng(42)
+        returns = rng.normal(0.0004, 0.01, size=500)
+        inp = ReturnsInput(returns, periods_per_year=252)
+        rsf = roys_safety_first(inp, mar=0.0)
+        sr = sharpe_ratio(inp, rf=0.0)
+        assert rsf.value == pytest.approx(sr.value, rel=1e-12)
+
+    def test_higher_mar_lowers_ratio(self):
+        """Higher MAR should produce lower RSF."""
+        rng = np.random.default_rng(42)
+        returns = rng.normal(0.001, 0.01, size=500)
+        inp = ReturnsInput(returns, periods_per_year=252)
+        rsf_low = roys_safety_first(inp, mar=0.0)
+        rsf_high = roys_safety_first(inp, mar=0.0005)
+        assert rsf_high.value < rsf_low.value
+
+    def test_requires_periods_per_year(self):
+        """Should raise ValueError without periods_per_year."""
+        returns = np.random.default_rng(42).normal(0.0004, 0.01, size=100)
+        inp = ReturnsInput(returns)
+        with pytest.raises(ValueError, match="periods_per_year"):
+            roys_safety_first(inp)

@@ -584,6 +584,59 @@ def positive_period_ratio(input_data: ReturnsInput) -> MetricResult:
 
 
 # ---------------------------------------------------------------------------
+# 1.10b Negative-Period Ratio
+# ---------------------------------------------------------------------------
+@register_metric(
+    name="negative_period_ratio",
+    requires="returns",
+    category=("descriptive", "returns"),
+    backend="vectorized",
+    ref="Bacon (2008, Practical Portfolio Performance Measurement and Attribution,"
+    " 2nd ed., Sec. 3.11)",
+)
+def negative_period_ratio(input_data: ReturnsInput) -> MetricResult:
+    """Fraction of periods with strictly negative return (< 0).
+
+    Formula:
+        NPR = (1/n) · Σ 1_{r_t < 0}
+
+    Zero is treated as non-negative. NPR + PPR ≤ 1 (strict inequality
+    if any periods have exactly zero return).
+
+    Args:
+        input_data: A ``ReturnsInput``.
+
+    Returns:
+        MetricResult with negative-period ratio.
+    """
+    r = input_data.values
+    valid = ~np.isnan(r)
+    negative = r < 0
+    n_valid: NDArray[np.floating] = np.sum(valid, axis=0).astype(np.float64)
+    n_negative: NDArray[np.floating] = np.sum(negative & valid, axis=0).astype(np.float64)
+
+    with np.errstate(invalid="ignore"):
+        arr = n_negative / np.maximum(n_valid, 1.0)
+        arr = np.where(n_valid == 0, np.nan, arr)
+
+    value: float | NDArray[np.floating]
+    value = float(arr[0]) if input_data.is_single else arr
+
+    return MetricResult(
+        name="negative_period_ratio",
+        value=value,
+        category=("descriptive", "returns"),
+        periods_per_year=input_data.periods_per_year,
+        meta={
+            "ref": (
+                "Bacon (2008, Practical Portfolio Performance Measurement "
+                "and Attribution, 2nd ed., Sec. 3.11)"
+            ),
+        },
+    )
+
+
+# ---------------------------------------------------------------------------
 # 1.11 Autocorrelation (Lag-1)
 # ---------------------------------------------------------------------------
 @register_metric(

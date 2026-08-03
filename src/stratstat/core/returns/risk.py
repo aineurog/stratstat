@@ -802,6 +802,55 @@ def downside_deviation(
 
 
 # ---------------------------------------------------------------------------
+# 2.7b Downside Semi-Variance (raw, un-sqrt'd)
+# Reference: Markowitz (1959); Sortino & van der Meer (1991)
+# ---------------------------------------------------------------------------
+
+_DOWNSIDE_SEMIVAR_REF = "Markowitz (1959); Sortino & van der Meer (1991)"
+
+
+@register_metric(
+    name="downside_semivariance",
+    requires="returns",
+    category=("risk", "returns"),
+    backend="vectorized",
+    ref=_DOWNSIDE_SEMIVAR_REF,
+)
+def downside_semivariance(
+    input_data: ReturnsInput, mar: float = 0.0
+) -> MetricResult:
+    """Downside semi-variance — raw second moment below MAR (no square root).
+
+    Formula:
+        DSV = (1/n) · Σ min(r_t − MAR, 0)²
+
+    This is the un-sqrt'd form of downside deviation, useful for
+    portfolio optimisation and risk budgeting where variance is additive.
+
+    Args:
+        input_data: A ``ReturnsInput``.
+        mar: Minimum acceptable return (default 0.0).
+
+    Returns:
+        MetricResult with downside semi-variance.
+    """
+    r = input_data.values
+    below = np.minimum(r - mar, 0.0)
+    arr = np.nanmean(below ** 2, axis=0)
+
+    value: float | NDArray[np.floating]
+    value = float(arr[0]) if input_data.is_single else arr
+
+    return MetricResult(
+        name="downside_semivariance",
+        value=value,
+        category=("risk", "returns"),
+        periods_per_year=input_data.periods_per_year,
+        meta={"ref": _DOWNSIDE_SEMIVAR_REF, "mar": mar},
+    )
+
+
+# ---------------------------------------------------------------------------
 # 2.8 Upside Deviation
 # Reference: Bacon (2008, Sec. 6.4)
 # ---------------------------------------------------------------------------
@@ -978,6 +1027,71 @@ def var(
         meta={
             "ref": _VAR_REF,
             "method": method,
+            "confidence": confidence,
+        },
+    )
+
+
+# ---------------------------------------------------------------------------
+# 2.4 Modified VaR (Cornish-Fisher VaR, standalone)
+# Reference: Favre & Galeano (2002); Zangari (1996)
+# ---------------------------------------------------------------------------
+
+_MODIFIED_VAR_REF = (
+    "Favre & Galeano (2002), 'Mean-Modified Value-at-Risk Optimization with "
+    "Hedge Funds,' Journal of Alternative Investments, 5(2); "
+    "Zangari (1996), 'A VaR Methodology for Portfolios that Include Options,' "
+    "RiskMetrics Monitor."
+)
+
+
+@register_metric(
+    name="modified_var",
+    requires="returns",
+    category=("risk", "returns"),
+    backend="vectorized",
+    ref=_MODIFIED_VAR_REF,
+)
+def modified_var(
+    input_data: ReturnsInput,
+    confidence: float = 0.95,
+) -> MetricResult:
+    """Modified Value at Risk — Cornish-Fisher VaR adjusting for skew and kurtosis.
+
+    Uses the same Cornish-Fisher expansion as ``var(method="cornish_fisher")``
+    but registered as a standalone metric for direct access.
+
+    Formula:
+        MVaR = -(μ + z_CF · σ)
+
+    where z_CF is the Cornish-Fisher-adjusted z-score incorporating
+    sample skewness and excess kurtosis.
+
+    Args:
+        input_data: A ``ReturnsInput``.
+        confidence: Confidence level, default 0.95 (95 % VaR).
+
+    Returns:
+        MetricResult with Modified VaR (positive float = loss magnitude).
+    """
+    if not 0.0 < confidence < 1.0:
+        raise ValueError(
+            f"confidence must be in (0, 1), got {confidence}"
+        )
+
+    r = input_data.values
+    arr = _var_cornish_fisher(r, confidence)
+
+    value: float | NDArray[np.floating]
+    value = float(arr[0]) if input_data.is_single else arr
+
+    return MetricResult(
+        name="modified_var",
+        value=value,
+        category=("risk", "returns"),
+        periods_per_year=input_data.periods_per_year,
+        meta={
+            "ref": _MODIFIED_VAR_REF,
             "confidence": confidence,
         },
     )

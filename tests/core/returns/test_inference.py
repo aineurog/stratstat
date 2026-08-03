@@ -14,7 +14,6 @@ import pytest
 import stratstat.core.returns.descriptive  # noqa: F401
 import stratstat.core.returns.risk_adjusted  # noqa: F401
 from stratstat.core.returns.inference import (
-
     _autocorr_lag1,
     _norm_ppf,
     _period_sharpe,

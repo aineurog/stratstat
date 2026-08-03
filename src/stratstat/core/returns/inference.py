@@ -1049,7 +1049,6 @@ def skewness_adjusted_sharpe(
 
     r = input_data.values  # (n_periods, n_strategies)
     p = float(input_data.periods_per_year)
-    n_strat = r.shape[1]
 
     # Period Sharpe ratio per column
     excess = np.nanmean(r, axis=0) - rf

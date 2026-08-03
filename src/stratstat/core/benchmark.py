@@ -779,3 +779,141 @@ def benchmark_volatility(inp: BenchmarkInput) -> MetricResult:
         periods_per_year=inp.periods_per_year,
         meta={"ref": _REF_CFA_QM, "annualized": True},
     )
+
+
+# ===================================================================
+# §8.19  Information Coefficient (Rank IC)
+# ===================================================================
+
+_REF_RANK_IC = (
+    "Spearman (1904); standard rank-based information coefficient."
+)
+
+
+@register_metric(
+    name="information_coefficient",
+    requires="benchmark",
+    category=("benchmark",),
+    backend="vectorized",
+    ref=_REF_RANK_IC,
+)
+def information_coefficient(inp: BenchmarkInput) -> MetricResult:
+    r"""Spearman rank correlation between strategy and benchmark returns.
+
+    Also known as the *rank information coefficient* (rank IC). Unlike
+    Pearson correlation, rank IC is robust to outliers and captures
+    monotonic (not just linear) association.
+
+    .. math::
+        \rho_s = 1 - \frac{6 \sum d_i^2}{n(n^2 - 1)}
+
+    where :math:`d_i` is the difference between rank pairs.
+
+    Returns NaN for fewer than 3 valid overlapping observations.
+    """
+    _require_single_strategy(inp, "information_coefficient")
+    r = inp.returns[:, 0]
+    bench = inp.benchmark
+    mask = np.isfinite(r) & np.isfinite(bench)
+    n = int(mask.sum())
+    if n < 3:
+        value: float = np.nan
+        return MetricResult(
+            name="information_coefficient",
+            value=value,
+            category=("benchmark",),
+            periods_per_year=inp.periods_per_year,
+            meta={"ref": _REF_RANK_IC},
+        )
+
+    rc = r[mask]
+    bc = bench[mask]
+
+    # Compute ranks manually (no scipy dependency).
+    # Use average-rank tie handling (standard Spearman).
+    def _avg_rank(x: NDArray[np.floating]) -> NDArray[np.float64]:
+        order = np.argsort(x)
+        ranks = np.empty(n, dtype=np.float64)
+        i = 0
+        while i < n:
+            j = i
+            while j < n and x[order[j]] == x[order[i]]:
+                j += 1
+            mean_rank = (i + j + 2) / 2.0  # 1-based averaging
+            for k in range(i, j):
+                ranks[order[k]] = mean_rank
+            i = j
+        return ranks
+
+    rank_r = _avg_rank(rc)
+    rank_b = _avg_rank(bc)
+
+    d = rank_r - rank_b
+    rho = 1.0 - (6.0 * np.sum(d ** 2)) / (n * (n ** 2 - 1.0))
+    value = float(rho)
+
+    return MetricResult(
+        name="information_coefficient",
+        value=value,
+        category=("benchmark",),
+        periods_per_year=inp.periods_per_year,
+        meta={"ref": _REF_RANK_IC},
+    )
+
+
+# ===================================================================
+# §8.20  Directional Consistency
+# ===================================================================
+
+_REF_DIR_CONSISTENCY = (
+    "Standard statistic; fraction of periods where strategy and benchmark "
+    "returns share the same sign."
+)
+
+
+@register_metric(
+    name="directional_consistency",
+    requires="benchmark",
+    category=("benchmark",),
+    backend="vectorized",
+    ref=_REF_DIR_CONSISTENCY,
+)
+def directional_consistency(inp: BenchmarkInput) -> MetricResult:
+    r"""Fraction of periods where strategy and benchmark agree on sign.
+
+    .. math::
+        \text{DC} = \frac{1}{n} \sum_{t=1}^{n}
+        \mathbf{1}_{[\operatorname{sign}(r_t) = \operatorname{sign}(r_{m,t})]}
+
+    Periods where either return is exactly zero (sign = 0) are counted as
+    agreement only if both are exactly zero. NaN periods are excluded.
+
+    Returns NaN if no valid overlapping observations.
+    """
+    _require_single_strategy(inp, "directional_consistency")
+    r = inp.returns[:, 0]
+    bench = inp.benchmark
+    valid = np.isfinite(r) & np.isfinite(bench)
+    n_valid = int(valid.sum())
+    if n_valid == 0:
+        value: float = np.nan
+        return MetricResult(
+            name="directional_consistency",
+            value=value,
+            category=("benchmark",),
+            periods_per_year=inp.periods_per_year,
+            meta={"ref": _REF_DIR_CONSISTENCY},
+        )
+
+    signs_r = np.sign(r[valid])
+    signs_b = np.sign(bench[valid])
+    n_agree = int(np.sum(signs_r == signs_b))
+    value = n_agree / n_valid
+
+    return MetricResult(
+        name="directional_consistency",
+        value=value,
+        category=("benchmark",),
+        periods_per_year=inp.periods_per_year,
+        meta={"ref": _REF_DIR_CONSISTENCY},
+    )

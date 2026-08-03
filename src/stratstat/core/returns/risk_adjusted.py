@@ -830,7 +830,6 @@ def k_ratio(input_data: ReturnsInput) -> MetricResult:
     # Time index 1..n
     x = np.arange(1, n + 1, dtype=np.float64)
     x_bar = np.mean(x)
-    ss_xx = float(np.sum((x - x_bar) ** 2))
 
     arr = np.zeros(n_strat, dtype=np.float64)
     for col in range(n_strat):
@@ -1247,4 +1246,81 @@ def risk_return_ratio(input_data: ReturnsInput) -> MetricResult:
         category=("risk_adjusted", "returns"),
         periods_per_year=input_data.periods_per_year,
         meta={"ref": _RISK_RETURN_REF},
+    )
+
+
+# ===================================================================
+# §3.18  Roy's Safety-First Ratio
+# ===================================================================
+
+_ROYS_SAFETY_FIRST_REF = (
+    'Roy (1952), "Safety First and the Holding of Assets," Econometrica, 20(3).'
+)
+
+
+@register_metric(
+    name="roys_safety_first",
+    requires="returns",
+    category=("risk_adjusted", "returns"),
+    backend="vectorized",
+    ref=_ROYS_SAFETY_FIRST_REF,
+)
+def roys_safety_first(
+    input_data: ReturnsInput,
+    mar: float = 0.0,
+    ddof: int = 1,
+) -> MetricResult:
+    """Roy's Safety-First Ratio — excess return over MAR per unit of total risk.
+
+    Formula:
+        RSF = (R̄_p − MAR) / σ_p
+
+    where R̄_p is the annualized mean return, MAR is the minimum acceptable
+    return (annualized), and σ_p is the annualized standard deviation.
+
+    Unlike Sharpe, which uses excess over the risk-free rate, Roy uses a
+    minimum acceptable return (MAR) set by the investor.
+
+    Args:
+        input_data: A ``ReturnsInput`` with ``periods_per_year`` set.
+        mar: Minimum acceptable return as a *period* rate (default 0.0).
+            Annualized internally for the ratio.
+        ddof: Delta degrees of freedom for standard deviation (default 1).
+
+    Returns:
+        MetricResult with Roy's Safety-First ratio.
+    """
+    if input_data.periods_per_year is None:
+        raise ValueError(
+            "Roy's Safety-First ratio requires periods_per_year on the "
+            "ReturnsInput"
+        )
+
+    r = input_data.values
+    p = float(input_data.periods_per_year)
+
+    mean_p = np.nanmean(r, axis=0)
+    sigma_p = np.nanstd(r, axis=0, ddof=ddof)
+
+    # Annualize: R̄_ann = mean_p * p, σ_ann = sigma_p * sqrt(p)
+    ann_mean = mean_p * p
+    ann_sigma = sigma_p * np.sqrt(p)
+    ann_mar = mar * p
+
+    sigma_safe = np.where(ann_sigma < 1e-15, np.nan, ann_sigma)
+    arr = (ann_mean - ann_mar) / sigma_safe
+
+    value: float | NDArray[np.floating]
+    value = float(arr[0]) if input_data.is_single else arr
+
+    return MetricResult(
+        name="roys_safety_first",
+        value=value,
+        category=("risk_adjusted", "returns"),
+        periods_per_year=input_data.periods_per_year,
+        meta={
+            "ref": _ROYS_SAFETY_FIRST_REF,
+            "mar": mar,
+            "ddof": ddof,
+        },
     )

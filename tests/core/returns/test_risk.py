@@ -17,6 +17,7 @@ from stratstat.core.returns.risk import (
     current_drawdown_duration,
     cvar,
     downside_deviation,
+    downside_semivariance,
     drawdown_periods_count,
     drawdown_total_duration,
     drawdown_volatility,
@@ -24,6 +25,7 @@ from stratstat.core.returns.risk import (
     hill_tail_index,
     longest_drawdown_duration,
     max_drawdown,
+    modified_var,
     pain_index,
     prospect_ratio,
     risk_of_ruin,
@@ -554,7 +556,7 @@ class TestDrawdownFamily:
 
 class TestRegistryIntegration:
     def test_all_risk_metrics_registered(self):
-        """All 22 risk metrics appear in the registry."""
+        """All 24 risk metrics appear in the registry."""
         from stratstat.registry import list_metrics
 
         risk_metrics = list_metrics(requires="returns", category="risk")
@@ -567,8 +569,10 @@ class TestRegistryIntegration:
             "average_drawdown_duration",
             "ulcer_index",
             "downside_deviation",
+            "downside_semivariance",
             "upside_deviation",
             "var",
+            "modified_var",
             "cvar",
             "tail_ratio",
             "common_sense_ratio",
@@ -939,3 +943,116 @@ class TestProspectRatio:
         result = prospect_ratio(inp, mar=0.01)
         assert result.value > 0
         assert result.meta["mar"] == 0.01
+
+
+# ---------------------------------------------------------------------------
+# Downside Semi-Variance
+# ---------------------------------------------------------------------------
+
+
+class TestDownsideSemivariance:
+    """Tests for downside_semivariance metric."""
+
+    def test_sqrt_of_semivar_is_downside_dev(self):
+        """sqrt(downside_semivariance) == downside_deviation."""
+        rng = np.random.default_rng(42)
+        returns = rng.normal(0.0004, 0.01, size=500)
+        inp = ReturnsInput(returns)
+        dsv_result = downside_semivariance(inp)
+        dd_result = downside_deviation(inp)
+        assert np.sqrt(dsv_result.value) == pytest.approx(dd_result.value, rel=1e-12)
+
+    def test_known_values(self):
+        """Hand-computed check."""
+        returns = np.array([-0.02, -0.01, 0.0, 0.01, 0.02])
+        inp = ReturnsInput(returns)
+        # Only below-zero entries: -0.02^2=0.0004, -0.01^2=0.0001
+        expected = (0.0004 + 0.0001) / 5.0  # 0.0001
+        result = downside_semivariance(inp)
+        assert result.value == pytest.approx(expected, rel=1e-12)
+
+    def test_no_downside(self):
+        """Zero when no periods fall below MAR."""
+        returns = np.array([0.01, 0.02, 0.03])
+        inp = ReturnsInput(returns)
+        result = downside_semivariance(inp)
+        assert result.value == 0.0
+
+    def test_with_mar(self):
+        """Respects MAR threshold."""
+        returns = np.array([0.005, 0.02, -0.01, 0.03])
+        inp = ReturnsInput(returns)
+        result_default = downside_semivariance(inp, mar=0.0)
+        result_high_mar = downside_semivariance(inp, mar=0.02)
+        assert result_high_mar.value > result_default.value
+
+    def test_all_nan(self):
+        """Returns NaN for all-NaN input."""
+        returns = np.full(100, np.nan)
+        inp = ReturnsInput(returns)
+        result = downside_semivariance(inp)
+        assert np.isnan(result.value)
+
+
+# ---------------------------------------------------------------------------
+# Modified VaR
+# ---------------------------------------------------------------------------
+
+
+class TestModifiedVar:
+    """Tests for modified_var metric."""
+
+    def test_same_as_var_cf(self):
+        """modified_var should equal var(method='cornish_fisher')."""
+        rng = np.random.default_rng(42)
+        returns = rng.normal(-0.0002, 0.02, size=500)
+        inp = ReturnsInput(returns)
+        mvar_result = modified_var(inp, confidence=0.95)
+        var_cf_result = var(inp, method="cornish_fisher", confidence=0.95)
+        assert mvar_result.value == pytest.approx(var_cf_result.value, rel=1e-12)
+
+    def test_finite_value(self):
+        """Modified VaR should return a finite positive value for typical data."""
+        rng = np.random.default_rng(42)
+        returns = rng.normal(0.0004, 0.01, size=500)
+        inp = ReturnsInput(returns)
+        mvar95 = modified_var(inp, confidence=0.95)
+        mvar99 = modified_var(inp, confidence=0.99)
+        assert np.isfinite(mvar95.value)
+        assert np.isfinite(mvar99.value)
+        assert mvar95.value > 0
+        assert mvar99.value > 0
+
+    def test_negative_skew_increases_var(self):
+        """Negatively skewed returns should have higher modified VaR."""
+        rng = np.random.default_rng(42)
+        normal_returns = rng.normal(0.0004, 0.01, size=500)
+        # Negatively skewed: mix of small gains and occasional large losses
+        skewed_returns = np.where(
+            rng.random(500) < 0.1,
+            rng.normal(-0.05, 0.02, size=500),
+            rng.normal(0.005, 0.005, size=500),
+        )
+        inp_normal = ReturnsInput(normal_returns)
+        inp_skewed = ReturnsInput(skewed_returns)
+        mvar_normal = modified_var(inp_normal, confidence=0.95)
+        mvar_skewed = modified_var(inp_skewed, confidence=0.95)
+        # The skewed series has more tail risk → higher modified VaR
+        assert mvar_skewed.value > mvar_normal.value
+
+    def test_invalid_confidence(self):
+        """Confidence outside (0, 1) raises ValueError."""
+        returns = np.random.default_rng(42).normal(0.0, 0.01, size=50)
+        inp = ReturnsInput(returns)
+        with pytest.raises(ValueError):
+            modified_var(inp, confidence=1.5)
+        with pytest.raises(ValueError):
+            modified_var(inp, confidence=-0.5)
+
+    def test_too_few_periods(self):
+        """Returns NaN for fewer than 4 valid observations."""
+        rng = np.random.default_rng(42)
+        returns = rng.normal(0.0, 0.01, size=3)
+        inp = ReturnsInput(returns)
+        result = modified_var(inp)
+        assert np.isnan(result.value)

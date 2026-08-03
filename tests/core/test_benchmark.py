@@ -1,6 +1,6 @@
 """Tests for benchmark-tier metrics.
 
-Covers all 18 registered benchmark metrics, edge cases, input types,
+Covers all 20 registered benchmark metrics, edge cases, input types,
 and registry integration.
 """
 
@@ -672,7 +672,7 @@ class TestRegistryIntegration:
 
         metrics = list_metrics(requires="benchmark")
         names = {m["name"] for m in metrics}
-        assert len(names) == 18
+        assert len(names) == 20
 
     def test_compute_single_auto_wrap_tuple(self, simple_returns, simple_benchmark):
         from stratstat import compute
@@ -718,3 +718,125 @@ class TestRegistryIntegration:
 
         result = compute(inp_basic, "correlation")
         assert result.name == "correlation"
+
+
+# ---------------------------------------------------------------------------
+# Information Coefficient (Rank IC)
+# ---------------------------------------------------------------------------
+
+
+class TestInformationCoefficient:
+    """Tests for information_coefficient metric."""
+
+    def test_perfect_positive_rank(self):
+        """Perfectly monotonic series should have IC ≈ 1.0."""
+        rng = np.random.default_rng(42)
+        x = rng.normal(0.0, 0.01, size=100)
+        # Strategy = monotonic transform of benchmark (via sorting)
+        bench = np.sort(x)
+        rets = np.sort(x) * 1.5  # monotonic → perfect rank correlation
+        inp = BenchmarkInput(returns=rets, benchmark=bench)
+        from stratstat.registry import _compute_one
+
+        result = _compute_one(inp, "information_coefficient")
+        assert result.value == pytest.approx(1.0, rel=1e-12)
+
+    def test_known_value(self):
+        """Known Spearman rho from hand-computed values."""
+        rets = np.array([0.01, -0.02, 0.015, -0.01, 0.005])
+        bench = np.array([0.02, -0.01, 0.01, -0.015, 0.0])
+        # Ranks: rets=[4,1,5,2,3], bench=[5,2,4,1,3]
+        # d=[-1,-1,1,1,0], d²=[1,1,1,1,0], sum=4
+        # rho = 1 - 6*4/(5*24) = 1 - 24/120 = 1 - 0.2 = 0.8
+        inp = BenchmarkInput(returns=rets, benchmark=bench)
+        from stratstat.registry import _compute_one
+
+        result = _compute_one(inp, "information_coefficient")
+        assert result.value == pytest.approx(0.8, rel=1e-12)
+
+    def test_too_few_observations(self):
+        """Returns NaN for fewer than 3 valid observations."""
+        rets = np.array([0.01, np.nan])
+        bench = np.array([0.02, np.nan])
+        inp = BenchmarkInput(returns=rets, benchmark=bench)
+        from stratstat.registry import _compute_one
+
+        result = _compute_one(inp, "information_coefficient")
+        assert np.isnan(result.value)
+
+    def test_negative_correlation(self):
+        """Negatively correlated series should have negative IC."""
+        rng = np.random.default_rng(42)
+        x = rng.normal(0.0, 0.01, size=100)
+        rets = x
+        bench = -x  # perfect negative rank correlation
+        inp = BenchmarkInput(returns=rets, benchmark=bench)
+        from stratstat.registry import _compute_one
+
+        result = _compute_one(inp, "information_coefficient")
+        assert result.value == pytest.approx(-1.0, rel=1e-12)
+
+
+# ---------------------------------------------------------------------------
+# Directional Consistency
+# ---------------------------------------------------------------------------
+
+
+class TestDirectionalConsistency:
+    """Tests for directional_consistency metric."""
+
+    def test_perfect_agreement(self):
+        """When signs always match, DC should be 1.0."""
+        rets = np.array([0.01, -0.02, 0.015, -0.01, 0.005])
+        bench = np.array([0.02, -0.01, 0.01, -0.015, 0.0])  # zero→sign 0
+        # signs_r = [1, -1, 1, -1, 1]
+        # signs_b = [1, -1, 1, -1, 0] → disagree on period 5
+        # 4 agree out of 5
+        inp = BenchmarkInput(returns=rets, benchmark=bench)
+        from stratstat.registry import _compute_one
+
+        result = _compute_one(inp, "directional_consistency")
+        assert result.value == pytest.approx(4.0 / 5.0, rel=1e-12)
+
+    def test_all_same_sign(self):
+        """When all returns have the same sign as benchmark."""
+        rng = np.random.default_rng(42)
+        rets = np.abs(rng.normal(0.01, 0.005, size=100))
+        bench = np.abs(rng.normal(0.01, 0.005, size=100))
+        inp = BenchmarkInput(returns=rets, benchmark=bench)
+        from stratstat.registry import _compute_one
+
+        result = _compute_one(inp, "directional_consistency")
+        assert result.value == 1.0
+
+    def test_all_opposite_signs(self):
+        """When signs always disagree, DC should be 0.0."""
+        rets = np.array([0.01, 0.02, 0.03])
+        bench = np.array([-0.01, -0.02, -0.03])
+        inp = BenchmarkInput(returns=rets, benchmark=bench)
+        from stratstat.registry import _compute_one
+
+        result = _compute_one(inp, "directional_consistency")
+        assert result.value == 0.0
+
+    def test_nan_handling(self):
+        """NaN periods are excluded."""
+        rets = np.array([0.01, np.nan, -0.02, 0.015])
+        bench = np.array([0.02, -0.01, -0.01, 0.01])
+        # Valid periods: 1 (agree +/+), 3 (agree -/-), 4 (agree +/+)
+        # 3 agree out of 3 valid
+        inp = BenchmarkInput(returns=rets, benchmark=bench)
+        from stratstat.registry import _compute_one
+
+        result = _compute_one(inp, "directional_consistency")
+        assert result.value == pytest.approx(1.0, rel=1e-12)
+
+    def test_no_valid_periods(self):
+        """All-NaN returns should yield NaN."""
+        rets = np.full(10, np.nan)
+        bench = np.arange(10, dtype=np.float64) * 0.01
+        inp = BenchmarkInput(returns=rets, benchmark=bench)
+        from stratstat.registry import _compute_one
+
+        result = _compute_one(inp, "directional_consistency")
+        assert np.isnan(result.value)

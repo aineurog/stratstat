@@ -27,6 +27,7 @@ from stratstat.core.returns.descriptive import (
     fractal_dimension,
     geometric_mean_return,
     hurst_exponent,
+    negative_period_ratio,
     outlier_iqr,
     percentiles,
     positive_period_ratio,
@@ -1017,7 +1018,7 @@ class TestAllZeroReturns:
 
 class TestRegistryIntegration:
     def test_all_metrics_registered(self):
-        """All 20 descriptive metrics appear in the registry."""
+        """All 21 descriptive metrics appear in the registry."""
         from stratstat.registry import list_metrics
 
         desc_metrics = list_metrics(requires="returns", category="descriptive")
@@ -1033,6 +1034,7 @@ class TestRegistryIntegration:
             "best_period",
             "worst_period",
             "positive_period_ratio",
+            "negative_period_ratio",
             "autocorrelation",
             "variance",
             "return_range",
@@ -1055,11 +1057,11 @@ class TestRegistryIntegration:
         assert isinstance(result.value, float)
 
     def test_compute_all_descriptive(self, sample_input):
-        """compute_all with category='descriptive' returns all 20 metrics."""
+        """compute_all with category='descriptive' returns all 21 metrics."""
         from stratstat import compute_all
 
         result_set = compute_all(sample_input, category="descriptive")
-        assert len(result_set) == 20
+        assert len(result_set) == 21
         names = {r.name for r in result_set}
         assert "cagr" in names
         assert "skewness" in names
@@ -1142,7 +1144,6 @@ class TestHurstExponent:
         rng = np.random.default_rng(42)
         n = 500
         returns = np.zeros(n)
-        long_run_mean = 0.0
         for t in range(1, n):
             returns[t] = -0.7 * returns[t - 1] + rng.normal(0.0, 0.01)
         inp = ReturnsInput(returns)
@@ -1259,7 +1260,11 @@ class TestConsecutiveWinsLosses:
         inp = ReturnsInput(returns)
         result = consecutive_wins_losses(inp)
         val = result.value
-        for key in ["max_win_streak", "max_loss_streak", "current_win_streak", "current_loss_streak"]:
+        streak_keys = [
+            "max_win_streak", "max_loss_streak",
+            "current_win_streak", "current_loss_streak",
+        ]
+        for key in streak_keys:
             assert key in val
             assert hasattr(val[key], "shape")
 
@@ -1271,3 +1276,53 @@ class TestConsecutiveWinsLosses:
         result = consecutive_wins_losses(inp)
         assert "output_index" in result.meta
         assert len(result.meta["output_index"]) == 4
+
+
+# ---------------------------------------------------------------------------
+# Negative-Period Ratio
+# ---------------------------------------------------------------------------
+
+
+class TestNegativePeriodRatio:
+    """Tests for negative_period_ratio metric."""
+
+    def test_complement_of_positive(self):
+        """For data without zeros, NPR + PPR = 1."""
+        rng = np.random.default_rng(42)
+        returns = rng.normal(0.0004, 0.01, size=500)
+        # Ensure no exact zeros
+        returns[returns == 0.0] = 1e-10
+        inp = ReturnsInput(returns)
+        npr = negative_period_ratio(inp).value
+        ppr = positive_period_ratio(inp).value
+        assert npr + ppr == pytest.approx(1.0, rel=1e-12)
+
+    def test_known_values(self):
+        """Hand-computed check."""
+        returns = np.array([0.02, -0.01, 0.0, -0.02, 0.01])
+        inp = ReturnsInput(returns)
+        # 2 strictly negative out of 5: -0.01 and -0.02
+        result = negative_period_ratio(inp)
+        assert result.value == pytest.approx(2.0 / 5.0, rel=1e-12)
+
+    def test_all_positive(self):
+        """Zero when all returns are positive."""
+        returns = np.array([0.01, 0.02, 0.03, 0.01])
+        inp = ReturnsInput(returns)
+        result = negative_period_ratio(inp)
+        assert result.value == 0.0
+
+    def test_all_negative(self):
+        """One when all returns are negative."""
+        returns = np.array([-0.01, -0.02, -0.03])
+        inp = ReturnsInput(returns)
+        result = negative_period_ratio(inp)
+        assert result.value == 1.0
+
+    def test_nan_handling(self):
+        """NaN periods are excluded."""
+        returns = np.array([0.02, np.nan, -0.01, np.nan, -0.02])
+        inp = ReturnsInput(returns)
+        result = negative_period_ratio(inp)
+        # 2 negative out of 3 valid
+        assert result.value == pytest.approx(2.0 / 3.0, rel=1e-12)
