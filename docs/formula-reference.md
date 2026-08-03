@@ -1367,75 +1367,75 @@ never the reverse. No formulas; specification of visualization outputs.
 
 ## References
 
-1. Acerbi, C. & Tasche, D. (2002). "On the Coherence of Expected Shortfall." *JBF*, 26(7).
-2. Adelman, M. A. (1969). "Comment on the 'H' Concentration Measure." *Rev. Econ. Stat.*, 51(1).
-3. Ang, A. (2014). *Asset Management: A Systematic Approach to Factor Investing*. Oxford.
-4. Ang, A. & Bekaert, G. (2004). "How Regimes Affect Asset Allocation." *FAJ*, 60(2).
-5. Artzner, P. et al. (1999). "Coherent Measures of Risk." *Mathematical Finance*, 9(3).
-6. Asness, C., Frazzini, A. & Pedersen, L. H. (2014). "Low-Risk Investing Without Industry Bets." *FAJ*, 70(4).
-7. Bacon, C. (2008). *Practical Portfolio Performance Measurement and Attribution*, 2nd ed. Wiley.
-8. Bailey, D. H. & López de Prado, M. (2012). "The Sharpe Ratio Efficient Frontier." *J. Risk*, 15(2).
-9. — (2014). "The Deflated Sharpe Ratio: Correcting for Selection Bias." *JPM*, 40(5).
-10. — (2014). "Pseudo-Mathematics and Financial Charlatanism." *Notices of the AMS*, 61(5).
-11. Basel Committee on Banking Supervision (1996). *Amendment to the Capital Accord to Incorporate Market Risks*.
-12. Campbell, J. Y., Lo, A. W. & MacKinlay, A. C. (1997). *The Econometrics of Financial Markets*. Princeton.
-13. Casella, G. & Berger, R. L. (2002). *Statistical Inference*, 2nd ed. Duxbury.
-14. CFA Institute. *CFA Program Curriculum* (current edition, Quantitative Methods, Vol. 1).
-15. Choueifaty, Y. & Coignard, Y. (2008). "Toward Maximum Diversification." *JPM*, 35(1).
-16. Connor, G., Goldberg, L. R. & Korajczyk, R. A. (2010). *Portfolio Risk Analysis*. Princeton.
-17. Cramér, H. (1946). *Mathematical Methods of Statistics*. Princeton.
-18. Damodaran, A. (2012). *Investment Valuation*, 3rd ed. Wiley.
-19. de Prado, M. L. (2018). *Advances in Financial Machine Learning*. Wiley.
-20. Efron, B. & Tibshirani, R. J. (1994). *An Introduction to the Bootstrap*. Chapman & Hall.
-21. Embrechts, P., Klüppelberg, C. & Mikosch, T. (1997). *Modelling Extremal Events for Insurance and Finance*. Springer.
-22. Everitt, B. S. & Skrondal, A. (2010). *The Cambridge Dictionary of Statistics*, 4th ed. Cambridge.
-23. Fisher, R. A. (1925). *Statistical Methods for Research Workers*. Oliver & Boyd.
-24. — (1930). "The Moments of the Distribution for Normal Samples." *Proc. London Math. Soc.*, s2-30(1).
-25. Goodwin, T. H. (1998). "The Information Ratio." *FAJ*, 54(4).
-26. Greene, W. H. (2018). *Econometric Analysis*, 8th ed. Pearson.
-27. Hansen, P. R. (2005). "A Test for Superior Predictive Ability." *JBES*, 23(4).
-28. Hill, B. M. (1975). "A Simple General Approach to Inference About the Tail." *Ann. Stat.*, 3(5).
-29. Hirschman, A. O. (1964). "The Paternity of an Index." *AER*, 54(5).
-30. Hosking, J. R. M. & Wallis, J. R. (1987). "Parameter and Quantile Estimation for the GPD." *Technometrics*, 29(3).
-31. Hyndman, R. J. & Fan, Y. (1996). "Sample Quantiles in Statistical Packages." *The American Statistician*, 50(4).
-32. Jarque, C. M. & Bera, A. K. (1987). "A Test for Normality." *Int. Stat. Rev.*, 55(2).
-33. Jensen, M. C. (1968). "The Performance of Mutual Funds 1945–1964." *J. Finance*, 23(2).
-34. Jobson, J. D. & Korkie, B. M. (1981). "Performance Hypothesis Testing with Sharpe and Treynor." *J. Finance*, 36(4).
-35. Johnson, R. A. & Wichern, D. W. (2007). *Applied Multivariate Statistical Analysis*, 6th ed. Pearson.
-36. Jorion, P. (2006). *Value at Risk*, 3rd ed. McGraw-Hill.
-37. Kaplan, P. D. & Knowles, J. A. (2004). "Kappa: A Generalized Downside Risk-Adjusted Performance Measure." *JPM*.
-38. Keating, C. & Shadwick, W. F. (2002). "A Universal Performance Measure." *JPM*, 6(3).
-39. Kelly, J. L. (1956). "A New Interpretation of Information Rate." *BSTJ*, 35(4).
-40. Künsch, H. R. (1989). "The Jackknife and the Bootstrap for General Stationary Observations." *Ann. Stat.*, 17(3).
-41. Ledoit, O. & Wolf, M. (2008). "Robust Performance Hypothesis Testing with the Sharpe Ratio." *J. Empirical Finance*, 15(5).
-42. Litterman, R. (1996). "Hot Spots and Hedges." *JPM*, Special Issue.
-43. Lo, A. W. (2002). "The Statistics of Sharpe Ratios." *FAJ*, 58(4).
-44. Martin, P. G. & McCann, B. B. (1989). *The Investor's Guide to Fidelity Funds*. Wiley.
-45. Memmel, C. (2003). "Performance Hypothesis Testing with the Sharpe Ratio." *Finance Letters*, 1(1).
-46. Morningstar (2020). *Morningstar Performance Reporting Methodology*.
-47. Pearson, K. (1895). "Note on Regression and Inheritance in the Case of Two Parents." *Proc. Royal Society*, 58.
-48. — (1896). "Mathematical Contributions to the Theory of Evolution. III." *Phil. Trans. Royal Society A*, 187.
-49. Perold, A. F. (1988). "The Implementation Shortfall: Paper versus Reality." *JPM*, 14(3).
-50. Pickands, J. (1975). "Statistical Inference Using Extreme Order Statistics." *Ann. Stat.*, 3(1).
-51. Politis, D. N. & White, H. (2004). "Automatic Block-Length Selection for the Dependent Bootstrap." *Econometric Reviews*, 23(1).
-52. Pospisil, J. & Vecer, J. (2011). "Maximum Drawdown of a Brownian Motion." *J. Applied Probability*, 48(3).
-53. Qian, E. (2005). "Risk Parity and Diversification." *J. of Investing*, 14(3).
-54. Rockafellar, R. T. & Uryasev, S. (2000). "Optimization of Conditional Value-at-Risk." *J. Risk*, 2(3).
-55. Roll, R. (1992). "A Mean/Variance Analysis of Tracking Error." *JPM*, 18(4).
-56. Schwager, J. D. (1995). *Schwager on Futures: Technical Analysis*. Wiley.
-57. Sharpe, W. F. (1964). "Capital Asset Prices." *J. Finance*, 19(3).
-58. — (1966). "Mutual Fund Performance." *J. Business*, 39(1).
-59. — (1994). "The Sharpe Ratio." *JPM*, 21(1).
-60. Sortino, F. A. & Price, L. N. (1994). "Performance Measurement in a Downside Risk Framework." *J. Investing*, 3(3).
-61. Sortino, F. A. & van der Meer, R. (1991). "Downside Risk." *JPM*, 17(4).
-62. Sweeney, R. J. (1988). "The Maximum Favorable Excursion Methodology." *JPM*.
-63. Tharp, V. K. (1998). *Trade Your Way to Financial Freedom*. McGraw-Hill.
-64. Thorp, E. O. (1997). "The Kelly Criterion in Blackjack, Sports Betting, and the Stock Market." *Handbook of Asset and Liability Management*.
-65. Treynor, J. L. (1965). "How to Rate Management of Investment Funds." *HBR*, 43(1).
-66. Tukey, J. W. (1977). *Exploratory Data Analysis*. Addison-Wesley.
-67. van Hemert, O. et al. (2020). *Tactical Asset Allocation*. (Drawdown analysis, Ch. 5.)
-68. Vince, R. (1990). *Portfolio Management Formulas*. Wiley.
-69. White, H. (2000). "A Reality Check for Data Snooping." *Econometrica*, 68(5).
-70. Young, T. W. (1991). "Calmar Ratio: A Smoother Tool." *Futures*, 20(10).
-71. Zangari, P. (1996). "A VaR Methodology for Portfolios That Include Options." *RiskMetrics Monitor*, Q1.
-72. Zivot, E. & Wang, J. (2006). *Modeling Financial Time Series with S-PLUS*, 2nd ed. Springer.
+Acerbi, C. & Tasche, D. (2002). "On the Coherence of Expected Shortfall." *JBF*, 26(7).
+Adelman, M. A. (1969). "Comment on the 'H' Concentration Measure." *Rev. Econ. Stat.*, 51(1).
+Ang, A. (2014). *Asset Management: A Systematic Approach to Factor Investing*. Oxford.
+Ang, A. & Bekaert, G. (2004). "How Regimes Affect Asset Allocation." *FAJ*, 60(2).
+Artzner, P. et al. (1999). "Coherent Measures of Risk." *Mathematical Finance*, 9(3).
+Asness, C., Frazzini, A. & Pedersen, L. H. (2014). "Low-Risk Investing Without Industry Bets." *FAJ*, 70(4).
+Bacon, C. (2008). *Practical Portfolio Performance Measurement and Attribution*, 2nd ed. Wiley.
+Bailey, D. H. & López de Prado, M. (2012). "The Sharpe Ratio Efficient Frontier." *J. Risk*, 15(2).
+— (2014). "The Deflated Sharpe Ratio: Correcting for Selection Bias." *JPM*, 40(5).
+— (2014). "Pseudo-Mathematics and Financial Charlatanism." *Notices of the AMS*, 61(5).
+Basel Committee on Banking Supervision (1996). *Amendment to the Capital Accord to Incorporate Market Risks*.
+Campbell, J. Y., Lo, A. W. & MacKinlay, A. C. (1997). *The Econometrics of Financial Markets*. Princeton.
+Casella, G. & Berger, R. L. (2002). *Statistical Inference*, 2nd ed. Duxbury.
+CFA Institute. *CFA Program Curriculum* (current edition, Quantitative Methods, Vol. 1).
+Choueifaty, Y. & Coignard, Y. (2008). "Toward Maximum Diversification." *JPM*, 35(1).
+Connor, G., Goldberg, L. R. & Korajczyk, R. A. (2010). *Portfolio Risk Analysis*. Princeton.
+Cramér, H. (1946). *Mathematical Methods of Statistics*. Princeton.
+Damodaran, A. (2012). *Investment Valuation*, 3rd ed. Wiley.
+de Prado, M. L. (2018). *Advances in Financial Machine Learning*. Wiley.
+Efron, B. & Tibshirani, R. J. (1994). *An Introduction to the Bootstrap*. Chapman & Hall.
+Embrechts, P., Klüppelberg, C. & Mikosch, T. (1997). *Modelling Extremal Events for Insurance and Finance*. Springer.
+Everitt, B. S. & Skrondal, A. (2010). *The Cambridge Dictionary of Statistics*, 4th ed. Cambridge.
+Fisher, R. A. (1925). *Statistical Methods for Research Workers*. Oliver & Boyd.
+— (1930). "The Moments of the Distribution for Normal Samples." *Proc. London Math. Soc.*, s2-30(1).
+Goodwin, T. H. (1998). "The Information Ratio." *FAJ*, 54(4).
+Greene, W. H. (2018). *Econometric Analysis*, 8th ed. Pearson.
+Hansen, P. R. (2005). "A Test for Superior Predictive Ability." *JBES*, 23(4).
+Hill, B. M. (1975). "A Simple General Approach to Inference About the Tail." *Ann. Stat.*, 3(5).
+Hirschman, A. O. (1964). "The Paternity of an Index." *AER*, 54(5).
+Hosking, J. R. M. & Wallis, J. R. (1987). "Parameter and Quantile Estimation for the GPD." *Technometrics*, 29(3).
+Hyndman, R. J. & Fan, Y. (1996). "Sample Quantiles in Statistical Packages." *The American Statistician*, 50(4).
+Jarque, C. M. & Bera, A. K. (1987). "A Test for Normality." *Int. Stat. Rev.*, 55(2).
+Jensen, M. C. (1968). "The Performance of Mutual Funds 1945–1964." *J. Finance*, 23(2).
+Jobson, J. D. & Korkie, B. M. (1981). "Performance Hypothesis Testing with Sharpe and Treynor." *J. Finance*, 36(4).
+Johnson, R. A. & Wichern, D. W. (2007). *Applied Multivariate Statistical Analysis*, 6th ed. Pearson.
+Jorion, P. (2006). *Value at Risk*, 3rd ed. McGraw-Hill.
+Kaplan, P. D. & Knowles, J. A. (2004). "Kappa: A Generalized Downside Risk-Adjusted Performance Measure." *JPM*.
+Keating, C. & Shadwick, W. F. (2002). "A Universal Performance Measure." *JPM*, 6(3).
+Kelly, J. L. (1956). "A New Interpretation of Information Rate." *BSTJ*, 35(4).
+Künsch, H. R. (1989). "The Jackknife and the Bootstrap for General Stationary Observations." *Ann. Stat.*, 17(3).
+Ledoit, O. & Wolf, M. (2008). "Robust Performance Hypothesis Testing with the Sharpe Ratio." *J. Empirical Finance*, 15(5).
+Litterman, R. (1996). "Hot Spots and Hedges." *JPM*, Special Issue.
+Lo, A. W. (2002). "The Statistics of Sharpe Ratios." *FAJ*, 58(4).
+Martin, P. G. & McCann, B. B. (1989). *The Investor's Guide to Fidelity Funds*. Wiley.
+Memmel, C. (2003). "Performance Hypothesis Testing with the Sharpe Ratio." *Finance Letters*, 1(1).
+Morningstar (2020). *Morningstar Performance Reporting Methodology*.
+Pearson, K. (1895). "Note on Regression and Inheritance in the Case of Two Parents." *Proc. Royal Society*, 58.
+— (1896). "Mathematical Contributions to the Theory of Evolution. III." *Phil. Trans. Royal Society A*, 187.
+Perold, A. F. (1988). "The Implementation Shortfall: Paper versus Reality." *JPM*, 14(3).
+Pickands, J. (1975). "Statistical Inference Using Extreme Order Statistics." *Ann. Stat.*, 3(1).
+Politis, D. N. & White, H. (2004). "Automatic Block-Length Selection for the Dependent Bootstrap." *Econometric Reviews*, 23(1).
+Pospisil, J. & Vecer, J. (2011). "Maximum Drawdown of a Brownian Motion." *J. Applied Probability*, 48(3).
+Qian, E. (2005). "Risk Parity and Diversification." *J. of Investing*, 14(3).
+Rockafellar, R. T. & Uryasev, S. (2000). "Optimization of Conditional Value-at-Risk." *J. Risk*, 2(3).
+Roll, R. (1992). "A Mean/Variance Analysis of Tracking Error." *JPM*, 18(4).
+Schwager, J. D. (1995). *Schwager on Futures: Technical Analysis*. Wiley.
+Sharpe, W. F. (1964). "Capital Asset Prices." *J. Finance*, 19(3).
+— (1966). "Mutual Fund Performance." *J. Business*, 39(1).
+— (1994). "The Sharpe Ratio." *JPM*, 21(1).
+Sortino, F. A. & Price, L. N. (1994). "Performance Measurement in a Downside Risk Framework." *J. Investing*, 3(3).
+Sortino, F. A. & van der Meer, R. (1991). "Downside Risk." *JPM*, 17(4).
+Sweeney, R. J. (1988). "The Maximum Favorable Excursion Methodology." *JPM*.
+Tharp, V. K. (1998). *Trade Your Way to Financial Freedom*. McGraw-Hill.
+Thorp, E. O. (1997). "The Kelly Criterion in Blackjack, Sports Betting, and the Stock Market." *Handbook of Asset and Liability Management*.
+Treynor, J. L. (1965). "How to Rate Management of Investment Funds." *HBR*, 43(1).
+Tukey, J. W. (1977). *Exploratory Data Analysis*. Addison-Wesley.
+van Hemert, O. et al. (2020). *Tactical Asset Allocation*. (Drawdown analysis, Ch. 5.)
+Vince, R. (1990). *Portfolio Management Formulas*. Wiley.
+White, H. (2000). "A Reality Check for Data Snooping." *Econometrica*, 68(5).
+Young, T. W. (1991). "Calmar Ratio: A Smoother Tool." *Futures*, 20(10).
+Zangari, P. (1996). "A VaR Methodology for Portfolios That Include Options." *RiskMetrics Monitor*, Q1.
+Zivot, E. & Wang, J. (2006). *Modeling Financial Time Series with S-PLUS*, 2nd ed. Springer.

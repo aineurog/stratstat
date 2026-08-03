@@ -26,6 +26,12 @@ extensions = [
     "myst_parser",
 ]
 
+# Enable LaTeX math delimiters: \(...\) inline, \[...\] display
+myst_enable_extensions = [
+    "dollarmath",
+    "amsmath",
+]
+
 source_suffix = {
     ".rst": "restructuredtext",
     ".md": "markdown",
