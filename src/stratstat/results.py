@@ -253,7 +253,7 @@ class MetricSet:
         """
         records = []
         for r in self.results:
-            rec: dict[str, Any] = {
+            rec = {
                 "name": r.name,
                 "value": r.value,
                 "category": r.category,
@@ -261,7 +261,8 @@ class MetricSet:
             }
             rec.update(r.meta)
             records.append(rec)
-        return pd.DataFrame(records)
+        df: pd.DataFrame = pd.DataFrame(records)
+        return df
 
     def to_json(self, indent: int = 2) -> str:
         """Return results as a JSON string."""
