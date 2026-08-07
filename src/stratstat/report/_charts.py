@@ -559,3 +559,304 @@ def trade_markers_chart(
     fig.update_yaxes(title_text="P&L", tickformat=".0%", row=2, col=1)
     fig.update_xaxes(title_text="Trade Number", row=2, col=1)
     return fig
+
+
+def trade_duration_histogram(
+    trades: Any,
+    bins: int | None = None,
+    title: str | None = None,
+) -> plotly.graph_objects.Figure:  # type: ignore[name-defined]  # noqa: F821
+    """Histogram of trade holding-period durations.
+
+    Requires duration data in the trade log (``duration`` or
+    ``entry_time`` / ``exit_time`` fields).
+
+    Parameters
+    ----------
+    trades: TradeInput or dict with ``duration`` (or ``entry_time`` /
+        ``exit_time``) and optionally ``pnl`` for win/loss coloring.
+    bins: Number of histogram bins (auto if None).
+    title: Optional chart title.
+    """
+    _ensure_plotly()
+    import plotly.graph_objects as go
+
+    from stratstat.inputs import TradeInput
+
+    trd = trades if isinstance(trades, TradeInput) else TradeInput(trades=trades)
+
+    if not trd.has_duration:
+        fig = go.Figure()
+        fig.update_layout(
+            title=title or "Trade Duration Distribution (no duration data)",
+        )
+        return fig
+
+    dur = trd.duration
+    assert dur is not None
+    valid = dur[np.isfinite(dur)]
+
+    if len(valid) == 0:
+        fig = go.Figure()
+        fig.update_layout(title=title or "Trade Duration Distribution")
+        return fig
+
+    n = len(valid)
+    if bins is None:
+        bins = max(8, min(50, int(np.sqrt(n))))
+
+    # Split by win/loss for stacked histogram
+    pnl = trd.pnl
+    if len(valid) == len(pnl):
+        win_dur = valid[pnl > 0.0]
+        loss_dur = valid[pnl < 0.0]
+    else:
+        win_dur = np.array([], dtype=np.float64)
+        loss_dur = np.array([], dtype=np.float64)
+
+    # Use consistent bin edges across both traces
+    all_min = float(np.min(valid))
+    all_max = float(np.max(valid))
+    if all_max <= all_min:
+        all_max = all_min + 1.0
+
+    fig = go.Figure()
+    if len(win_dur) > 0:
+        fig.add_trace(go.Histogram(
+            x=win_dur,
+            xbins={"start": all_min, "end": all_max, "size": (all_max - all_min) / bins},
+            name=f"Wins ({len(win_dur)})",
+            marker_color="green",
+            marker_opacity=0.7,
+            hovertemplate="%{x:.1f} periods<br>%{y} trades<extra></extra>",
+        ))
+    if len(loss_dur) > 0:
+        fig.add_trace(go.Histogram(
+            x=loss_dur,
+            xbins={"start": all_min, "end": all_max, "size": (all_max - all_min) / bins},
+            name=f"Losses ({len(loss_dur)})",
+            marker_color="crimson",
+            marker_opacity=0.7,
+            hovertemplate="%{x:.1f} periods<br>%{y} trades<extra></extra>",
+        ))
+
+    fig.update_layout(
+        title=title or "Trade Duration Distribution",
+        xaxis_title="Holding Period Duration",
+        yaxis_title="Number of Trades",
+        barmode="overlay",
+        bargap=0.05,
+        hovermode="x unified",
+    )
+    return fig
+
+
+def returns_distribution(
+    returns: Any,
+    bins: int = 50,
+    title: str | None = None,
+) -> plotly.graph_objects.Figure:  # type: ignore[name-defined]  # noqa: F821
+    """Histogram of period returns with a fitted normal curve overlay.
+
+    Parameters
+    ----------
+    returns: ReturnsInput or 1-D array of period returns.
+    bins: Number of histogram bins (default 50).
+    title: Optional chart title.
+    """
+    _ensure_plotly()
+    import plotly.graph_objects as go
+
+    r = _to_array(returns)
+    strat = r[:, 0] if r.ndim > 1 and r.shape[1] >= 1 else r.ravel()
+    strat = strat[np.isfinite(strat)]
+
+    if len(strat) == 0:
+        fig = go.Figure()
+        fig.update_layout(title=title or "Returns Distribution")
+        return fig
+
+    mu = float(np.mean(strat))
+    sigma = float(np.std(strat, ddof=1))
+
+    # Normal curve overlay (pure numpy — no scipy dependency)
+    x_range = np.linspace(mu - 4 * sigma, mu + 4 * sigma, 200)
+    pdf = np.exp(-0.5 * ((x_range - mu) / sigma) ** 2) / (sigma * np.sqrt(2 * np.pi))
+
+    fig = go.Figure()
+    fig.add_trace(go.Histogram(
+        x=strat,
+        nbinsx=bins,
+        name="Returns",
+        histnorm="probability density",
+        marker_color="steelblue",
+        marker_opacity=0.7,
+        hovertemplate="%{x:.2%}<br>Density: %{y:.3f}<extra></extra>",
+    ))
+    fig.add_trace(go.Scatter(
+        x=x_range,
+        y=pdf,
+        mode="lines",
+        name=f"Normal (μ={mu:.4f}, σ={sigma:.4f})",
+        line={"color": "crimson", "width": 2},
+        hovertemplate="%{x:.2%}<br>%{y:.3f}<extra></extra>",
+    ))
+
+    fig.update_layout(
+        title=title or "Returns Distribution",
+        xaxis_title="Return",
+        yaxis_title="Density",
+        xaxis_tickformat=".1%",
+        bargap=0.05,
+        hovermode="x unified",
+    )
+    return fig
+
+
+# ---------------------------------------------------------------------------
+# Exposure charts
+# ---------------------------------------------------------------------------
+
+
+def exposure_over_time(
+    positions: Any,
+    title: str | None = None,
+) -> plotly.graph_objects.Figure:  # type: ignore[name-defined]  # noqa: F821
+    """Gross and net exposure over time from position weights.
+
+    Parameters
+    ----------
+    positions: 2-D array of shape ``(n_periods, n_assets)`` or ExposureInput.
+    title: Optional chart title.
+    """
+    _ensure_plotly()
+    import plotly.graph_objects as go
+
+    from stratstat.inputs import ExposureInput
+
+    if isinstance(positions, ExposureInput):
+        w = positions.positions
+    else:
+        w = np.asarray(positions, dtype=np.float64)
+    if w.ndim != 2:
+        raise ValueError(f"Expected 2-D positions array, got shape {w.shape}")
+
+    gross = np.sum(np.abs(w), axis=1)
+    net = np.sum(w, axis=1)
+    x = np.arange(len(gross))
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=x, y=gross, mode="lines", name="Gross Exposure",
+        line={"color": "steelblue"},
+        hovertemplate="%{y:.2f}<extra></extra>",
+    ))
+    fig.add_trace(go.Scatter(
+        x=x, y=net, mode="lines", name="Net Exposure",
+        line={"color": "darkorange"},
+        hovertemplate="%{y:.2f}<extra></extra>",
+    ))
+    fig.add_hline(y=0, line_dash="solid", line_color="gray", opacity=0.3)
+    fig.add_hline(y=1, line_dash="dash", line_color="gray", opacity=0.3,
+                  annotation_text="100%")
+    fig.update_layout(
+        title=title or "Exposure Over Time",
+        yaxis_title="Exposure",
+        xaxis_title="Period",
+        hovermode="x unified",
+    )
+    return fig
+
+
+def effective_n_chart(
+    positions: Any,
+    title: str | None = None,
+) -> plotly.graph_objects.Figure:  # type: ignore[name-defined]  # noqa: F821
+    """Effective number of positions (1 / sum(w_i^2)) over time.
+
+    Parameters
+    ----------
+    positions: 2-D array of shape ``(n_periods, n_assets)`` or ExposureInput.
+    title: Optional chart title.
+    """
+    _ensure_plotly()
+    import plotly.graph_objects as go
+
+    from stratstat.inputs import ExposureInput
+
+    if isinstance(positions, ExposureInput):
+        w = positions.positions
+    else:
+        w = np.asarray(positions, dtype=np.float64)
+    if w.ndim != 2:
+        raise ValueError(f"Expected 2-D positions array, got shape {w.shape}")
+
+    w2 = np.sum(w ** 2, axis=1)
+    eff_n = np.where(w2 > 0, 1.0 / w2, 0.0)
+    x = np.arange(len(eff_n))
+
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+        x=x, y=eff_n, mode="lines", name="Effective N",
+        fill="tozeroy", fillcolor="rgba(100, 150, 220, 0.15)",
+        line={"color": "steelblue"},
+        hovertemplate="%{y:.1f}<extra></extra>",
+    ))
+    fig.update_layout(
+        title=title or "Effective N (Concentration)",
+        yaxis_title="Effective N",
+        xaxis_title="Period",
+        hovermode="x unified",
+    )
+    return fig
+
+
+def exposure_heatmap(
+    positions: Any,
+    title: str | None = None,
+) -> plotly.graph_objects.Figure:  # type: ignore[name-defined]  # noqa: F821
+    """Asset-level exposure heatmap (assets × time).
+
+    Only suitable for a modest number of assets (≤30).  For larger
+    universes, consider aggregating.
+
+    Parameters
+    ----------
+    positions: 2-D array of shape ``(n_periods, n_assets)`` or ExposureInput.
+    title: Optional chart title.
+    """
+    _ensure_plotly()
+    import plotly.graph_objects as go
+
+    from stratstat.inputs import ExposureInput
+
+    if isinstance(positions, ExposureInput):
+        w = positions.positions
+    else:
+        w = np.asarray(positions, dtype=np.float64)
+    if w.ndim != 2:
+        raise ValueError(f"Expected 2-D positions array, got shape {w.shape}")
+
+    n_assets = w.shape[1]
+    if n_assets > 30:
+        fig = go.Figure()
+        fig.update_layout(
+            title=title or "Exposure Heatmap (skipped — too many assets)",
+        )
+        return fig
+
+    fig = go.Figure(data=go.Heatmap(
+        z=w.T,
+        x=[str(i) for i in range(w.shape[0])],
+        y=[f"A{i + 1}" for i in range(n_assets)],
+        colorscale="RdBu",
+        zmid=0,
+        hovertemplate="Period %{x}<br>%{y}: %{z:.3f}<extra></extra>",
+    ))
+    fig.update_layout(
+        title=title or "Exposure Heatmap",
+        xaxis_title="Period",
+        yaxis_title="Asset",
+        yaxis={"autorange": "reversed"} if n_assets > 1 else {},
+    )
+    return fig

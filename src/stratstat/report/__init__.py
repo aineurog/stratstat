@@ -17,9 +17,14 @@ from stratstat.report._charts import (
     benchmark_overlay_chart,
     cumulative_return_chart,
     drawdown_chart,
+    effective_n_chart,
     equity_curve,
+    exposure_heatmap,
+    exposure_over_time,
     monthly_heatmap,
+    returns_distribution,
     rolling_metric_chart,
+    trade_duration_histogram,
     trade_markers_chart,
 )
 from stratstat.report._common import category_order, collect_metrics, discover_and_format
@@ -36,7 +41,12 @@ __all__ = [
     "rolling_metric_chart",
     "cumulative_return_chart",
     "benchmark_overlay_chart",
+    "returns_distribution",
     "trade_markers_chart",
+    "trade_duration_histogram",
+    "exposure_over_time",
+    "effective_n_chart",
+    "exposure_heatmap",
     # Compositions
     "tear_sheet",
     "dashboard",

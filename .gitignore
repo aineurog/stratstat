@@ -48,3 +48,4 @@ docs/build/
 .commandcode/
 project-docs/
 demo_*.html
+examples/output/

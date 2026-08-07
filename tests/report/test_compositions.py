@@ -16,6 +16,12 @@ import stratstat.core.returns.risk_adjusted  # noqa: F401
 from stratstat.inputs import ReturnsInput
 from stratstat.report import dashboard, tear_sheet
 
+try:
+    import weasyprint  # noqa: F401
+    _HAS_WEASYPRINT = True
+except ImportError:
+    _HAS_WEASYPRINT = False
+
 
 @pytest.fixture
 def daily_returns():
@@ -245,3 +251,125 @@ class TestGenerateReport:
             generate_report(r, path, periods_per_year=12)
             assert path.exists()
             assert "<!DOCTYPE html>" in path.read_text()
+
+    # ------------------------------------------------------------------
+    # PDF output
+    # ------------------------------------------------------------------
+
+    @pytest.mark.skipif(not _HAS_WEASYPRINT, reason="weasyprint not installed")
+    def test_generate_report_pdf_creates_file(self, daily_returns):
+        """generate_report with .pdf extension writes a file."""
+        from stratstat.report import generate_report
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "report.pdf"
+            generate_report(daily_returns, path, periods_per_year=252)
+            assert path.exists()
+
+    @pytest.mark.skipif(not _HAS_WEASYPRINT, reason="weasyprint not installed")
+    def test_generate_report_pdf_is_valid(self, daily_returns):
+        """PDF output starts with %PDF- magic bytes."""
+        from stratstat.report import generate_report
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "report.pdf"
+            generate_report(daily_returns, path, periods_per_year=252)
+            content = path.read_bytes()
+            assert content[:5] == b"%PDF-", (
+                f"Expected PDF header, got: {content[:20]!r}"
+            )
+
+    @pytest.mark.skipif(not _HAS_WEASYPRINT, reason="weasyprint not installed")
+    def test_generate_report_pdf_custom_title(self, daily_returns):
+        """Custom title produces a valid PDF of reasonable size."""
+        from stratstat.report import generate_report
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "report.pdf"
+            generate_report(daily_returns, path, periods_per_year=252,
+                            title="My Custom PDF Report")
+            assert path.exists()
+            content = path.read_bytes()
+            assert content[:5] == b"%PDF-"
+
+    # ------------------------------------------------------------------
+    # Exposure reports
+    # ------------------------------------------------------------------
+
+    def test_with_positions(self, daily_returns):
+        """Report with positions includes exposure tab and charts."""
+        from stratstat.report import generate_report
+
+        rng = np.random.default_rng(7)
+        positions = rng.normal(0.1, 0.1, size=(len(daily_returns), 5))
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "report.html"
+            generate_report(daily_returns, path, positions=positions,
+                            periods_per_year=252)
+            content = path.read_text()
+            assert "<!DOCTYPE html>" in content
+            assert "Exposure" in content
+            assert "exposure" in content.lower()
+            assert "gross_exposure" in content or "net_exposure" in content
+        # PDF should have meaningful content (not just an empty page)
+            assert len(content) > 5000, (
+                f"Expected >5KB PDF, got {len(content)} bytes"
+            )
+
+    @pytest.mark.skipif(not _HAS_WEASYPRINT, reason="weasyprint not installed")
+    def test_generate_report_pdf_with_benchmark(self, daily_returns):
+        """Benchmark data renders in PDF output."""
+        from stratstat.report import generate_report
+
+        bench = np.random.default_rng(99).normal(0.0005, 0.015, size=252)
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "report.pdf"
+            generate_report(daily_returns, path, benchmark=bench,
+                            periods_per_year=252)
+            assert path.exists()
+            content = path.read_bytes()
+            assert content[:5] == b"%PDF-"
+
+    # ------------------------------------------------------------------
+    # Trade reports
+    # ------------------------------------------------------------------
+
+    def test_with_trades_basic(self, daily_returns):
+        """Report with trades includes trades tab and chart."""
+        from stratstat.report import generate_report
+
+        rng = np.random.default_rng(3)
+        n_trades = 40
+        pnl = rng.normal(0.008, 0.04, size=n_trades)
+        trade_log = {"pnl": pnl}
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "report.html"
+            generate_report(daily_returns, path, trades=trade_log,
+                            periods_per_year=252)
+            content = path.read_text()
+            assert "<!DOCTYPE html>" in content
+            assert "Trades" in content
+            assert "Trade P&amp;L" in content or "trade" in content.lower()
+            assert "total_trades" in content
+            assert "win_rate" in content
+            assert "profit_factor" in content
+
+    def test_with_trades_duration(self, daily_returns):
+        """Report with duration data includes duration histogram."""
+        from stratstat.report import generate_report
+
+        rng = np.random.default_rng(5)
+        n_trades = 30
+        pnl = rng.normal(0.005, 0.03, size=n_trades)
+        duration = np.abs(rng.normal(8, 3, size=n_trades))
+        trade_log = {"pnl": pnl, "duration": duration}
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "report.html"
+            generate_report(daily_returns, path, trades=trade_log,
+                            periods_per_year=252)
+            content = path.read_text()
+            assert "Duration" in content
+            assert "avg_holding_period" in content

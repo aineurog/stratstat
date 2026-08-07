@@ -46,7 +46,8 @@ dependencies = [
 [project.optional-dependencies]
 fast = ["numba>=0.58"]
 report = ["plotly>=5.0"]
-all = ["stratstat[fast,report]"]
+pdf = ["weasyprint"]
+all = ["stratstat[fast,report,pdf]"]
 docs = [
     "sphinx>=7",
     "sphinx-rtd-theme>=1",
@@ -99,7 +100,7 @@ enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
 exclude = ["tests/"]
 
 [[tool.mypy.overrides]]
-module = ["plotly.*", "polars.*"]
+module = ["plotly.*", "polars.*", "weasyprint.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
