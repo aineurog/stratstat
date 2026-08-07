@@ -126,7 +126,14 @@ def generate_report(
     """
     _ensure_plotly()
     import plotly.graph_objects as go
-    from plotly.io import to_html as fig_to_html_div
+    from plotly.io import to_html as _fig_to_html_div
+
+    def _html_div(fig: Any, include_plotlyjs: bool = False) -> str:
+        """Wrap a plotly figure as an HTML div string (responsive)."""
+        return _fig_to_html_div(
+            fig, full_html=False, include_plotlyjs=include_plotlyjs,
+            config={"responsive": True},
+        )
 
     # Trigger metric registration so the registry is populated.
     import stratstat.core.benchmark  # noqa: F401
@@ -216,10 +223,9 @@ def generate_report(
     )
 
     # Equity curve + drawdown as a 2-col row
-    eq_fig_div = fig_to_html_div(fig_eq, full_html=False,
-                                 include_plotlyjs=first_chart)
+    eq_fig_div = _html_div(fig_eq, include_plotlyjs=first_chart)
     first_chart = False
-    dd_fig_div = fig_to_html_div(fig_dd, full_html=False, include_plotlyjs=False)
+    dd_fig_div = _html_div(fig_dd)
 
     all_charts["equity_curve"] = (
         '<div class="chart-row">'
@@ -254,10 +260,10 @@ def generate_report(
     all_charts["distribution_heatmap"] = (
         '<div class="chart-row">'
         f'<div class="chart-col">'
-        f'{fig_to_html_div(fig_dist, full_html=False, include_plotlyjs=False)}'
+        f'{_html_div(fig_dist)}'
         f'</div>'
         f'<div class="chart-col">'
-        f'{fig_to_html_div(fig_hm, full_html=False, include_plotlyjs=False)}'
+        f'{_html_div(fig_hm)}'
         f'</div>'
         '</div>'
     )
@@ -278,8 +284,8 @@ def generate_report(
 
     all_charts["rolling"] = (
         '<div class="rolling-section">'
-        f'{fig_to_html_div(fig_rs, full_html=False, include_plotlyjs=False)}'
-        f'{fig_to_html_div(fig_rv, full_html=False, include_plotlyjs=False)}'
+        f'{_html_div(fig_rs)}'
+        f'{_html_div(fig_rv)}'
         '</div>'
     )
 
@@ -301,16 +307,14 @@ def generate_report(
         all_charts["exposure"] = (
             '<div class="chart-row">'
             f'<div class="chart-col">'
-            f'{fig_to_html_div(fig_exp, full_html=False, include_plotlyjs=False)}'
+            f'{_html_div(fig_exp)}'
             f'</div>'
             f'<div class="chart-col">'
-            f'{fig_to_html_div(fig_eff, full_html=False, include_plotlyjs=False)}'
+            f'{_html_div(fig_eff)}'
             f'</div>'
             '</div>'
-            '<div class="chart-row">'
-            f'<div class="chart-col">'
-            f'{fig_to_html_div(fig_ehm, full_html=False, include_plotlyjs=False)}'
-            f'</div>'
+            '<div class="full-width-chart">'
+            f'{_html_div(fig_ehm)}'
             '</div>'
         )
 
@@ -325,10 +329,8 @@ def generate_report(
         fig_trades.update_layout(margin={"l": 50, "r": 20, "t": 40, "b": 40})
 
         trade_parts = [
-            '<div class="chart-row">'
-            '<div class="chart-col">'
-            f'{fig_to_html_div(fig_trades, full_html=False, include_plotlyjs=False)}'
-            '</div>'
+            '<div class="full-width-chart">'
+            f'{_html_div(fig_trades)}'
             '</div>',
         ]
 
@@ -336,10 +338,8 @@ def generate_report(
             fig_dur = trade_duration_histogram(trd_inp, title="Trade Duration Distribution")
             fig_dur.update_layout(margin={"l": 50, "r": 20, "t": 40, "b": 40})
             trade_parts.append(
-                '<div class="chart-row">'
-                '<div class="chart-col">'
-                f'{fig_to_html_div(fig_dur, full_html=False, include_plotlyjs=False)}'
-                '</div>'
+                '<div class="full-width-chart">'
+                f'{_html_div(fig_dur)}'
                 '</div>'
             )
 
@@ -351,8 +351,10 @@ def generate_report(
         fig_bm = benchmark_overlay_chart(strat, bench_arr,
                                          title="Benchmark Comparison")
         fig_bm.update_layout(margin={"l": 50, "r": 20, "t": 40, "b": 40})
-        all_charts["benchmark"] = fig_to_html_div(
-            fig_bm, full_html=False, include_plotlyjs=False,
+        all_charts["benchmark"] = (
+            '<div class="full-width-chart">'
+            f'{_html_div(fig_bm)}'
+            '</div>'
         )
 
     # -- Collect per-tab statistics ---------------------------------------
@@ -876,6 +878,15 @@ h3 {{
 }}
 .rolling-section .plotly-graph-div {{
     margin-bottom: 16px;
+    width: 100%;
+}}
+
+/* -- full-width charts ------------------------------------------------- */
+.full-width-chart {{
+    margin-bottom: 24px;
+}}
+.full-width-chart .plotly-graph-div {{
+    width: 100%;
 }}
 
 /* -- tables ------------------------------------------------------------ */
@@ -1008,8 +1019,18 @@ function switchTab(evt, tabId) {{
     for (var i = 0; i < btns.length; i++) {{
         btns[i].classList.remove('active');
     }}
-    document.getElementById(tabId).classList.add('active');
+    var panel = document.getElementById(tabId);
+    panel.classList.add('active');
     evt.currentTarget.classList.add('active');
+    // Resize plotly charts that were hidden
+    var gds = panel.querySelectorAll('.plotly-graph-div');
+    for (var j = 0; j < gds.length; j++) {{
+        if (gds[j]._fullLayout) {{
+            Plotly.relayout(gds[j], {{}});
+        }}
+    }}
+    // Fallback: dispatch resize to handle any responsive config
+    window.dispatchEvent(new Event('resize'));
 }}
 </script>
 
