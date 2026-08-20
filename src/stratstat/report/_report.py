@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 
@@ -79,6 +79,84 @@ _OVERVIEW_METRICS: list[str] = [
 ]
 
 # ---------------------------------------------------------------------------
+# Helpers: MetricSet → sections conversion
+# ---------------------------------------------------------------------------
+
+
+def _metric_set_to_sections(
+    metric_set: Any,
+    categories: list[str] | None = None,
+) -> list[dict[str, Any]]:
+    """Convert a MetricSet to the sections format used by the report.
+
+    Returns the same shape as :func:`discover_and_format` so the rest
+    of the report pipeline (stats tables, ref index, methodology) works
+    unchanged whether metrics came from a pre-computed MetricSet or
+    were discovered on-the-fly.
+    """
+    from stratstat.results import _CATEGORY_LABELS, _CATEGORY_ORDER
+
+    # Group metrics by primary category
+    groups: dict[str, list[Any]] = {}
+    for mr in metric_set:
+        primary = mr.category[0] if mr.category else "other"
+        if categories is not None and primary not in categories:
+            continue
+        groups.setdefault(primary, []).append(mr)
+
+    # Build sections in display order
+    ordered = sorted(
+        groups.items(), key=lambda kv: _CATEGORY_ORDER.get(kv[0], 99)
+    )
+    sections: list[dict[str, Any]] = []
+    for cat_name, metrics in ordered:
+        label = _CATEGORY_LABELS.get(cat_name, cat_name.title())
+        formatted: list[dict[str, Any]] = []
+        for mr in metrics:
+            val = mr.value
+            if isinstance(val, np.ndarray) and val.size == 1:
+                val = float(val.flat[0])
+            formatted.append({
+                "name": mr.name,
+                "value": val,
+                "ref": mr.meta.get("ref", ""),
+            })
+        sections.append({"section": label, "metrics": formatted})
+
+    return sections
+
+
+def _lookup_metrics(
+    metric_set: Any,
+    names: list[str],
+) -> list[dict[str, Any]]:
+    """Extract named metrics from a MetricSet as {name, value, ref} dicts.
+
+    Missing metrics get ``value=np.nan`` and empty ref.
+    """
+    by_name: dict[str, Any] = {}
+    for mr in metric_set:
+        by_name[mr.name] = mr
+
+    result: list[dict[str, Any]] = []
+    for name in names:
+        mr = by_name.get(name)
+        if mr is not None:
+            val = mr.value
+            if isinstance(val, np.ndarray) and val.size == 1:
+                val = float(val.flat[0])
+            result.append({
+                "name": name,
+                "value": val,
+                "ref": mr.meta.get("ref", ""),
+            })
+        else:
+            result.append({"name": name, "value": np.nan, "ref": ""})
+
+    return result
+
+
+# ---------------------------------------------------------------------------
 # Public API
 # ---------------------------------------------------------------------------
 
@@ -94,6 +172,7 @@ def generate_report(
     periods_per_year: int | None = None,
     title: str | None = None,
     include_benchmark_metrics: bool = True,
+    metrics: Any | None = None,
 ) -> None:
     """Generate a self-contained HTML strategy analysis report.
 
@@ -123,6 +202,11 @@ def generate_report(
     title: Report title (default: "Strategy Analysis Report").
     include_benchmark_metrics: If True (default) and *benchmark* is
         provided, include benchmark-tier statistics.
+    metrics: Optional pre-computed :class:`MetricSet`.  When provided,
+        statistics tables are populated from these values instead of
+        recomputing on-the-fly.  Charts are always built from raw data
+        regardless.  Useful in notebook workflows where metrics have
+        already been computed with :func:`compute_all`.
     """
     _ensure_plotly()
     import plotly.graph_objects as go
@@ -130,10 +214,10 @@ def generate_report(
 
     def _html_div(fig: Any, include_plotlyjs: bool = False) -> str:
         """Wrap a plotly figure as an HTML div string (responsive)."""
-        return _fig_to_html_div(
+        return cast(str, _fig_to_html_div(
             fig, full_html=False, include_plotlyjs=include_plotlyjs,
             config={"responsive": True},
-        )
+        ))
 
     # Trigger metric registration so the registry is populated.
     import stratstat.core.benchmark  # noqa: F401
@@ -147,13 +231,16 @@ def generate_report(
 
     # -- Normalise inputs -------------------------------------------------
     r = _to_array(returns)
+    # Honour an annualization factor carried on a passed ReturnsInput.
+    if periods_per_year is None and isinstance(returns, ReturnsInput):
+        periods_per_year = returns.periods_per_year
     strat = r[:, 0] if r.ndim > 1 and r.shape[1] >= 1 else r.ravel()
     p = Path(output_path) if isinstance(output_path, str) else output_path
     title = title or "Strategy Analysis Report"
     inp = ReturnsInput(strat, periods_per_year=periods_per_year)
 
     # -- Build input containers for optional layers -----------------------
-    bench_arr: np.ndarray | None = None
+    bench_arr: np.ndarray[Any, Any] | None = None
     bm_inp = None
     if benchmark is not None and include_benchmark_metrics:
         bench_arr = np.asarray(benchmark, dtype=np.float64).ravel()
@@ -358,28 +445,54 @@ def generate_report(
         )
 
     # -- Collect per-tab statistics ---------------------------------------
-    perf_sections = discover_and_format(
-        inp, ["descriptive", "risk", "risk_adjusted", "inference"]
-    )
-
-    exp_sections: list[dict[str, Any]] = []
-    if exp_inp is not None:
-        exp_sections = discover_and_format(exp_inp, ["exposure"])
-
-    trd_sections: list[dict[str, Any]] = []
-    if trd_inp is not None:
-        trd_sections = discover_and_format(trd_inp, ["trades"])
-
-    bm_sections: list[dict[str, Any]] = []
-    if bm_inp is not None:
-        bm_sections = discover_and_format(bm_inp, ["benchmark"])
+    if metrics is not None:
+        # Use pre-computed MetricSet — convert to sections format.
+        perf_sections = _metric_set_to_sections(
+            metrics, ["descriptive", "risk", "risk_adjusted", "inference"]
+        )
+        exp_sections = (
+            _metric_set_to_sections(metrics, ["exposure"])
+            if exp_inp is not None else []
+        )
+        trd_sections = (
+            _metric_set_to_sections(metrics, ["trades"])
+            if trd_inp is not None else []
+        )
+        bm_sections = (
+            _metric_set_to_sections(metrics, ["benchmark"])
+            if bm_inp is not None else []
+        )
+        # Overview: extract curated metrics from the MetricSet.
+        overview_metrics = _lookup_metrics(metrics, _OVERVIEW_METRICS)
+        summary_metrics = _lookup_metrics(metrics, _SUMMARY_METRICS)
+    else:
+        # Discover and compute metrics on-the-fly from input containers.
+        perf_sections = discover_and_format(
+            inp, ["descriptive", "risk", "risk_adjusted", "inference"]
+        )
+        exp_sections = (
+            discover_and_format(exp_inp, ["exposure"])
+            if exp_inp is not None else []
+        )
+        trd_sections = (
+            discover_and_format(trd_inp, ["trades"])
+            if trd_inp is not None else []
+        )
+        bm_sections = (
+            discover_and_format(bm_inp, ["benchmark"])
+            if bm_inp is not None else []
+        )
+        overview_metrics = None
+        summary_metrics = None
 
     # -- Build tabs -------------------------------------------------------
     tabs: list[dict[str, Any]] = []
 
     # Overview tab
     overview_content = _build_overview_content(
-        summary_html=_build_summary_html(inp),
+        summary_html=_build_summary_html(
+            inp, metric_set=summary_metrics
+        ),
         data_summary_html=_build_data_summary(
             n_periods=len(strat),
             periods_per_year=periods_per_year,
@@ -388,6 +501,7 @@ def generate_report(
         ),
         charts_html=all_charts["equity_curve"],
         inp=inp,
+        key_metrics=overview_metrics,
     )
     tabs.append({"id": "overview", "label": "Overview", "content": overview_content})
 
@@ -469,23 +583,32 @@ def _build_overview_content(
     data_summary_html: str,
     charts_html: str,
     inp: Any,
+    key_metrics: list[dict[str, Any]] | None = None,
 ) -> str:
-    """Build the Overview tab content: cards, data bar, charts, key stats."""
+    """Build the Overview tab content: cards, data bar, charts, key stats.
+
+    When *key_metrics* is provided (pre-computed from a MetricSet), the
+    individual ``_compute_one`` calls are skipped and those values are
+    used directly.
+    """
     from stratstat.registry import _compute_one
 
     # Key statistics table — curated set
-    metrics: list[dict[str, Any]] = []
-    for name in _OVERVIEW_METRICS:
-        ref = ""
-        try:
-            result = _compute_one(inp, name)
-            val = result.value
-            if isinstance(val, np.ndarray):
-                val = float(val.flat[0]) if val.size == 1 else val
-            ref = result.meta.get("ref", "")
-        except Exception:
-            val = np.nan
-        metrics.append({"name": name, "value": val, "ref": ref})
+    if key_metrics is not None:
+        metrics = key_metrics
+    else:
+        metrics = []
+        for name in _OVERVIEW_METRICS:
+            ref = ""
+            try:
+                result = _compute_one(inp, name)
+                val = result.value
+                if isinstance(val, np.ndarray):
+                    val = float(val.flat[0]) if val.size == 1 else val
+                ref = result.meta.get("ref", "")
+            except Exception:
+                val = np.nan
+            metrics.append({"name": name, "value": val, "ref": ref})
 
     # Build ref index and stats table
     ref_index: dict[str, int] = {}
@@ -580,21 +703,36 @@ def _build_data_summary(
 # ---------------------------------------------------------------------------
 
 
-def _build_summary_html(inp: Any) -> str:
-    """Build the hero summary cards from key metrics."""
+def _build_summary_html(
+    inp: Any, metric_set: list[dict[str, Any]] | None = None
+) -> str:
+    """Build the hero summary cards from key metrics.
+
+    When *metric_set* is provided (pre-computed from a MetricSet via
+    :func:`_lookup_metrics`), the individual ``_compute_one`` calls are
+    skipped and those values are used directly.
+    """
     from stratstat.registry import _compute_one
+
+    by_name = (
+        {m["name"]: m for m in metric_set} if metric_set is not None else {}
+    )
 
     cards: list[str] = []
     for name in _SUMMARY_METRICS:
         label = _SUMMARY_LABELS.get(name, name)
-        try:
-            result = _compute_one(inp, name)
-            val = result.value
-            if isinstance(val, np.ndarray):
-                val = float(val.flat[0]) if val.size == 1 else val
+        if name in by_name:
+            val = by_name[name]["value"]
             val_str = _fmt_scalar(val)
-        except Exception:
-            val_str = "N/A"
+        else:
+            try:
+                result = _compute_one(inp, name)
+                val = result.value
+                if isinstance(val, np.ndarray):
+                    val = float(val.flat[0]) if val.size == 1 else val
+                val_str = _fmt_scalar(val)
+            except Exception:
+                val_str = "N/A"
         cards.append(f"""<div class="card">
             <div class="card-label">{label}</div>
             <div class="card-value">{val_str}</div>

@@ -1145,13 +1145,11 @@ class TestPeriodCounts:
 
         result = _compute_one(inp_no_ret, "period_counts")
         assert result.meta["output_index"] == [
-            "total", "active", "long_only",
-            "short_only", "long_short", "idle",
+            "total", "position", "long", "short", "idle",
         ]
         arr = result.value
         assert arr[0] == inp_no_ret.n_periods
-        assert arr[1] + arr[5] == arr[0]  # active + idle = total
-        assert arr[2] + arr[3] + arr[4] == arr[1]  # long_only+short_only+long_short=active
+        assert arr[1] + arr[4] == arr[0]  # position + idle = total
 
     def test_long_only(self):
         positions = np.array([[0.3, 0.2], [0.1, 0.4], [0.5, 0.0]])
@@ -1165,7 +1163,6 @@ class TestPeriodCounts:
         assert arr[2] == 3
         assert arr[3] == 0
         assert arr[4] == 0
-        assert arr[5] == 0
 
     def test_short_only(self):
         positions = np.array([[-0.3, -0.2], [-0.1, -0.4]])
@@ -1174,8 +1171,8 @@ class TestPeriodCounts:
 
         result = _compute_one(inp, "period_counts")
         arr = result.value
-        assert arr[2] == 0  # long_only
-        assert arr[3] == 2  # short_only
+        assert arr[2] == 0  # long
+        assert arr[3] == 2  # short
 
     def test_idle(self):
         positions = np.array([[0.0, 0.0], [0.0, 0.0]])
@@ -1184,16 +1181,16 @@ class TestPeriodCounts:
 
         result = _compute_one(inp, "period_counts")
         arr = result.value
-        assert arr[1] == 0  # active
-        assert arr[5] == 2  # idle
+        assert arr[1] == 0  # position
+        assert arr[4] == 2  # idle
 
     def test_mixed(self):
         positions = np.array([
-            [0.3, 0.2],     # long_only
-            [-0.1, -0.4],   # short_only
-            [0.5, -0.1],    # long_short
+            [0.3, 0.2],     # long
+            [-0.1, -0.4],   # short
+            [0.5, -0.1],    # long+short
             [0.0, 0.0],     # idle
-            [0.0, 0.2],     # long_only
+            [0.0, 0.2],     # long
         ])
         inp = ExposureInput(positions=positions)
         from stratstat.registry import _compute_one
@@ -1201,11 +1198,10 @@ class TestPeriodCounts:
         result = _compute_one(inp, "period_counts")
         arr = result.value
         assert arr[0] == 5   # total
-        assert arr[1] == 4   # active
-        assert arr[2] == 2   # long_only
-        assert arr[3] == 1   # short_only
-        assert arr[4] == 1   # long_short
-        assert arr[5] == 1   # idle
+        assert arr[1] == 4   # position
+        assert arr[2] == 2   # long
+        assert arr[3] == 1   # short
+        assert arr[4] == 1   # idle
 
 
 # ===================================================================
@@ -1397,16 +1393,16 @@ class TestRegistry:
     def test_compute_all_concentration(self, inp_no_ret):
         from stratstat import compute_all
 
-        results = compute_all(inp_no_ret, category="concentration")
+        results = compute_all(inp_no_ret, category="exposure")
         names = {r.name for r in results}
-        assert names == {"position_concentration", "effective_n_positions"}
+        assert {"position_concentration", "effective_n_positions"} <= names
 
     def test_compute_all_turnover(self, inp_no_ret):
         from stratstat import compute_all
 
-        results = compute_all(inp_no_ret, category="turnover")
+        results = compute_all(inp_no_ret, category="exposure")
         names = {r.name for r in results}
-        assert names == {"turnover"}
+        assert "turnover" in names
 
     def test_raw_array_auto_wraps(self):
         """Passing a raw 2D array auto-wraps to ExposureInput."""

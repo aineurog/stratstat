@@ -6,6 +6,18 @@ from stratstat.exceptions import UnknownMetricError
 from stratstat.registry import _registry, get_metric, list_metrics, register_metric
 
 
+@pytest.fixture(scope="module", autouse=True)
+def _cleanup_test_metric():
+    """Remove the ``test_metric`` registered below once this module finishes.
+
+    Prevents the synthetic metric (whose function returns a bare float, not a
+    ``MetricResult``) from leaking into the global registry and breaking
+    ``compute_all`` in later test modules.
+    """
+    yield
+    _registry.pop("test_metric", None)
+
+
 def test_register_metric_adds_to_registry():
     """A decorated function should appear in the registry with correct metadata."""
 
@@ -44,10 +56,11 @@ def test_list_metrics_filter_by_requires():
 
 
 def test_list_metrics_filter_by_category():
-    """Filtering by category should return only metrics with that tag."""
+    """Filtering by category should return only metrics whose *primary* tag matches."""
     results = list_metrics(category="descriptive")
+    assert results, "expected at least one descriptive metric"
     for r in results:
-        assert "descriptive" in r["category"]
+        assert r["category"][0] == "descriptive"
 
 
 def test_list_metrics_filter_by_backend():

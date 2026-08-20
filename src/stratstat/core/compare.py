@@ -14,6 +14,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from stratstat.core._utils import sample_skewness
+from stratstat.exceptions import MetricNotApplicableError
 from stratstat.inputs import CompareInput
 from stratstat.registry import register_metric
 from stratstat.results import MetricResult
@@ -60,9 +61,9 @@ _REF_CVAR = (
 def _require_min_strategies(
     inp: CompareInput, n: int, metric_name: str
 ) -> None:
-    """Raise ``ValueError`` if fewer than *n* strategy columns."""
+    """Raise ``MetricNotApplicableError`` if fewer than *n* strategy columns."""
     if inp.n_strategies < n:
-        raise ValueError(
+        raise MetricNotApplicableError(
             f"{metric_name} requires at least {n} strategies. "
             f"Got {inp.n_strategies}."
         )
@@ -71,27 +72,27 @@ def _require_min_strategies(
 def _require_exact_strategies(
     inp: CompareInput, n: int, metric_name: str
 ) -> None:
-    """Raise ``ValueError`` if not exactly *n* strategy columns."""
+    """Raise ``MetricNotApplicableError`` if not exactly *n* strategy columns."""
     if inp.n_strategies != n:
-        raise ValueError(
+        raise MetricNotApplicableError(
             f"{metric_name} requires exactly {n} strategies. "
             f"Got {inp.n_strategies}."
         )
 
 
 def _require_benchmark(inp: CompareInput, metric_name: str) -> None:
-    """Raise ``ValueError`` if benchmark returns are not provided."""
+    """Raise ``MetricNotApplicableError`` if benchmark returns are not provided."""
     if inp.benchmark is None:
-        raise ValueError(
+        raise MetricNotApplicableError(
             f"{metric_name} requires benchmark returns. "
             f"Provide benchmark= to CompareInput."
         )
 
 
 def _require_periods_per_year(inp: CompareInput, metric_name: str) -> None:
-    """Raise ``ValueError`` if ``periods_per_year`` is not set."""
+    """Raise ``MetricNotApplicableError`` if ``periods_per_year`` is not set."""
     if inp.periods_per_year is None:
-        raise ValueError(
+        raise MetricNotApplicableError(
             f"{metric_name} requires periods_per_year for "
             f"annualization. Provide periods_per_year= to CompareInput."
         )
@@ -414,7 +415,7 @@ def _stationary_bootstrap(
     name="whites_reality_check",
     requires="compare",
     category=("relative", "compare"),
-    backend="sequential",
+    backend="resampling",
     ref=_REF_WHITE,
 )
 def whites_reality_check(
@@ -547,7 +548,7 @@ def _comb_purged_splits(
     name="pbo",
     requires="compare",
     category=("relative", "compare"),
-    backend="sequential",
+    backend="resampling",
     ref=_REF_PBO,
 )
 def pbo(

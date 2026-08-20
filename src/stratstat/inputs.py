@@ -441,10 +441,15 @@ class TradeInput:
                     np.asarray(p, dtype=np.float64).ravel() for p in itp
                 ]
             else:
-                # Single array — wrap per trade? Assume one per row.
-                result["intratrade_prices"] = [
-                    np.asarray(itp, dtype=np.float64).ravel()
-                ]
+                arr = np.asarray(itp, dtype=np.float64)
+                if arr.ndim == 2:
+                    # 2D array: each row is one trade's price path.
+                    result["intratrade_prices"] = [
+                        arr[i] for i in range(arr.shape[0])
+                    ]
+                else:
+                    # 1D array: a single intra-trade price path.
+                    result["intratrade_prices"] = [arr.ravel()]
 
         return result
 

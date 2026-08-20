@@ -13,7 +13,9 @@ from __future__ import annotations
 import numpy as np
 from numpy.typing import NDArray
 
+from stratstat.conventions import resolve_convention
 from stratstat.core._utils import compute_cagr
+from stratstat.exceptions import MetricNotApplicableError
 from stratstat.inputs import ReturnsInput
 from stratstat.registry import register_metric
 from stratstat.results import MetricResult
@@ -41,7 +43,7 @@ _SHARPE_REF = (
 def sharpe_ratio(
     input_data: ReturnsInput,
     rf: float = 0.0,
-    ddof: int = 1,
+    ddof: int | None = None,
 ) -> MetricResult:
     """Sharpe ratio — annualized excess return per unit of volatility.
 
@@ -55,13 +57,16 @@ def sharpe_ratio(
         input_data: A ``ReturnsInput`` with ``periods_per_year`` set.
         rf: Risk-free rate per period (default 0.0).
         ddof: Delta degrees of freedom for standard deviation — 1 for sample
-            (default), 0 for population.
+            (default), 0 for population. Overridden by a session default set
+            via ``stratstat.set_default("sharpe_ratio", "ddof=...")``.
 
     Returns:
         MetricResult with Sharpe ratio (float or array).
     """
+    ddof = resolve_convention(ddof, "sharpe_ratio", "ddof", 1)
+
     if input_data.periods_per_year is None:
-        raise ValueError(
+        raise MetricNotApplicableError(
             "Sharpe ratio requires periods_per_year on the ReturnsInput"
         )
 
@@ -114,7 +119,7 @@ def sortino_ratio(
     input_data: ReturnsInput,
     rf: float = 0.0,
     mar: float = 0.0,
-    denominator: str = "full_downside",
+    denominator: str | None = None,
 ) -> MetricResult:
     """Sortino ratio — excess return per unit of downside deviation.
 
@@ -131,10 +136,16 @@ def sortino_ratio(
         denominator: ``"full_downside"`` (default) divides by sqrt of mean
             squared downside over *all* periods; ``"downside_only"`` divides by
             sqrt of mean squared downside over only downside periods.
+            Overridden by a session default set via
+            ``stratstat.set_default("sortino_ratio", "denominator=...")``.
 
     Returns:
         MetricResult with Sortino ratio (float or array).
     """
+    denominator = resolve_convention(
+        denominator, "sortino_ratio", "denominator", "full_downside"
+    )
+
     if denominator not in ("full_downside", "downside_only"):
         raise ValueError(
             f"denominator must be 'full_downside' or 'downside_only', "
@@ -142,7 +153,7 @@ def sortino_ratio(
         )
 
     if input_data.periods_per_year is None:
-        raise ValueError(
+        raise MetricNotApplicableError(
             "Sortino ratio requires periods_per_year on the ReturnsInput"
         )
 
@@ -221,7 +232,7 @@ def calmar_ratio(input_data: ReturnsInput) -> MetricResult:
         ValueError: If ``periods_per_year`` is None.
     """
     if input_data.periods_per_year is None:
-        raise ValueError(
+        raise MetricNotApplicableError(
             "Calmar ratio requires periods_per_year on the ReturnsInput"
         )
 
@@ -352,7 +363,7 @@ def sterling_ratio(
         ValueError: If ``periods_per_year`` is None or ``floor`` is negative.
     """
     if input_data.periods_per_year is None:
-        raise ValueError(
+        raise MetricNotApplicableError(
             "Sterling ratio requires periods_per_year on the ReturnsInput"
         )
     if floor < 0.0:
@@ -434,7 +445,7 @@ def burke_ratio(input_data: ReturnsInput) -> MetricResult:
         ValueError: If ``periods_per_year`` is None.
     """
     if input_data.periods_per_year is None:
-        raise ValueError(
+        raise MetricNotApplicableError(
             "Burke ratio requires periods_per_year on the ReturnsInput"
         )
 
@@ -564,7 +575,7 @@ def martin_ratio(input_data: ReturnsInput) -> MetricResult:
         ValueError: If ``periods_per_year`` is None.
     """
     if input_data.periods_per_year is None:
-        raise ValueError(
+        raise MetricNotApplicableError(
             "Martin ratio requires periods_per_year on the ReturnsInput"
         )
 
@@ -683,7 +694,7 @@ def pain_ratio(input_data: ReturnsInput) -> MetricResult:
         ValueError: If ``periods_per_year`` is None.
     """
     if input_data.periods_per_year is None:
-        raise ValueError(
+        raise MetricNotApplicableError(
             "Pain ratio requires periods_per_year on the ReturnsInput"
         )
 
@@ -922,7 +933,7 @@ def serenity_ratio(
         ValueError: If ``periods_per_year`` is None.
     """
     if input_data.periods_per_year is None:
-        raise ValueError(
+        raise MetricNotApplicableError(
             "Serenity ratio requires periods_per_year on the ReturnsInput"
         )
 
@@ -1001,7 +1012,7 @@ def upi(
         ValueError: If ``periods_per_year`` is None.
     """
     if input_data.periods_per_year is None:
-        raise ValueError(
+        raise MetricNotApplicableError(
             "UPI requires periods_per_year on the ReturnsInput"
         )
 
@@ -1077,7 +1088,7 @@ def modified_sharpe_ratio(
         ValueError: If ``periods_per_year`` is None.
     """
     if input_data.periods_per_year is None:
-        raise ValueError(
+        raise MetricNotApplicableError(
             "Modified Sharpe ratio requires periods_per_year on the ReturnsInput"
         )
     if not 0.0 < confidence < 1.0:
@@ -1221,7 +1232,7 @@ def risk_return_ratio(input_data: ReturnsInput) -> MetricResult:
         ValueError: If ``periods_per_year`` is None.
     """
     if input_data.periods_per_year is None:
-        raise ValueError(
+        raise MetricNotApplicableError(
             "Risk return ratio requires periods_per_year on the ReturnsInput"
         )
 
@@ -1291,7 +1302,7 @@ def roys_safety_first(
         MetricResult with Roy's Safety-First ratio.
     """
     if input_data.periods_per_year is None:
-        raise ValueError(
+        raise MetricNotApplicableError(
             "Roy's Safety-First ratio requires periods_per_year on the "
             "ReturnsInput"
         )

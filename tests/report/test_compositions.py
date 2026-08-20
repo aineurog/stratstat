@@ -373,3 +373,115 @@ class TestGenerateReport:
             content = path.read_text()
             assert "Duration" in content
             assert "avg_holding_period" in content
+
+    # ------------------------------------------------------------------
+    # Pre-computed metrics
+    # ------------------------------------------------------------------
+
+    def test_with_precomputed_metrics(self, daily_returns):
+        """generate_report accepts a MetricSet and uses it for stats tables."""
+        from stratstat import compute_all
+        from stratstat.report import generate_report
+
+        # Compute metrics ahead of time
+        ms = compute_all(daily_returns, periods_per_year=252)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "report.html"
+            generate_report(daily_returns, path, metrics=ms,
+                            periods_per_year=252)
+            content = path.read_text()
+            assert "<!DOCTYPE html>" in content
+            # Stats should still be present (sourced from the MetricSet)
+            assert "sharpe_ratio" in content
+            assert "max_drawdown" in content
+            assert "cagr" in content
+
+    def test_with_precomputed_metrics_and_benchmark(self, daily_returns):
+        """Pre-computed metrics work alongside benchmark data (charts + stats)."""
+        from stratstat import compute_all
+        from stratstat.report import generate_report
+
+        bench = np.random.default_rng(99).normal(0.0005, 0.015, size=252)
+        ms = compute_all(daily_returns, periods_per_year=252)
+
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "report.html"
+            generate_report(daily_returns, path, benchmark=bench,
+                            metrics=ms, periods_per_year=252)
+            content = path.read_text()
+            assert "<!DOCTYPE html>" in content
+            assert "Benchmark" in content
+            assert "sharpe_ratio" in content
+
+
+# ---------------------------------------------------------------------------
+# compute / compute_all with raw data
+# ---------------------------------------------------------------------------
+
+
+class TestComputeRawData:
+    """Tests for compute() and compute_all() accepting raw data directly."""
+
+    def test_compute_raw_returns(self):
+        """compute() accepts raw numpy array, auto-wraps into ReturnsInput."""
+        from stratstat import compute
+
+        rng = np.random.default_rng(42)
+        returns = rng.normal(0.001, 0.02, size=252)
+        result = compute(returns, "sharpe_ratio", periods_per_year=252)
+        assert result.name == "sharpe_ratio"
+        assert isinstance(result.value, float)
+        assert result.periods_per_year == 252
+
+    def test_compute_raw_returns_no_ppy(self):
+        """compute() with raw data and no periods_per_year still works."""
+        from stratstat import compute
+
+        rng = np.random.default_rng(42)
+        returns = rng.normal(0.001, 0.02, size=252)
+        result = compute(returns, "skewness")
+        assert result.name == "skewness"
+        # periods_per_year not provided → None in result
+        assert result.periods_per_year is None
+
+    def test_compute_all_raw_returns(self):
+        """compute_all() accepts raw data with periods_per_year."""
+        from stratstat import compute_all
+
+        rng = np.random.default_rng(42)
+        returns = rng.normal(0.001, 0.02, size=252)
+        results = compute_all(returns, periods_per_year=252)
+
+        names = {r.name for r in results}
+        assert "sharpe_ratio" in names
+        assert "cagr" in names
+        assert "max_drawdown" in names
+        # Periods per year should flow through to all results
+        for r in results:
+            assert r.periods_per_year == 252
+
+    def test_compute_all_raw_returns_category_filter(self):
+        """compute_all() with raw data and category filter."""
+        from stratstat import compute_all
+
+        rng = np.random.default_rng(42)
+        returns = rng.normal(0.001, 0.02, size=252)
+        results = compute_all(returns, category="descriptive",
+                              periods_per_year=252)
+
+        names = {r.name for r in results}
+        assert "mean_return" in names or "cagr" in names
+        # Should NOT include risk metrics
+        assert "var" not in names
+
+    def test_compute_extra_kwargs_forwarded(self):
+        """Extra kwargs flow through to the metric function."""
+        from stratstat import compute
+
+        rng = np.random.default_rng(42)
+        returns = rng.normal(0.001, 0.02, size=252)
+        result = compute(returns, "max_drawdown",
+                         periods_per_year=252, return_type="log")
+        assert result.name == "max_drawdown"
+        assert result.meta.get("return_type") == "log"

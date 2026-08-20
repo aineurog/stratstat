@@ -6,7 +6,7 @@ heatmap, and a ranking table into a single multi-panel figure.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 from numpy.typing import NDArray
@@ -197,7 +197,7 @@ def _compute_rankings(
                     else:
                         arr[i] = np.nan
                 else:
-                    arr[i] = float(val) if val is not None else np.nan
+                    arr[i] = cast(float, val) if val is not None else np.nan
             except (ValueError, KeyError):
                 arr[i] = np.nan
         results[mname] = arr

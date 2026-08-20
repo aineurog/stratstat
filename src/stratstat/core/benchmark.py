@@ -10,10 +10,13 @@ All tagged: category varies, requires="benchmark".
 
 from __future__ import annotations
 
+from typing import cast
+
 import numpy as np
 from numpy.typing import NDArray
 
 from stratstat.core._utils import compute_cagr, ols_beta
+from stratstat.exceptions import MetricNotApplicableError
 from stratstat.inputs import BenchmarkInput
 from stratstat.registry import register_metric
 from stratstat.results import MetricResult
@@ -66,18 +69,18 @@ _REF_CFA_QM = "CFA Institute, Quantitative Methods."
 
 
 def _require_periods_per_year(inp: BenchmarkInput, metric_name: str) -> None:
-    """Raise ``ValueError`` if ``periods_per_year`` is not set."""
+    """Raise ``MetricNotApplicableError`` if ``periods_per_year`` is not set."""
     if inp.periods_per_year is None:
-        raise ValueError(
+        raise MetricNotApplicableError(
             f"{metric_name} requires periods_per_year for annualization. "
             f"Provide periods_per_year= to BenchmarkInput."
         )
 
 
 def _require_single_strategy(inp: BenchmarkInput, metric_name: str) -> None:
-    """Raise ``ValueError`` if input contains more than one strategy."""
+    """Raise ``MetricNotApplicableError`` if input contains more than one strategy."""
     if inp.n_strategies > 1:
-        raise ValueError(
+        raise MetricNotApplicableError(
             f"{metric_name} requires a single strategy. "
             f"Got {inp.n_strategies} strategy columns."
         )
@@ -122,11 +125,24 @@ def alpha(inp: BenchmarkInput) -> MetricResult:
     bench = inp.benchmark
     p = float(inp.periods_per_year)  # type: ignore[arg-type]
 
-    cagr_r = compute_cagr(r.reshape(-1, 1), p)[0]
-    cagr_m = compute_cagr(bench.reshape(-1, 1), p)[0]
+    mask = np.isfinite(r) & np.isfinite(bench)
+    if mask.sum() < 3:
+        value: float = np.nan
+        return MetricResult(
+            name="alpha",
+            value=value,
+            category=("benchmark",),
+            periods_per_year=inp.periods_per_year,
+            meta={"ref": _REF_JENSEN, "annualized": True},
+        )
 
-    beta_val = ols_beta(r, bench)
-    value: float = cagr_r - (inp.rf + beta_val * (cagr_m - inp.rf))
+    rc = r[mask]
+    bc = bench[mask]
+    cagr_r = compute_cagr(rc.reshape(-1, 1), p)[0]
+    cagr_m = compute_cagr(bc.reshape(-1, 1), p)[0]
+
+    beta_val = ols_beta(rc, bc)
+    value = cagr_r - (inp.rf + beta_val * (cagr_m - inp.rf))
 
     return MetricResult(
         name="alpha",
@@ -400,14 +416,12 @@ def up_down_capture(inp: BenchmarkInput) -> MetricResult:
     _require_single_strategy(inp, "up_down_capture")
     from stratstat.registry import _compute_one
 
-    uc = _compute_one(inp, "up_capture").value
-    dc = _compute_one(inp, "down_capture").value
-    if uc is None or dc is None:
+    uc = cast(float, _compute_one(inp, "up_capture").value)
+    dc = cast(float, _compute_one(inp, "down_capture").value)
+    if np.isnan(uc) or np.isnan(dc) or dc == 0.0:
         value: float = np.nan
-    elif np.isnan(uc) or np.isnan(dc) or dc == 0.0:
-        value = np.nan
     else:
-        value = float(uc / abs(dc))
+        value = uc / abs(dc)
     return MetricResult(
         name="up_down_capture",
         value=value,

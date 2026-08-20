@@ -9,6 +9,7 @@ import pytest
 import stratstat.core.returns.descriptive  # noqa: F401
 import stratstat.core.returns.risk_adjusted  # noqa: F401
 from stratstat import by_regime, rolling
+from stratstat.exceptions import UnknownMetricError
 from stratstat.inputs import ReturnsInput
 
 # ---------------------------------------------------------------------------
@@ -94,12 +95,10 @@ class TestRolling:
         vals = result.value
         assert np.all(np.isfinite(vals[59:]))
 
-    def test_unknown_metric_produces_nan(self, daily_returns):
-        """Unknown metric name results in NaN values (not a crash)."""
-        result = rolling(daily_returns, "nonexistent_metric", window=10)
-        vals = result.value
-        # All computed values should be NaN.
-        assert np.all(np.isnan(vals[9:]))
+    def test_unknown_metric_raises(self, daily_returns):
+        """Unknown metric name raises UnknownMetricError (not silent NaN)."""
+        with pytest.raises(UnknownMetricError):
+            rolling(daily_returns, "nonexistent_metric", window=10)
 
 
 # ---------------------------------------------------------------------------

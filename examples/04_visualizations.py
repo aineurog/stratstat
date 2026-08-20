@@ -11,15 +11,7 @@ Run: python examples/04_visualizations.py
 
 import numpy as np
 
-import stratstat as ss
 from stratstat.report import dashboard, tear_sheet
-
-# Trigger metric registration (modules register on import)
-import stratstat.core.benchmark  # noqa: F401
-import stratstat.core.returns.descriptive  # noqa: F401
-import stratstat.core.returns.inference  # noqa: F401
-import stratstat.core.returns.risk  # noqa: F401
-import stratstat.core.returns.risk_adjusted  # noqa: F401
 
 # ---------------------------------------------------------------------------
 # Generate synthetic data

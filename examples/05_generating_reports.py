@@ -19,14 +19,6 @@ import numpy as np
 import stratstat as ss
 from stratstat.report import generate_report
 
-# Trigger metric registration (modules register on import)
-import stratstat.core.benchmark  # noqa: F401
-import stratstat.core.returns.descriptive  # noqa: F401
-import stratstat.core.returns.inference  # noqa: F401
-import stratstat.core.returns.risk  # noqa: F401
-import stratstat.core.returns.risk_adjusted  # noqa: F401
-import stratstat.core.trades  # noqa: F401
-
 # ---------------------------------------------------------------------------
 # Generate synthetic data
 # ---------------------------------------------------------------------------
@@ -161,6 +153,28 @@ generate_report(
     title="Strategy Analysis — Full Trade Report",
 )
 print("  Saved: examples/output/report_trades_full.html")
+
+# ---------------------------------------------------------------------------
+# With pre-computed metrics (MetricSet)
+# ---------------------------------------------------------------------------
+print("Generating report with pre-computed metrics...")
+# compute_all accepts raw data directly — no need to construct an Input object
+metrics = ss.compute_all(strategy_returns, periods_per_year=252)
+print(f"  Computed {len(metrics)} metrics ahead of time")
+
+generate_report(
+    strategy_returns,
+    "examples/output/report_from_metrics.html",
+    benchmark=bench_returns,
+    metrics=metrics,
+    periods_per_year=252,
+    title="Strategy Analysis — From Pre-Computed Metrics",
+)
+print("  Saved: examples/output/report_from_metrics.html")
+
+# compute() also accepts raw data directly
+cagr_result = ss.compute(strategy_returns, "cagr", periods_per_year=252)
+print(f"  Single metric compute: {cagr_result}")
 
 print("\nDone. Open the .html files in a browser, or the .pdf files in any")
 print("PDF viewer. Each file is self-contained — all plotly charts render")

@@ -149,6 +149,20 @@ class TestMonthlyHeatmap:
         fig = monthly_heatmap(np.array([0.01, 0.02]))
         assert hasattr(fig, "data")
 
+    def test_dates_param(self, daily_returns):
+        import pandas as pd
+
+        dates = pd.date_range("2020-01-31", periods=len(daily_returns), freq="ME")
+        fig = monthly_heatmap(daily_returns, dates=dates)
+        assert hasattr(fig, "data")
+
+    def test_dates_length_mismatch(self, daily_returns):
+        import pandas as pd
+
+        dates = pd.date_range("2020-01-31", periods=3, freq="ME")
+        with pytest.raises(ValueError, match="must match returns length"):
+            monthly_heatmap(daily_returns, dates=dates)
+
 
 # ---------------------------------------------------------------------------
 # Rolling Metric Chart
@@ -168,10 +182,12 @@ class TestRollingMetricChart:
         assert len(fig.data) >= 1
 
     def test_unknown_metric_produces_nan(self, daily_returns):
-        """Unknown metric should not crash; rolling values will be NaN."""
-        fig = rolling_metric_chart(daily_returns, "nonexistent_metric",
-                                    window=10)
-        assert len(fig.data) >= 1
+        """Unknown metric should raise UnknownMetricError rather than crash."""
+        from stratstat.exceptions import UnknownMetricError
+
+        with pytest.raises(UnknownMetricError):
+            rolling_metric_chart(daily_returns, "nonexistent_metric",
+                                 window=10)
 
     def test_window_larger_than_data(self):
         """Window > n_periods should produce all NaN values."""
@@ -242,3 +258,34 @@ class TestTradeMarkersChart:
     def test_custom_title(self, trade_input):
         fig = trade_markers_chart(trade_input, title="Trade Viz")
         assert "Trade Viz" in fig.layout.title.text
+
+    def test_equity_curve_when_returns(self, trade_input, daily_returns):
+        fig = trade_markers_chart(trade_input, returns=daily_returns)
+        names = [t.name for t in fig.data]
+        assert "Equity Curve" in names
+
+    def test_no_equity_without_returns(self, trade_input):
+        fig = trade_markers_chart(trade_input)
+        names = [t.name for t in fig.data]
+        assert "Equity Curve" not in names
+        assert "Cumulative P&L" in names
+
+    def test_mfe_mae_overlay_when_intratrade(self):
+        inp = TradeInput(trades={
+            "pnl": [0.02, -0.01],
+            "side": ["long", "short"],
+            "intratrade_prices": [
+                [100.0, 101.0, 102.5, 102.0],
+                [100.0, 99.0, 98.0, 99.5],
+            ],
+        })
+        fig = trade_markers_chart(inp)
+        names = [t.name for t in fig.data]
+        assert "MFE" in names
+        assert "MAE" in names
+
+    def test_no_mfe_mae_without_intratrade(self, trade_input):
+        fig = trade_markers_chart(trade_input)
+        names = [t.name for t in fig.data]
+        assert "MFE" not in names
+        assert "MAE" not in names

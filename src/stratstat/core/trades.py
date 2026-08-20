@@ -9,10 +9,13 @@ All tagged: category varies, requires="trades".
 
 from __future__ import annotations
 
+from typing import cast
+
 import numpy as np
 from numpy.typing import NDArray
 
 from stratstat.core._utils import sample_skewness
+from stratstat.exceptions import MetricNotApplicableError
 from stratstat.inputs import TradeInput
 from stratstat.registry import register_metric
 from stratstat.results import MetricResult
@@ -80,7 +83,7 @@ def _require_field(
         )
     attr, display = _FIELD_CHECKS[field]
     if not getattr(inp, attr):
-        raise ValueError(
+        raise MetricNotApplicableError(
             f"{metric_name} requires {display}. "
             f"Provide the required field(s) in the trade log "
             f"passed to TradeInput."
@@ -136,7 +139,7 @@ def total_trades(inp: TradeInput) -> MetricResult:
     """
     return MetricResult(
         name="total_trades",
-        value=inp.n_trades,
+        value=float(inp.n_trades),
         category=("trades",),
         periods_per_year=inp.periods_per_year,
         meta={"ref": _REF_SCHWAGER},
@@ -884,12 +887,12 @@ def cpc_ratio(inp: TradeInput) -> MetricResult:
             meta={"ref": _REF_YOUNG},
         )
 
-    pf = _compute_one(inp, "profit_factor").value
-    payoff = _compute_one(inp, "payoff_ratio").value
-    wr = _compute_one(inp, "win_rate").value
+    pf = cast(float, _compute_one(inp, "profit_factor").value)
+    payoff = cast(float, _compute_one(inp, "payoff_ratio").value)
+    wr = cast(float, _compute_one(inp, "win_rate").value)
 
     # Propagate inf/nan correctly: inf * any_finite = inf; nan * anything = nan
-    value: float = float(pf * payoff * wr)
+    value: float = pf * payoff * wr
     return MetricResult(
         name="cpc_ratio",
         value=value,
@@ -1147,12 +1150,10 @@ def outlier_loss_ratio(inp: TradeInput) -> MetricResult:
 def mfe(inp: TradeInput) -> MetricResult:
     r"""Maximum Favorable Excursion (summary across all trades).
 
-    For each trade, MFE is the maximum gain relative to entry price
-    observed during the trade's lifetime, expressed as a fraction of
-    entry price.  For long trades this is
-    :math:`(\max P_{\text{path}} - P_{\text{entry}}) / P_{\text{entry}}`;
-    for short trades it is
-    :math:`(P_{\text{entry}} - \min P_{\text{path}}) / P_{\text{entry}}`.
+    For each trade, MFE is the largest dollar gain relative to entry
+    price observed during the trade's lifetime.  For long trades this is
+    :math:`\max P_{\text{path}} - P_{\text{entry}}`; for short trades it
+    is :math:`P_{\text{entry}} - \min P_{\text{path}}`.
 
     Returns ``[mean, max, min]`` across all trades.
     """
@@ -1183,12 +1184,10 @@ def mfe(inp: TradeInput) -> MetricResult:
         if len(path) < 2 or not np.isfinite(path[0]):
             continue
         entry = path[0]
-        if abs(entry) < 1e-15:
-            continue
         if is_long[j]:
-            mfe_vals[j] = (np.nanmax(path) - entry) / entry
+            mfe_vals[j] = np.nanmax(path) - entry
         else:
-            mfe_vals[j] = (entry - np.nanmin(path)) / entry
+            mfe_vals[j] = entry - np.nanmin(path)
 
     valid = mfe_vals[np.isfinite(mfe_vals)]
     if len(valid) == 0:
@@ -1222,12 +1221,11 @@ def mfe(inp: TradeInput) -> MetricResult:
 def mae(inp: TradeInput) -> MetricResult:
     r"""Maximum Adverse Excursion (summary across all trades).
 
-    For each trade, MAE is the maximum loss relative to entry price
-    observed during the trade's lifetime, expressed as a fraction of
-    entry price (reported as a positive number).  For long trades this
-    is :math:`(P_{\text{entry}} - \min P_{\text{path}}) / P_{\text{entry}}`;
-    for short trades it is
-    :math:`(\max P_{\text{path}} - P_{\text{entry}}) / P_{\text{entry}}`.
+    For each trade, MAE is the largest dollar loss relative to entry
+    price observed during the trade's lifetime (reported as a positive
+    number).  For long trades this is
+    :math:`P_{\text{entry}} - \min P_{\text{path}}`; for short trades it
+    is :math:`\max P_{\text{path}} - P_{\text{entry}}`.
 
     Returns ``[mean, max, min]`` across all trades.
     """
@@ -1258,12 +1256,10 @@ def mae(inp: TradeInput) -> MetricResult:
         if len(path) < 2 or not np.isfinite(path[0]):
             continue
         entry = path[0]
-        if abs(entry) < 1e-15:
-            continue
         if is_long[j]:
-            mae_vals[j] = (entry - np.nanmin(path)) / entry
+            mae_vals[j] = entry - np.nanmin(path)
         else:
-            mae_vals[j] = (np.nanmax(path) - entry) / entry
+            mae_vals[j] = np.nanmax(path) - entry
 
     valid = mae_vals[np.isfinite(mae_vals)]
     if len(valid) == 0:

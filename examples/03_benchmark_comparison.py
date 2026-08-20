@@ -12,13 +12,6 @@ import numpy as np
 import stratstat as ss
 from stratstat.inputs import BenchmarkInput
 
-# Trigger metric registration (modules register on import)
-import stratstat.core.benchmark  # noqa: F401
-import stratstat.core.returns.descriptive  # noqa: F401
-import stratstat.core.returns.inference  # noqa: F401
-import stratstat.core.returns.risk  # noqa: F401
-import stratstat.core.returns.risk_adjusted  # noqa: F401
-
 # ---------------------------------------------------------------------------
 # Generate synthetic strategy and benchmark returns
 # ---------------------------------------------------------------------------

@@ -18,6 +18,8 @@ from typing import TypedDict
 import numpy as np
 from numpy.typing import NDArray
 
+from stratstat.conventions import resolve_convention
+from stratstat.exceptions import MetricNotApplicableError
 from stratstat.inputs import ReturnsInput
 from stratstat.registry import register_metric
 from stratstat.results import MetricResult
@@ -415,7 +417,7 @@ _MAX_DD_REF = (
     ref=_MAX_DD_REF,
 )
 def max_drawdown(
-    input_data: ReturnsInput, return_type: str = "simple"
+    input_data: ReturnsInput, return_type: str | None = None
 ) -> MetricResult:
     """Maximum drawdown — largest peak-to-trough decline.
 
@@ -425,11 +427,15 @@ def max_drawdown(
 
     Args:
         input_data: A ``ReturnsInput``.
-        return_type: ``"simple"`` (default) or ``"log"``.
+        return_type: ``"simple"`` (default) or ``"log"``. Overridden by a
+            session default set via
+            ``stratstat.set_default("max_drawdown", "return_type=...")``.
 
     Returns:
         MetricResult with max drawdown as a negative float (or array).
     """
+    return_type = resolve_convention(return_type, "max_drawdown", "return_type", "simple")
+
     if return_type not in ("simple", "log"):
         raise ValueError(
             f"return_type must be 'simple' or 'log', got {return_type!r}"
@@ -472,18 +478,22 @@ _LONGEST_DD_REF = "van Hemert et al. (2020, Tactical Asset Allocation, Ch. 5)"
     ref=_LONGEST_DD_REF,
 )
 def longest_drawdown_duration(
-    input_data: ReturnsInput, units: str = "periods"
+    input_data: ReturnsInput, units: str | None = None
 ) -> MetricResult:
     """Longest contiguous underwater period.
 
     Args:
         input_data: A ``ReturnsInput``.
         units: ``"periods"`` (default) or ``"years"``. When ``"years"``,
-            ``periods_per_year`` must be set on the input.
+            ``periods_per_year`` must be set on the input. Overridden by a
+            session default set via
+            ``stratstat.set_default("longest_drawdown_duration", "units=...")``.
 
     Returns:
         MetricResult with the longest drawdown duration.
     """
+    units = resolve_convention(units, "longest_drawdown_duration", "units", "periods")
+
     if units not in ("periods", "years"):
         raise ValueError(
             f"units must be 'periods' or 'years', got {units!r}"
@@ -502,7 +512,7 @@ def longest_drawdown_duration(
 
     if units == "years":
         if input_data.periods_per_year is None:
-            raise ValueError(
+            raise MetricNotApplicableError(
                 "units='years' requires periods_per_year on the ReturnsInput"
             )
         arr = arr / float(input_data.periods_per_year)
@@ -976,8 +986,8 @@ def _var_cornish_fisher(
 )
 def var(
     input_data: ReturnsInput,
-    method: str = "historical",
-    confidence: float = 0.95,
+    method: str | None = None,
+    confidence: float | None = None,
 ) -> MetricResult:
     """Value at Risk — loss threshold at a given confidence level.
 
@@ -991,12 +1001,17 @@ def var(
     Args:
         input_data: A ``ReturnsInput``.
         method: Estimation method (``"historical"``, ``"parametric"``,
-            or ``"cornish_fisher"``).
-        confidence: Confidence level, default 0.95 (95 % VaR).
+            or ``"cornish_fisher"``). Overridden by a session default set via
+            ``stratstat.set_default("var", "method=...")``.
+        confidence: Confidence level, default 0.95 (95 % VaR). Overridden by a
+            session default set via ``stratstat.set_default("var", "confidence=...")``.
 
     Returns:
         MetricResult with VaR (positive float = loss magnitude).
     """
+    method = resolve_convention(method, "var", "method", "historical")
+    confidence = resolve_convention(confidence, "var", "confidence", 0.95)
+
     if method not in ("historical", "parametric", "cornish_fisher"):
         raise ValueError(
             f"method must be 'historical', 'parametric', or 'cornish_fisher', "
@@ -1152,8 +1167,8 @@ def _cvar_parametric(
 )
 def cvar(
     input_data: ReturnsInput,
-    method: str = "historical",
-    confidence: float = 0.95,
+    method: str | None = None,
+    confidence: float | None = None,
 ) -> MetricResult:
     """Conditional Value at Risk (Expected Shortfall).
 
@@ -1164,12 +1179,17 @@ def cvar(
 
     Args:
         input_data: A ``ReturnsInput``.
-        method: ``"historical"`` or ``"parametric"``.
-        confidence: Confidence level, default 0.95.
+        method: ``"historical"`` or ``"parametric"``. Overridden by a session
+            default set via ``stratstat.set_default("cvar", "method=...")``.
+        confidence: Confidence level, default 0.95. Overridden by a session
+            default set via ``stratstat.set_default("cvar", "confidence=...")``.
 
     Returns:
         MetricResult with CVaR (positive float = expected loss beyond VaR).
     """
+    method = resolve_convention(method, "cvar", "method", "historical")
+    confidence = resolve_convention(confidence, "cvar", "confidence", 0.95)
+
     if method not in ("historical", "parametric"):
         raise ValueError(
             f"method must be 'historical' or 'parametric', got {method!r}"
@@ -1219,7 +1239,7 @@ _TAIL_RATIO_REF = (
     ref=_TAIL_RATIO_REF,
 )
 def tail_ratio(
-    input_data: ReturnsInput, tail_cutoff: float = 0.05
+    input_data: ReturnsInput, tail_cutoff: float | None = None
 ) -> MetricResult:
     """Tail ratio — upper-tail mean divided by absolute lower-tail mean.
 
@@ -1230,11 +1250,15 @@ def tail_ratio(
 
     Args:
         input_data: A ``ReturnsInput``.
-        tail_cutoff: Tail fraction, default 0.05 (5 % each tail).
+        tail_cutoff: Tail fraction, default 0.05 (5 % each tail). Overridden
+            by a session default set via
+            ``stratstat.set_default("tail_ratio", "tail_cutoff=...")``.
 
     Returns:
         MetricResult with tail ratio (non-negative, higher = fatter right tail).
     """
+    tail_cutoff = resolve_convention(tail_cutoff, "tail_ratio", "tail_cutoff", 0.05)
+
     if not 0.0 < tail_cutoff < 0.5:
         raise ValueError(
             f"tail_cutoff must be in (0, 0.5), got {tail_cutoff}"
@@ -1385,7 +1409,7 @@ _HILL_REF = (
     ref=_HILL_REF,
 )
 def hill_tail_index(
-    input_data: ReturnsInput, tail_fraction: float = 0.10
+    input_data: ReturnsInput, tail_fraction: float | None = None
 ) -> MetricResult:
     """Hill estimator for the tail index of the return distribution.
 
@@ -1401,6 +1425,8 @@ def hill_tail_index(
     Args:
         input_data: A ``ReturnsInput``.
         tail_fraction: Fraction of observations in the tail, default 0.10.
+            Overridden by a session default set via
+            ``stratstat.set_default("hill_tail_index", "tail_fraction=...")``.
 
     Returns:
         MetricResult with the Hill tail index estimate.
@@ -1416,6 +1442,10 @@ def hill_tail_index(
            because the tail threshold is <= 0, the ``meta`` field includes a
            ``note`` key explaining the cause.
     """
+    tail_fraction = resolve_convention(
+        tail_fraction, "hill_tail_index", "tail_fraction", 0.10
+    )
+
     if not 0.0 < tail_fraction <= 0.5:
         raise ValueError(
             f"tail_fraction must be in (0, 0.5], got {tail_fraction}"
@@ -1610,7 +1640,7 @@ def risk_of_ruin(input_data: ReturnsInput) -> MetricResult:
         ValueError: If ``periods_per_year`` is None.
     """
     if input_data.periods_per_year is None:
-        raise ValueError(
+        raise MetricNotApplicableError(
             "risk_of_ruin requires periods_per_year to be set on the ReturnsInput"
         )
 

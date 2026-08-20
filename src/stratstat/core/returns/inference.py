@@ -6,16 +6,18 @@ Sharpe ratio CI (analytic), Sharpe ratio CI (bootstrap),
 minimum track record length, generic block-bootstrap CI,
 bias ratio, skewness-adjusted Sharpe (ASR).
 
-All tagged: category=("inference", "returns"), backend="resampling".
+All tagged: category=("inference", "returns").  Backend varies: analytic
+metrics are vectorized; bootstrap confidence intervals use resampling.
 """
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 from numpy.typing import NDArray
 
+from stratstat.exceptions import MetricNotApplicableError
 from stratstat.inputs import ReturnsInput
 from stratstat.registry import _compute_one, register_metric
 from stratstat.results import MetricResult
@@ -637,7 +639,7 @@ def sharpe_ci_bootstrap(
             operates on a single strategy at a time).
     """
     if not input_data.is_single:
-        raise ValueError(
+        raise MetricNotApplicableError(
             "sharpe_ci_bootstrap requires single-strategy input. "
             "Use compute() per strategy or wrap in a loop."
         )
@@ -842,7 +844,7 @@ def block_bootstrap_ci(
         ValueError: If multi-strategy input or unknown metric.
     """
     if not input_data.is_single:
-        raise ValueError(
+        raise MetricNotApplicableError(
             "block_bootstrap_ci requires single-strategy input."
         )
 
@@ -865,7 +867,7 @@ def block_bootstrap_ci(
         val = result.value
         if isinstance(val, np.ndarray):
             val = val.flat[0]
-        boot_vals[b] = float(val)
+        boot_vals[b] = cast(float, val)
 
     boot_vals = boot_vals[~np.isnan(boot_vals)]
 
@@ -1043,7 +1045,7 @@ def skewness_adjusted_sharpe(
         observations or zero volatility.
     """
     if input_data.periods_per_year is None:
-        raise ValueError(
+        raise MetricNotApplicableError(
             "ASR requires periods_per_year on the ReturnsInput"
         )
 

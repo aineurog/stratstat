@@ -43,7 +43,8 @@ def to_image(
 ) -> None:
     """Write a plotly Figure to a static image file.
 
-    Requires ``kaleido`` (``pip install kaleido``).
+    Requires ``kaleido``.  Install it via ``pip install stratstat[image]``
+    or ``pip install kaleido``.
 
     Parameters
     ----------
@@ -54,7 +55,19 @@ def to_image(
     width: Optional width in pixels.
     height: Optional height in pixels.
     scale: Image scale factor (default 2 for retina-quality PNG).
+
+    Raises
+    ------
+    ImportError: If ``kaleido`` is not installed.
     """
+    try:
+        import kaleido  # noqa: F401
+    except ImportError as exc:
+        raise ImportError(
+            "to_image requires the kaleido package; install it with "
+            "`pip install stratstat[image]` or `pip install kaleido`."
+        ) from exc
+
     p = _path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
     fig.write_image(str(p), format=format, width=width, height=height,
@@ -91,9 +104,9 @@ def to_latex(metric_set: Any, path: str | Path) -> None:
     p.parent.mkdir(parents=True, exist_ok=True)
     lines = [
         r"\begin{tabular}{lr}",
-        r"\toprule",
+        r"\hline",
         r"Metric & Value \\",
-        r"\midrule",
+        r"\hline",
     ]
     for r in metric_set:
         name = r.name.replace("_", r"\_")
@@ -105,7 +118,7 @@ def to_latex(metric_set: Any, path: str | Path) -> None:
         else:
             val_str = str(val)
         lines.append(f"{name} & {val_str} \\\\")
-    lines.append(r"\bottomrule")
+    lines.append(r"\hline")
     lines.append(r"\end{tabular}")
     p.write_text("\n".join(lines) + "\n")
 

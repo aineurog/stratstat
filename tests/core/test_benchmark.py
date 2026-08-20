@@ -699,7 +699,7 @@ class TestRegistryIntegration:
         from stratstat import compute_all
 
         inp = BenchmarkInput((simple_returns, simple_benchmark))
-        results = compute_all(inp, category="capture")
+        results = compute_all(inp, category="benchmark")
         names = {r.name for r in results}
         assert "up_capture" in names
         assert "down_capture" in names

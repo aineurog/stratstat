@@ -10,7 +10,7 @@ import json
 from collections.abc import Iterator
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, TypeAlias
 
 import numpy as np
 import pandas as pd
@@ -120,6 +120,13 @@ def _group_by_category(
 # MetricResult
 # ===================================================================
 
+# Union of every value shape a metric may return. Kept as an alias so the
+# dataclass field reads clearly while still being honest about the full range
+# of scalar, array, and dict results.
+MetricValue: TypeAlias = (
+    float | int | bool | str | np.ndarray[Any, Any] | dict[str, Any] | None
+)
+
 
 @dataclass
 class MetricResult:
@@ -127,24 +134,26 @@ class MetricResult:
 
     Attributes:
         name: Metric name (e.g. "sharpe_ratio").
-        value: The computed value — a float or a numpy array for batch results.
+        value: The computed value — a scalar (float/int/bool/str), a numpy
+            array for batch results, or a dict for composite metrics such as
+            ``period_counts``.
         category: Tuple of classification tags (e.g. ("risk_adjusted", "returns")).
         periods_per_year: Annualization factor used, or None if not applicable.
         meta: Dict of metadata — formula reference, convention used, ddof, etc.
     """
 
     name: str
-    value: float | Any  # float | np.ndarray, but avoid numpy import at module level
+    value: MetricValue
     category: tuple[str, ...] = ()
     periods_per_year: int | None = None
     meta: dict[str, Any] = field(default_factory=dict)
 
     def __repr__(self) -> str:
-        val = self.value
-        if hasattr(val, "shape"):
+        val: Any = self.value
+        if isinstance(val, np.ndarray):
             val = f"array{val.shape}"
-        else:
-            val = f"{val:.6g}" if isinstance(val, float) else val
+        elif isinstance(val, float):
+            val = f"{val:.6g}"
         return (
             f"MetricResult(name={self.name!r}, value={val}, "
             f"category={self.category})"
@@ -168,9 +177,14 @@ class MetricSet:
     to dict, DataFrame, JSON, CSV, and markdown.  The ``__str__`` and
     ``_repr_html_`` methods produce sectioned, grouped output suitable
     for terminal and Jupyter display respectively.
+
+    ``meta`` carries batch-level information; ``compute_all()`` records the
+    names of metrics it skipped (because they were inapplicable to the input)
+    under ``meta["skipped"]``.
     """
 
     results: list[MetricResult] = field(default_factory=list)
+    meta: dict[str, Any] = field(default_factory=dict)
 
     # -- Container protocol -----------------------------------------------
 

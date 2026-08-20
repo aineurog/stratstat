@@ -173,6 +173,16 @@ where $\text{IQR} = Q_3 - Q_1$.
 
 **Citation:** Tukey (1977, *Exploratory Data Analysis*).
 
+### 1.17 Negative-Period Ratio
+
+$$\text{NPR} = \frac{1}{n}\sum_{t=1}^{n}\mathbf{1}_{[r_t < 0]}$$
+
+Fraction of periods with strictly negative return; zero is treated as
+non-negative. NPR + PPR ≤ 1, with strict inequality when any period
+returns exactly zero.
+
+**Citation:** Bacon (2008, §3.11).
+
 ---
 
 ## 2. `core.returns` — Risk
@@ -399,6 +409,26 @@ Sum of all underwater-period lengths.
 
 **Citation:** Bacon (2008, §7.2).
 
+### 2.21 Downside Semi-Variance
+
+$$\text{DSV} = \frac{1}{n}\sum_{t=1}^{n}\min(r_t - \tau,\; 0)^2$$
+
+Raw second moment below the minimum acceptable return $\tau$
+(default 0). Unlike downside deviation (§2.7), this is not square-rooted,
+so it is additive across positions and suits portfolio optimisation.
+
+**Citation:** Markowitz (1959); Sortino & van der Meer (1991).
+
+### 2.22 Modified VaR
+
+$$\text{MVaR} = -(\mu + z_{\text{CF}}\cdot\sigma)$$
+
+Cornish-Fisher VaR, where $z_{\text{CF}}$ adjusts the normal quantile
+for sample skewness and excess kurtosis. Same expansion as
+`var(method="cornish_fisher")`, registered standalone.
+
+**Citation:** Favre & Galeano (2002); Zangari (1996).
+
 ---
 
 ## 3. `core.returns` — Risk-Adjusted
@@ -499,6 +529,17 @@ $$\text{GPR} = \frac{\sum_{t=1}^{n}\max(r_t, 0)}
 {|\sum_{t=1}^{n}\min(r_t, 0)|}$$
 
 **Citation:** Bacon (2008, §8.4).
+
+### 3.10 Roy's Safety-First Ratio
+
+$$\text{RSF} = \frac{\bar{R}_p - \text{MAR}}{\sigma_p}$$
+
+Annualized mean excess return over the minimum acceptable return (MAR,
+default 0), divided by annualized volatility. Ranks portfolios by the
+probability of falling short of MAR under a normality assumption.
+
+**Citation:** Roy (1952), "Safety First and the Holding of Assets,"
+*Econometrica*, 20(3).
 
 ---
 
@@ -1258,6 +1299,26 @@ $$\sigma_{m,\text{ann}} = \sigma(r_m) \cdot \sqrt{P}$$
 
 **Citation:** Standard risk metric; CFA Institute, *Quantitative
 Methods*.
+
+### 8.19 Information Coefficient (Rank IC)
+
+$$\text{IC} = \rho_{\text{Spearman}}(\text{rank}(r_p), \text{rank}(r_m))$$
+
+Spearman rank correlation between strategy and benchmark returns.
+Robust to outliers, unlike the Pearson correlation (§8.9).
+
+**Citation:** Spearman (1904); standard rank-based information
+coefficient.
+
+### 8.20 Directional Consistency
+
+$$\text{DC} = \frac{1}{n}\sum_{t=1}^{n}\mathbf{1}_{[\text{sign}(r_{p,t}) = \text{sign}(r_{m,t})]}$$
+
+Fraction of periods where strategy and benchmark returns share the same
+sign. Ignores magnitude and captures directional agreement only.
+
+**Citation:** Standard statistic; fraction of periods where strategy and
+benchmark returns share the same sign.
 
 ---
 

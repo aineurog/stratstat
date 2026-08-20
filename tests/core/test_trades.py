@@ -80,11 +80,11 @@ def trades_with_intratrade():
         "pnl": [0.02, -0.01, 0.03, -0.015, 0.01],
         "side": ["long", "short", "long", "short", "long"],
         "intratrade_prices": [
-            [100.0, 101.0, 102.5, 102.0],   # long: MFE=(102.5-100)/100=0.025
-            [100.0, 99.0, 98.0, 99.5],       # short: MFE=(100-98)/100=0.02
-            [100.0, 101.0, 103.0, 102.5],    # long: MFE=(103-100)/100=0.03
-            [100.0, 99.5, 98.5, 99.0],       # short: MFE=(100-98.5)/100=0.015
-            [100.0, 101.5, 100.5, 101.0],    # long: MFE=(101.5-100)/100=0.015
+            [100.0, 101.0, 102.5, 102.0],   # long: MFE=102.5-100=2.5
+            [100.0, 99.0, 98.0, 99.5],       # short: MFE=100-98=2.0
+            [100.0, 101.0, 103.0, 102.5],    # long: MFE=103-100=3.0
+            [100.0, 99.5, 98.5, 99.0],       # short: MFE=100-98.5=1.5
+            [100.0, 101.5, 100.5, 101.0],    # long: MFE=101.5-100=1.5
         ],
     }
 
@@ -126,6 +126,7 @@ class TestTotalTrades:
 
         result = _compute_one(inp_basic, "total_trades")
         assert result.value == 10
+        assert isinstance(result.value, float)
 
     def test_empty(self, inp_empty):
         from stratstat.registry import _compute_one
@@ -1003,13 +1004,13 @@ class TestMfe:
         from stratstat.registry import _compute_one
 
         result = _compute_one(inp, "mfe")
-        # Hand-computed:
-        # Trade 0 (long): entry=100, max=102.5 → (102.5-100)/100 = 0.025
-        # Trade 1 (short): entry=100, min=98 → (100-98)/100 = 0.02
-        # Trade 2 (long): entry=100, max=103 → (103-100)/100 = 0.03
-        # Trade 3 (short): entry=100, min=98.5 → (100-98.5)/100 = 0.015
-        # Trade 4 (long): entry=100, max=101.5 → (101.5-100)/100 = 0.015
-        expected_mfes = np.array([0.025, 0.02, 0.03, 0.015, 0.015])
+        # Hand-computed dollar excursions:
+        # Trade 0 (long): entry=100, max=102.5 → 102.5-100 = 2.5
+        # Trade 1 (short): entry=100, min=98 → 100-98 = 2.0
+        # Trade 2 (long): entry=100, max=103 → 103-100 = 3.0
+        # Trade 3 (short): entry=100, min=98.5 → 100-98.5 = 1.5
+        # Trade 4 (long): entry=100, max=101.5 → 101.5-100 = 1.5
+        expected_mfes = np.array([2.5, 2.0, 3.0, 1.5, 1.5])
         assert result.value[0] == pytest.approx(np.mean(expected_mfes))  # mean
         assert result.value[1] == pytest.approx(np.max(expected_mfes))  # max
         assert result.value[2] == pytest.approx(np.min(expected_mfes))  # min
@@ -1070,8 +1071,8 @@ class TestMae:
         from stratstat.registry import _compute_one
 
         result = _compute_one(inp, "mae")
-        # Long: MAE = (entry - min) / entry = (100-95)/100 = 0.05
-        assert result.value[0] == pytest.approx(0.05)
+        # Long: MAE = entry - min = 100 - 95 = 5.0
+        assert result.value[0] == pytest.approx(5.0)
 
     def test_requires_intratrade(self, inp_basic):
         from stratstat.registry import _compute_one
@@ -1355,6 +1356,30 @@ class TestTradeInputFeatures:
         inp = TradeInput(trades=trades_with_intratrade)
         assert inp.has_intratrade is True
 
+    def test_intratrade_2d_rows_per_trade(self):
+        # A 2D array should be split so each row is one trade's price path.
+        itp_2d = np.array(
+            [[100.0, 101.0, 102.0], [100.0, 99.0, 98.0], [100.0, 101.0, 103.0]]
+        )
+        inp = TradeInput(
+            trades={"pnl": [0.01, -0.01, 0.02], "intratrade_prices": itp_2d}
+        )
+        paths = inp.intratrade_prices
+        assert paths is not None
+        assert len(paths) == 3
+        np.testing.assert_array_equal(paths[1], [100.0, 99.0, 98.0])
+
+    def test_intratrade_1d_single_path(self):
+        # A 1D array should become a single price path.
+        itp_1d = np.array([100.0, 101.0, 102.0, 101.5])
+        inp = TradeInput(
+            trades={"pnl": [0.01], "intratrade_prices": itp_1d}
+        )
+        paths = inp.intratrade_prices
+        assert paths is not None
+        assert len(paths) == 1
+        np.testing.assert_array_equal(paths[0], itp_1d)
+
     def test_repr(self, inp_basic):
         r = repr(inp_basic)
         assert "TradeInput" in r
@@ -1463,7 +1488,7 @@ class TestRegistryIntegration:
     def test_compute_all_pnl_category(self, simple_trades_dict):
         from stratstat import compute_all
 
-        results = compute_all(simple_trades_dict, category="pnl")
+        results = compute_all(simple_trades_dict, category="trades")
         names = {r.name for r in results}
         assert "avg_win" in names
         assert "avg_loss" in names
@@ -1471,10 +1496,10 @@ class TestRegistryIntegration:
         assert "expectancy" in names
 
     def test_compute_all_breakdown_category(self, simple_trades_dict):
-        """compute_all(category='breakdown') tests long/short breakdown metrics."""
+        """compute_all(category='trades') includes long/short breakdown metrics."""
         from stratstat import compute_all
 
-        results = compute_all(simple_trades_dict, category="breakdown")
+        results = compute_all(simple_trades_dict, category="trades")
         names = {r.name for r in results}
         assert "long_short_trade_count" in names
         assert "long_short_trade_pct" in names

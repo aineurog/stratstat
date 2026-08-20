@@ -15,6 +15,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from stratstat.core._utils import compute_cagr as _compute_cagr
+from stratstat.exceptions import MetricNotApplicableError
 from stratstat.inputs import ReturnsInput
 from stratstat.registry import register_metric
 from stratstat.results import MetricResult
@@ -50,7 +51,7 @@ def cagr(input_data: ReturnsInput) -> MetricResult:
         ValueError: If ``periods_per_year`` is None.
     """
     if input_data.periods_per_year is None:
-        raise ValueError(
+        raise MetricNotApplicableError(
             "CAGR requires periods_per_year to be set on the ReturnsInput. "
             "Pass periods_per_year=252 (daily) or periods_per_year=12 (monthly)."
         )
@@ -101,7 +102,7 @@ def annualized_volatility(input_data: ReturnsInput) -> MetricResult:
         ValueError: If ``periods_per_year`` is None.
     """
     if input_data.periods_per_year is None:
-        raise ValueError(
+        raise MetricNotApplicableError(
             "Annualized volatility requires periods_per_year to be set on the ReturnsInput."
         )
 

@@ -63,7 +63,12 @@ def tear_sheet(
     import plotly.graph_objects as go
     from plotly.subplots import make_subplots
 
+    from stratstat.inputs import ReturnsInput
+
     r = _to_array(returns)
+    # Honour an annualization factor carried on a passed ReturnsInput.
+    if periods_per_year is None and isinstance(returns, ReturnsInput):
+        periods_per_year = returns.periods_per_year
     strat = r[:, 0] if r.ndim > 1 and r.shape[1] >= 1 else r.ravel()
 
     cum = _cumulative_returns(strat.reshape(-1, 1))[:, 0]

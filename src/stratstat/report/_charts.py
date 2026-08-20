@@ -104,6 +104,7 @@ def _recovery_mask(dd: NDArray[np.floating]) -> NDArray[np.bool_]:
 
 def _monthly_heatmap_data(
     r: NDArray[np.floating],
+    dates: Any | None = None,
 ) -> tuple[NDArray[np.floating], list[int], list[str]]:
     """Reshape returns into a years × months grid.
 
@@ -112,15 +113,32 @@ def _monthly_heatmap_data(
 
     Requires ``pandas``, which is a core dependency of StratStat and
     therefore always available when the report module is used.
+
+    Parameters
+    ----------
+    r: Returns array.
+    dates: Optional date index, one per return period.  When omitted,
+        a month-end range ending today is assumed.
     """
     import pandas as pd
 
     series = r[:, 0] if r.ndim == 2 and r.shape[1] >= 1 else r.ravel()
 
     n = len(series)
-    # Generate a monthly date range — assume month-end frequency
-    dr = pd.date_range(end=pd.Timestamp.today(), periods=n, freq="ME")
-    monthly_returns: pd.Series = pd.Series(series, index=dr)
+    if dates is not None:
+        index = pd.to_datetime(dates)
+        if len(index) != n:
+            raise ValueError(
+                f"dates length ({len(index)}) must match returns length ({n})."
+            )
+    else:
+        # Generate a monthly date range — assume month-end frequency.
+        # "ME" requires pandas >= 2.2; fall back to "M" on older versions.
+        try:
+            index = pd.date_range(end=pd.Timestamp.today(), periods=n, freq="ME")
+        except ValueError:
+            index = pd.date_range(end=pd.Timestamp.today(), periods=n, freq="M")
+    monthly_returns: pd.Series = pd.Series(series, index=index)
 
     # Pivot to years × months
     df = monthly_returns.groupby(
@@ -275,6 +293,7 @@ def drawdown_chart(
 
 def monthly_heatmap(
     returns: Any,
+    dates: Any | None = None,
     title: str | None = None,
 ) -> plotly.graph_objects.Figure:  # type: ignore[name-defined]  # noqa: F821
     """Monthly returns heatmap (years × months).
@@ -282,13 +301,15 @@ def monthly_heatmap(
     Parameters
     ----------
     returns: ReturnsInput or 1-D array of monthly returns.
+    dates: Optional date index, one per return period.  When omitted,
+        a month-end range ending today is assumed.
     title: Optional chart title.
     """
     _ensure_plotly()
     import plotly.graph_objects as go
 
     r = _to_array(returns)
-    grid, years, months = _monthly_heatmap_data(r)
+    grid, years, months = _monthly_heatmap_data(r, dates=dates)
 
     if grid.size == 0:
         fig = go.Figure()
@@ -482,25 +503,59 @@ def benchmark_overlay_chart(
     return fig
 
 
+def _trade_excursions(
+    trd: Any,
+) -> tuple[NDArray[np.floating], NDArray[np.floating]]:
+    """Compute per-trade dollar MFE and MAE excursions.
+
+    Mirrors the ``mfe`` and ``mae`` metrics in
+    :mod:`stratstat.core.trades`: for each trade, MFE is the largest
+    favorable dollar move and MAE the largest adverse dollar move,
+    both relative to entry price.  Returns two arrays of length
+    ``n_trades`` (NaN where the path is missing or invalid).
+    """
+    itp_list = trd.intratrade_prices
+    is_long = trd.is_long
+    assert itp_list is not None
+    assert is_long is not None
+
+    n = min(len(itp_list), len(is_long))
+    mfe_vals: NDArray[np.floating] = np.full(n, np.nan)
+    mae_vals: NDArray[np.floating] = np.full(n, np.nan)
+    for j in range(n):
+        path = itp_list[j]
+        if len(path) < 2 or not np.isfinite(path[0]):
+            continue
+        entry = path[0]
+        if is_long[j]:
+            mfe_vals[j] = np.nanmax(path) - entry
+            mae_vals[j] = entry - np.nanmin(path)
+        else:
+            mfe_vals[j] = entry - np.nanmin(path)
+            mae_vals[j] = np.nanmax(path) - entry
+    return mfe_vals, mae_vals
+
+
 def trade_markers_chart(
     trades: Any,
     returns: Any | None = None,
     title: str | None = None,
 ) -> plotly.graph_objects.Figure:  # type: ignore[name-defined]  # noqa: F821
-    """Equity curve with trade entry/exit markers and P&L highlights.
+    """Equity curve with trade P&L highlights and MFE/MAE overlays.
 
-    Per-trade P&L bars are colored green (win), crimson (loss), or
-    gray (tie) based solely on the sign of ``pnl``.  The optional
-    ``side`` field is accepted but not currently used for coloring;
-    long/short breakdown is available via the trade-tier metrics
-    in ``stratstat.core.trades``.
+    The top panel shows the portfolio equity curve built from
+    ``returns`` when they are provided; otherwise it shows the
+    cumulative P&L across trades.  The bottom panel shows per-trade
+    P&L bars colored green (win), crimson (loss), or gray (tie).  When
+    the trade log carries ``intratrade_prices`` and ``side``, each
+    trade's MFE and MAE dollar excursions are overlaid as markers.
 
     Parameters
     ----------
     trades: TradeInput or dict with a ``pnl`` key and optional
-        ``side`` key.
+        ``side`` and ``intratrade_prices`` keys.
     returns: Optional portfolio-level returns for the equity curve
-        background (not yet implemented).
+        background.
     title: Optional chart title.
     """
     _ensure_plotly()
@@ -522,18 +577,38 @@ def trade_markers_chart(
     wins = pnl_arr > 0
     losses = pnl_arr < 0
 
+    r_arr = None if returns is None else np.asarray(returns, dtype=np.float64).ravel()
+    has_equity = r_arr is not None and r_arr.size > 0
+
     fig = make_subplots(
-        rows=2, cols=1, shared_xaxes=True,
+        rows=2, cols=1, shared_xaxes=False,
         row_heights=[0.65, 0.35],
-        subplot_titles=("Cumulative P&L", "Per-Trade P&L"),
+        subplot_titles=(
+            "Equity Curve" if has_equity else "Cumulative P&L",
+            "Per-Trade P&L",
+        ),
     )
 
-    # Cumulative P&L
-    fig.add_trace(go.Scatter(
-        x=x_trades, y=cum_pnl, mode="lines", name="Cumulative P&L",
-        line={"color": "steelblue"},
-        hovertemplate="Trade %{x}<br>Cum P&L: %{y:.3%}<extra></extra>",
-    ), row=1, col=1)
+    # Top panel: equity curve or cumulative P&L
+    if has_equity:
+        assert r_arr is not None
+        equity = np.cumprod(1.0 + r_arr)
+        x_equity = np.arange(equity.size)
+        fig.add_trace(go.Scatter(
+            x=x_equity, y=equity, mode="lines", name="Equity Curve",
+            line={"color": "steelblue"},
+            hovertemplate="Period %{x}<br>Equity: %{y:.3f}<extra></extra>",
+        ), row=1, col=1)
+        fig.update_xaxes(title_text="Time", row=1, col=1)
+        fig.update_yaxes(title_text="Equity", tickformat=".3f", row=1, col=1)
+    else:
+        fig.add_trace(go.Scatter(
+            x=x_trades, y=cum_pnl, mode="lines", name="Cumulative P&L",
+            line={"color": "steelblue"},
+            hovertemplate="Trade %{x}<br>Cum P&L: %{y:.3%}<extra></extra>",
+        ), row=1, col=1)
+        fig.update_xaxes(title_text="Trade Number", row=1, col=1)
+        fig.update_yaxes(title_text="Cumulative P&L", tickformat=".0%", row=1, col=1)
 
     # Per-trade P&L bars
     colors = np.where(wins, "green", np.where(losses, "crimson", "gray"))
@@ -542,6 +617,21 @@ def trade_markers_chart(
         marker_color=colors,
         hovertemplate="Trade %{x}: %{y:.2%}<extra></extra>",
     ), row=2, col=1)
+
+    # MFE/MAE excursion markers
+    if trd.has_intratrade and trd.has_side:
+        mfe_vals, mae_vals = _trade_excursions(trd)
+        x_exc = np.arange(1, mfe_vals.size + 1)
+        fig.add_trace(go.Scatter(
+            x=x_exc, y=mfe_vals, mode="markers", name="MFE",
+            marker={"symbol": "triangle-up", "color": "green", "size": 9},
+            hovertemplate="Trade %{x}<br>MFE: %{y:.2f}<extra></extra>",
+        ), row=2, col=1)
+        fig.add_trace(go.Scatter(
+            x=x_exc, y=-mae_vals, mode="markers", name="MAE",
+            marker={"symbol": "triangle-down", "color": "crimson", "size": 9},
+            hovertemplate="Trade %{x}<br>MAE: %{y:.2f}<extra></extra>",
+        ), row=2, col=1)
 
     # Add a zero line
     fig.add_hline(y=0, line_dash="solid", line_color="black",
@@ -555,7 +645,6 @@ def trade_markers_chart(
         hovermode="x unified",
         showlegend=False,
     )
-    fig.update_yaxes(title_text="Cumulative P&L", tickformat=".0%", row=1, col=1)
     fig.update_yaxes(title_text="P&L", tickformat=".0%", row=2, col=1)
     fig.update_xaxes(title_text="Trade Number", row=2, col=1)
     return fig

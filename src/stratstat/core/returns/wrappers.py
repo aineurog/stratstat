@@ -14,12 +14,13 @@ Reference
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 
+from stratstat.exceptions import MetricNotApplicableError
 from stratstat.inputs import ReturnsInput
-from stratstat.registry import _compute_one
+from stratstat.registry import _compute_one, get_metric
 from stratstat.results import MetricResult
 
 _ROLLING_REF = (
@@ -59,6 +60,8 @@ def rolling(
         ``meta["metric"]`` records the inner metric name,
         ``meta["window"]`` records the window size.
     """
+    get_metric(metric_name)  # raise UnknownMetricError early for unknown metrics
+
     ret = _to_returns_input(input_data, periods_per_year=periods_per_year)
     r = ret.values[:, 0]
     n = len(r)
@@ -81,8 +84,8 @@ def rolling(
             val = result.value
             if isinstance(val, np.ndarray) and val.shape != ():
                 val = val.flat[0]
-            values[t] = float(val)
-        except Exception:
+            values[t] = cast(float, val)
+        except MetricNotApplicableError:
             values[t] = np.nan
 
     name = f"rolling_{window}_{metric_name}"
@@ -128,6 +131,8 @@ def by_regime(
         MetricResult with ``ndarray([n_regimes])`` as value.
         ``meta["regime_labels"]`` records the unique sorted labels.
     """
+    get_metric(metric_name)  # raise UnknownMetricError early for unknown metrics
+
     ret = _to_returns_input(input_data, periods_per_year=periods_per_year)
     r = ret.values[:, 0]
     n = len(r)
@@ -157,8 +162,8 @@ def by_regime(
             val = result.value
             if isinstance(val, np.ndarray) and val.shape != ():
                 val = val.flat[0]
-            values[i] = float(val)
-        except Exception:
+            values[i] = cast(float, val)
+        except MetricNotApplicableError:
             values[i] = np.nan
 
     name = f"{metric_name}_by_regime"

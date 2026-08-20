@@ -16,6 +16,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from stratstat.core._utils import ols_beta
+from stratstat.exceptions import MetricNotApplicableError
 from stratstat.inputs import ExposureInput
 from stratstat.registry import register_metric
 from stratstat.results import MetricResult
@@ -237,7 +238,7 @@ def leverage(inp: ExposureInput) -> MetricResult:
     positions + returns).
     """
     if not inp.has_equity:
-        raise ValueError(
+        raise MetricNotApplicableError(
             "leverage requires equity. Provide equity= to ExposureInput, "
             "or provide asset-level returns= so equity can be computed."
         )
@@ -342,7 +343,7 @@ def long_book_return(inp: ExposureInput) -> MetricResult:
         \mathbf{1}_{[w_{i,t-1} > 0]}
     """
     if not inp.has_returns:
-        raise ValueError(
+        raise MetricNotApplicableError(
             "long_book_return requires asset-level returns. "
             "Provide returns= to ExposureInput."
         )
@@ -385,7 +386,7 @@ def short_book_return(inp: ExposureInput) -> MetricResult:
         \mathbf{1}_{[w_{i,t-1} < 0]}
     """
     if not inp.has_returns:
-        raise ValueError(
+        raise MetricNotApplicableError(
             "short_book_return requires asset-level returns. "
             "Provide returns= to ExposureInput."
         )
@@ -420,7 +421,7 @@ _REF_LONG_BETA = _REF_AFP2014
     backend="vectorized",
     ref=_REF_LONG_BETA,
 )
-def longols_beta(inp: ExposureInput) -> MetricResult:
+def long_beta(inp: ExposureInput) -> MetricResult:
     r"""Beta of long-book returns vs. benchmark.
 
     .. math::
@@ -428,12 +429,12 @@ def longols_beta(inp: ExposureInput) -> MetricResult:
         {\text{Var}(R_m)}
     """
     if not inp.has_returns:
-        raise ValueError(
+        raise MetricNotApplicableError(
             "long_beta requires asset-level returns. "
             "Provide returns= to ExposureInput."
         )
     if not inp.has_benchmark:
-        raise ValueError(
+        raise MetricNotApplicableError(
             "long_beta requires benchmark returns. "
             "Provide benchmark= to ExposureInput."
         )
@@ -470,7 +471,7 @@ _REF_SHORT_BETA = _REF_AFP2014
     backend="vectorized",
     ref=_REF_SHORT_BETA,
 )
-def shortols_beta(inp: ExposureInput) -> MetricResult:
+def short_beta(inp: ExposureInput) -> MetricResult:
     r"""Beta of short-book returns vs. benchmark.
 
     .. math::
@@ -478,12 +479,12 @@ def shortols_beta(inp: ExposureInput) -> MetricResult:
         {\text{Var}(R_m)}
     """
     if not inp.has_returns:
-        raise ValueError(
+        raise MetricNotApplicableError(
             "short_beta requires asset-level returns. "
             "Provide returns= to ExposureInput."
         )
     if not inp.has_benchmark:
-        raise ValueError(
+        raise MetricNotApplicableError(
             "short_beta requires benchmark returns. "
             "Provide benchmark= to ExposureInput."
         )
@@ -616,7 +617,7 @@ def turnover(inp: ExposureInput) -> MetricResult:
     ``periods_per_year``.
     """
     if inp.periods_per_year is None:
-        raise ValueError(
+        raise MetricNotApplicableError(
             "turnover requires periods_per_year to annualize. "
             "Provide periods_per_year= to ExposureInput."
         )
@@ -999,13 +1000,15 @@ _REF_COUNTS = _REF_BACON_112
 def period_counts(inp: ExposureInput) -> MetricResult:
     r"""Period-count breakdown of the exposure time series.
 
-    Returns ``[total, active, long_only, short_only, long_short, idle]``:
+    Returns ``[total, position, long, short, idle]``:
 
-    * **active**: at least one non-zero weight
-    * **long_only**: only positive weights (no negatives, >=1 positive)
-    * **short_only**: only negative weights (no positives, >=1 negative)
-    * **long_short**: both positive and negative weights present
+    * **position**: at least one non-zero weight
+    * **long**: only positive weights (no negatives, >=1 positive)
+    * **short**: only negative weights (no positives, >=1 negative)
     * **idle** (flat): all weights zero
+
+    Periods holding both long and short positions are counted in
+    *position* but not in *long* or *short*.
     """
     positions = inp.positions
     total = inp.n_periods
@@ -1014,14 +1017,13 @@ def period_counts(inp: ExposureInput) -> MetricResult:
     has_long = np.any(positions > 0.0, axis=1)
     has_short = np.any(positions < 0.0, axis=1)
 
-    active = int(np.sum(has_position))
-    long_only = int(np.sum(has_long & ~has_short))
-    short_only = int(np.sum(~has_long & has_short))
-    long_short = int(np.sum(has_long & has_short))
-    idle = total - int(np.sum(has_position))
+    position = int(np.sum(has_position))
+    long_count = int(np.sum(has_long & ~has_short))
+    short_count = int(np.sum(~has_long & has_short))
+    idle = total - position
 
     arr: NDArray[np.floating] = np.array(
-        [total, active, long_only, short_only, long_short, idle],
+        [total, position, long_count, short_count, idle],
         dtype=np.float64,
     )
     return MetricResult(
@@ -1031,14 +1033,7 @@ def period_counts(inp: ExposureInput) -> MetricResult:
         periods_per_year=inp.periods_per_year,
         meta={
             "ref": _REF_COUNTS,
-            "output_index": [
-                "total",
-                "active",
-                "long_only",
-                "short_only",
-                "long_short",
-                "idle",
-            ],
+            "output_index": ["total", "position", "long", "short", "idle"],
         },
     )
 
@@ -1058,7 +1053,7 @@ _ACTIVE_SHARE_REF = (
 @register_metric(
     name="active_share",
     requires="exposure",
-    category=("relative", "exposure"),
+    category=("exposure", "relative"),
     backend="vectorized",
     ref=_ACTIVE_SHARE_REF,
 )
@@ -1088,7 +1083,7 @@ def active_share(inp: ExposureInput) -> MetricResult:
         ValueError: If ``benchmark_weights`` is not set on the input.
     """
     if inp.benchmark_weights is None:
-        raise ValueError(
+        raise MetricNotApplicableError(
             "Active Share requires benchmark_weights on the ExposureInput. "
             "Pass benchmark_weights=<array> to ExposureInput."
         )
@@ -1111,7 +1106,7 @@ def active_share(inp: ExposureInput) -> MetricResult:
     return MetricResult(
         name="active_share",
         value=mean_as,
-        category=("relative", "exposure"),
+        category=("exposure", "relative"),
         periods_per_year=inp.periods_per_year,
         meta={
             "ref": _ACTIVE_SHARE_REF,

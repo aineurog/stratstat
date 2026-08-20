@@ -54,6 +54,10 @@ class TestMetricSetExports:
             content = path.read_text()
             assert r"\begin{tabular}" in content
             assert r"\end{tabular}" in content
+            # Plain \hline rules, no booktabs dependency.
+            assert r"\hline" in content
+            assert r"\toprule" not in content
+            assert r"\bottomrule" not in content
 
     def test_export_creates_parent_dirs(self, metric_set):
         from stratstat.report import to_json
