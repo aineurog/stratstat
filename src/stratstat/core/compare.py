@@ -13,11 +13,142 @@ from __future__ import annotations
 import numpy as np
 from numpy.typing import NDArray
 
-from stratstat.core._utils import sample_skewness
+from stratstat.core._utils import numba_worthwhile, sample_skewness
 from stratstat.exceptions import MetricNotApplicableError
 from stratstat.inputs import CompareInput
 from stratstat.registry import register_metric
 from stratstat.results import MetricResult
+
+# ---------------------------------------------------------------------------
+# Optional numba acceleration for the resampling kernels.
+#
+# Numba does not support the new-style ``np.random.Generator``, so all random
+# draws are generated in Python and passed into the JIT kernels as precomputed
+# integer arrays.  Every kernel below has a pure-numpy fallback defined next to
+# the function that uses it; the two paths must agree within floating point
+# tolerance (see tests/core/test_compare.py::TestNumbaAgreement).
+# ---------------------------------------------------------------------------
+
+try:
+    import numba  # noqa: F401
+    from numba import njit
+except ImportError:  # pragma: no cover
+    _HAS_NUMBA = False
+else:
+    _HAS_NUMBA = True
+
+    @njit(cache=False)
+    def _stationary_bootstrap_numba(
+        data: NDArray[np.floating],
+        starts: NDArray[np.int64],
+        blens: NDArray[np.int64],
+    ) -> NDArray[np.floating]:
+        """NaN-aware stationary bootstrap over precomputed starts and lengths."""
+        n_boot = starts.shape[0]
+        n_periods = data.shape[0]
+        n_strat = data.shape[1]
+        means = np.empty((n_boot, n_strat), dtype=np.float64)
+        for b in range(n_boot):
+            idx = np.empty(n_periods, dtype=np.int64)
+            t = 0
+            k = 0
+            while t < n_periods:
+                start = starts[b, k]
+                blen = blens[b, k]
+                k += 1
+                for j in range(blen):
+                    if t >= n_periods:
+                        break
+                    idx[t] = (start + j) % n_periods
+                    t += 1
+            for col in range(n_strat):
+                s = 0.0
+                cnt = 0
+                for i in range(n_periods):
+                    v = data[idx[i], col]
+                    if not np.isnan(v):
+                        s += v
+                        cnt += 1
+                means[b, col] = s / cnt if cnt > 0 else np.nan
+        return means
+
+    @njit(cache=False)
+    def _sharpe_slice_numba(
+        r: NDArray[np.floating], lo: int, hi: int, k: int, rf: float
+    ) -> float:
+        """NaN-aware per-period Sharpe ratio of ``r[lo:hi, k]`` against ``rf``."""
+        s = 0.0
+        cnt = 0
+        for i in range(lo, hi):
+            v = r[i, k]
+            if not np.isnan(v):
+                s += v - rf
+                cnt += 1
+        if cnt == 0:
+            return np.nan
+        mu = s / cnt
+        ss = 0.0
+        for i in range(lo, hi):
+            v = r[i, k]
+            if not np.isnan(v):
+                d = (v - rf) - mu
+                ss += d * d
+        denom = cnt - 1
+        if denom <= 0:
+            return np.nan
+        sigma = np.sqrt(ss / denom)
+        if sigma < 1e-15:
+            return np.nan
+        return float(mu / sigma)
+
+    @njit(cache=False)
+    def _pbo_overfit_numba(
+        r: NDArray[np.floating],
+        split_points: NDArray[np.int64],
+        purge: int,
+        embargo: int,
+        rf: float,
+    ) -> int:
+        """Count splits where the best in-sample strategy ranks below OOS median."""
+        n_strat = r.shape[1]
+        n_obs = r.shape[0]
+        n_splits = split_points.shape[0]
+        overfit = 0
+        for s in range(n_splits):
+            split = split_points[s]
+            test_start = split + purge + embargo
+            is_sr = np.empty(n_strat, dtype=np.float64)
+            best_val = -1e300
+            best_is = 0
+            ok = True
+            for k in range(n_strat):
+                sr = _sharpe_slice_numba(r, 0, split, k, rf)
+                is_sr[k] = sr
+                if np.isnan(sr):
+                    ok = False
+                    break
+                if sr > best_val:
+                    best_val = sr
+                    best_is = k
+            if not ok:
+                continue
+            oos_sr = np.empty(n_strat, dtype=np.float64)
+            for k in range(n_strat):
+                sr = _sharpe_slice_numba(r, test_start, n_obs, k, rf)
+                oos_sr[k] = sr
+                if np.isnan(sr):
+                    ok = False
+                    break
+            if not ok:
+                continue
+            oos_rank = n_strat
+            for k in range(n_strat):
+                if oos_sr[k] < oos_sr[best_is]:
+                    oos_rank -= 1
+            if oos_rank > n_strat / 2.0:
+                overfit += 1
+        return overfit
+
 
 # ---------------------------------------------------------------------------
 # Citation strings
@@ -370,25 +501,17 @@ def sharpe_difference_test(inp: CompareInput) -> MetricResult:
 # ===================================================================
 
 
-def _stationary_bootstrap(
+def _stationary_bootstrap_fallback(
     data: NDArray[np.floating],
-    n_boot: int,
-    block_size: float,
-    rng: np.random.Generator,
+    starts: NDArray[np.int64],
+    blens: NDArray[np.int64],
 ) -> NDArray[np.floating]:
-    """Stationary (circular block) bootstrap of Politis & Romano (1994).
+    """Pure-numpy stationary bootstrap over precomputed starts and lengths.
 
-    Parameters
-    ----------
-    data: (n_periods, n_strategies) array.
-    n_boot: Number of bootstrap resamples.
-    block_size: Expected block length (geometric distribution).
-    rng: Numpy random generator.
-
-    Returns
-    -------
-    (n_boot, n_strategies) array of bootstrap sample means.
+    Reference implementation for ``_stationary_bootstrap_numba``; the two must
+    agree within floating point tolerance.
     """
+    n_boot = starts.shape[0]
     n_periods = data.shape[0]
     n_strat = data.shape[1]
     means = np.empty((n_boot, n_strat), dtype=np.float64)
@@ -396,11 +519,11 @@ def _stationary_bootstrap(
     for b in range(n_boot):
         idx = np.zeros(n_periods, dtype=np.intp)
         t = 0
+        k = 0
         while t < n_periods:
-            # Random starting point
-            start = rng.integers(0, n_periods)
-            # Block length from geometric distribution
-            blen = rng.geometric(1.0 / block_size)
+            start = starts[b, k]
+            blen = blens[b, k]
+            k += 1
             for j in range(blen):
                 if t >= n_periods:
                     break
@@ -409,6 +532,31 @@ def _stationary_bootstrap(
         means[b] = np.nanmean(data[idx], axis=0)
 
     return means
+
+
+def _stationary_bootstrap(
+    data: NDArray[np.floating],
+    n_boot: int,
+    block_size: float,
+    rng: np.random.Generator,
+) -> NDArray[np.floating]:
+    """Stationary (circular block) bootstrap of Politis & Romano (1994).
+
+    Random block starts and geometric block lengths are drawn once in Python
+    (numba does not support ``np.random.Generator``) so the numba and
+    pure-numpy paths consume identical draws.  Returns ``(n_boot, n_strategies)``
+    array of bootstrap sample means.
+    """
+    n_periods = data.shape[0]
+    n_strat = data.shape[1]
+    # Worst case: every block has length 1, so at most n_periods blocks are
+    # ever consumed per replicate.
+    starts = rng.integers(0, n_periods, size=(n_boot, n_periods))
+    blens = rng.geometric(1.0 / block_size, size=(n_boot, n_periods))
+
+    if _HAS_NUMBA and numba_worthwhile(n_boot * n_periods * (n_strat + 1)):
+        return _stationary_bootstrap_numba(data, starts, blens)
+    return _stationary_bootstrap_fallback(data, starts, blens)
 
 
 @register_metric(
@@ -507,41 +655,76 @@ def whites_reality_check(
 # ===================================================================
 
 
-def _comb_purged_splits(
+def _comb_purged_split_points(
     n_obs: int,
     n_splits: int,
     purge_pct: float,
     embargo_pct: float,
     rng: np.random.Generator,
-) -> list[tuple[NDArray[np.intp], NDArray[np.intp]]]:
-    """Generate combinatorial purged train/test splits.
+) -> tuple[NDArray[np.int64], int, int]:
+    """Generate valid combinatorial purged train/test split points.
 
-    Returns list of ``(train_idx, test_idx)`` pairs.
+    Each split point ``s`` defines an in-sample window ``[0, s)`` and an
+    out-of-sample window ``[s + purge + embargo, n_obs)``.  Returns the valid
+    split points plus the purge and embargo widths (in periods).
     """
     purge = max(1, int(n_obs * purge_pct))
     embargo = max(0, int(n_obs * embargo_pct))
     # Minimum test size
     min_test = max(1, n_obs // 4)
 
-    splits: list[tuple[NDArray[np.intp], NDArray[np.intp]]] = []
+    points: list[int] = []
     attempts = 0
     max_attempts = n_splits * 20
 
-    while len(splits) < n_splits and attempts < max_attempts:
+    while len(points) < n_splits and attempts < max_attempts:
         attempts += 1
         # Random split point (near the middle, with variance)
-        split = rng.integers(n_obs // 3, 2 * n_obs // 3)
+        split = int(rng.integers(n_obs // 3, 2 * n_obs // 3))
         # With purge + embargo gap
-        train_end = split
         test_start = split + purge + embargo
         if test_start >= n_obs - min_test:
             continue
+        points.append(split)
 
-        train_idx = np.arange(0, train_end, dtype=np.intp)
-        test_idx = np.arange(test_start, n_obs, dtype=np.intp)
-        splits.append((train_idx, test_idx))
+    return np.asarray(points, dtype=np.int64), purge, embargo
 
-    return splits
+
+def _pbo_overfit_fallback(
+    r: NDArray[np.floating],
+    split_points: NDArray[np.int64],
+    purge: int,
+    embargo: int,
+    rf: float,
+) -> int:
+    """Pure-numpy PBO overfit count over precomputed split points.
+
+    Reference implementation for ``_pbo_overfit_numba``; the two must agree
+    within floating point tolerance.
+    """
+    n_strat = r.shape[1]
+    overfit = 0
+
+    for split in split_points:
+        split = int(split)
+        test_start = split + purge + embargo
+        is_sr = np.array(
+            [_per_period_sharpe(r[0:split, k], rf) for k in range(n_strat)],
+            dtype=np.float64,
+        )
+        oos_sr = np.array(
+            [_per_period_sharpe(r[test_start:, k], rf) for k in range(n_strat)],
+            dtype=np.float64,
+        )
+        if np.any(np.isnan(is_sr)) or np.any(np.isnan(oos_sr)):
+            continue
+
+        best_is = int(np.nanargmax(is_sr))
+        oos_rank = n_strat - int(np.sum(oos_sr < oos_sr[best_is]))
+        if oos_rank > n_strat / 2:
+            overfit += 1
+
+    return overfit
 
 
 @register_metric(
@@ -587,13 +770,14 @@ def pbo(
     _require_min_strategies(inp, 2, "pbo")
     r = inp.returns
     n_periods = r.shape[0]
-    n_strat = r.shape[1]
     rf = inp.rf
 
     rng = np.random.default_rng(seed)
-    splits = _comb_purged_splits(n_periods, n_splits, purge_pct, embargo_pct, rng)
+    split_points, purge, embargo = _comb_purged_split_points(
+        n_periods, n_splits, purge_pct, embargo_pct, rng
+    )
 
-    if len(splits) == 0:
+    if len(split_points) == 0:
         arr: NDArray[np.floating] = np.array([np.nan, 0], dtype=np.float64)
         return MetricResult(
             name="pbo",
@@ -607,42 +791,14 @@ def pbo(
             },
         )
 
-    overfit_count = 0
-    for train_idx, test_idx in splits:
-        # In-sample Sharpe ratios
-        is_sr = np.array(
-            [
-                _per_period_sharpe(r[train_idx, k], rf)
-                for k in range(n_strat)
-            ],
-            dtype=np.float64,
-        )
-        # Out-of-sample Sharpe ratios
-        oos_sr = np.array(
-            [
-                _per_period_sharpe(r[test_idx, k], rf)
-                for k in range(n_strat)
-            ],
-            dtype=np.float64,
-        )
-
-        # Skip if any NaN
-        if np.any(np.isnan(is_sr)) or np.any(np.isnan(oos_sr)):
-            continue
-
-        # Best IS strategy
-        best_is = int(np.nanargmax(is_sr))
-        # Rank of best IS strategy in OOS (1 = best, K = worst)
-        oos_rank = n_strat - int(np.sum(oos_sr < oos_sr[best_is]))
-        # Overfitting: best IS ranks below median OOS
-        if oos_rank > n_strat / 2:
-            overfit_count += 1
-
-    n_used = len(splits)
-    if n_used == 0:
-        pbo_val: float = np.nan
+    work = 2 * len(split_points) * n_periods * r.shape[1]
+    if _HAS_NUMBA and numba_worthwhile(work):
+        overfit_count = _pbo_overfit_numba(r, split_points, purge, embargo, rf)
     else:
-        pbo_val = float(overfit_count / n_used)
+        overfit_count = _pbo_overfit_fallback(r, split_points, purge, embargo, rf)
+
+    n_used = len(split_points)
+    pbo_val = float(overfit_count / n_used)
 
     arr = np.array([pbo_val, n_used], dtype=np.float64)
 

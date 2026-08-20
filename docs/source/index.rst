@@ -7,7 +7,7 @@ Python library for evaluating trading strategies.
 Features at a glance
 --------------------
 
-- **138 metrics** across 8 statistical categories
+- **161 metrics** across 8 statistical categories
 - **Vectorization first** — batch computation across multiple strategies
 - **Flexible input** — pandas, polars, numpy
 - **Standardised output** — every call returns ``MetricResult`` or ``MetricSet``
@@ -21,7 +21,8 @@ Installation
 
 .. code-block:: bash
 
-   pip install stratstat            # core (numpy, pandas, polars)
+   pip install stratstat            # core (numpy, pandas)
+   pip install stratstat[polars]    # + polars Series/DataFrame input support
    pip install stratstat[fast]      # + numba acceleration
    pip install stratstat[report]    # + plotly charts, tear sheets, dashboards
    pip install stratstat[all]       # everything

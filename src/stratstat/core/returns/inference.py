@@ -17,12 +17,89 @@ from typing import Any, cast
 import numpy as np
 from numpy.typing import NDArray
 
+from stratstat.core._utils import numba_worthwhile
 from stratstat.exceptions import MetricNotApplicableError
 from stratstat.inputs import ReturnsInput
 from stratstat.registry import _compute_one, register_metric
 from stratstat.results import MetricResult
 
 from .risk import _norm_cdf, _norm_ppf
+
+# ---------------------------------------------------------------------------
+# Optional numba acceleration for the resampling kernels.
+#
+# Numba does not support the new-style ``np.random.Generator``, so all random
+# draws are generated in Python and passed into the JIT kernels as precomputed
+# integer arrays.  Every kernel below has a pure-numpy fallback defined next to
+# the function that uses it; the two paths must agree within floating point
+# tolerance (see tests/core/returns/test_inference.py::TestNumbaAgreement).
+# ---------------------------------------------------------------------------
+
+try:
+    import numba  # noqa: F401
+    from numba import njit
+except ImportError:  # pragma: no cover
+    _HAS_NUMBA = False
+else:
+    _HAS_NUMBA = True
+
+    @njit(cache=False)
+    def _assemble_block_indices_numba(
+        block_starts: NDArray[np.int64],
+        n: int,
+        block_len: int,
+    ) -> NDArray[np.int64]:
+        """Assemble (n_reps, n) index matrix from precomputed block starts."""
+        n_reps = block_starts.shape[0]
+        n_blocks = block_starts.shape[1]
+        indices = np.empty((n_reps, n), dtype=np.int64)
+        for b in range(n_reps):
+            t = 0
+            for k in range(n_blocks):
+                start = block_starts[b, k]
+                for j in range(block_len):
+                    if t >= n:
+                        break
+                    indices[b, t] = start + j
+                    t += 1
+        return indices
+
+    @njit(cache=False)
+    def _sharpe_bootstrap_numba(
+        r: NDArray[np.floating],
+        indices: NDArray[np.int64],
+        ddof: int,
+    ) -> NDArray[np.floating]:
+        """NaN-aware per-replicate Sharpe ratio over precomputed indices."""
+        n_reps = indices.shape[0]
+        n = indices.shape[1]
+        out = np.empty(n_reps, dtype=np.float64)
+        for b in range(n_reps):
+            s = 0.0
+            cnt = 0
+            for j in range(n):
+                v = r[indices[b, j]]
+                if not np.isnan(v):
+                    s += v
+                    cnt += 1
+            if cnt == 0:
+                out[b] = np.nan
+                continue
+            mu = s / cnt
+            ss = 0.0
+            for j in range(n):
+                v = r[indices[b, j]]
+                if not np.isnan(v):
+                    d = v - mu
+                    ss += d * d
+            denom = cnt - ddof
+            if denom <= 0:
+                out[b] = np.nan
+                continue
+            sigma = np.sqrt(ss / denom)
+            out[b] = mu / sigma if sigma > 1e-15 else np.nan
+        return out
+
 
 # ---------------------------------------------------------------------------
 # Helpers: period statistics (return raw ndarrays, not MetricResult)
@@ -580,26 +657,64 @@ _SHARPE_CI_BOOT_REF = (
 )
 
 
+def _assemble_block_indices(
+    block_starts: NDArray[np.int64], n: int, block_len: int
+) -> NDArray[np.int64]:
+    """Assemble block bootstrap index matrix from precomputed block starts.
+
+    Pure-numpy reference for ``_assemble_block_indices_numba``.  ``block_starts``
+    has shape (n_reps, n_blocks) where each entry is the starting period of a
+    block; rows are concatenated and truncated to length ``n``.
+    """
+    n_reps = block_starts.shape[0]
+    n_blocks = block_starts.shape[1]
+    indices = np.empty((n_reps, n), dtype=np.int64)
+
+    for b in range(n_reps):
+        rep = np.concatenate([
+            np.arange(block_starts[b, k], block_starts[b, k] + block_len)
+            for k in range(n_blocks)
+        ])
+        indices[b] = rep[:n]
+
+    return indices
+
+
 def _block_bootstrap_indices(
     n: int, block_len: int, n_reps: int, rng: np.random.Generator
 ) -> NDArray[np.int64]:
     """Generate block bootstrap index arrays.
 
-    Returns an array of shape (n_reps, n) with indices for each
-    bootstrap replicate.
+    Random block starting positions are drawn once in Python (numba does not
+    support ``np.random.Generator``) so the numba and pure-numpy paths consume
+    identical draws.  Returns an array of shape (n_reps, n).
     """
     n_blocks = int(np.ceil(n / block_len))
-    indices = np.empty((n_reps, n), dtype=np.int64)
+    block_starts = rng.integers(0, n - block_len + 1, size=(n_reps, n_blocks))
+
+    if _HAS_NUMBA and numba_worthwhile(n_reps * n):
+        return _assemble_block_indices_numba(block_starts, n, block_len)
+    return _assemble_block_indices(block_starts, n, block_len)
+
+
+def _sharpe_bootstrap_fallback(
+    r: NDArray[np.floating], indices: NDArray[np.int64], ddof: int
+) -> NDArray[np.floating]:
+    """Pure-numpy per-replicate Sharpe ratio over precomputed block indices.
+
+    Reference implementation for ``_sharpe_bootstrap_numba``; the two must
+    agree within floating point tolerance.
+    """
+    n_reps = indices.shape[0]
+    boot_sr = np.empty(n_reps, dtype=np.float64)
 
     for b in range(n_reps):
-        # Sample block starting positions with replacement
-        block_starts = rng.integers(0, n - block_len + 1, size=n_blocks)
-        rep = np.concatenate([
-            np.arange(start, start + block_len) for start in block_starts
-        ])
-        indices[b] = rep[:n]
+        sample = r[indices[b]]
+        mu = np.nanmean(sample)
+        sigma = np.nanstd(sample, ddof=ddof)
+        boot_sr[b] = mu / sigma if sigma > 1e-15 else np.nan
 
-    return indices
+    return boot_sr
 
 
 @register_metric(
@@ -655,13 +770,10 @@ def sharpe_ci_bootstrap(
 
     # Generate bootstrap indices and compute SR for each replicate
     indices = _block_bootstrap_indices(n, block_len, n_reps, rng)
-    boot_sr = np.empty(n_reps, dtype=np.float64)
-
-    for b in range(n_reps):
-        sample = r[indices[b]]
-        mu = np.nanmean(sample)
-        sigma = np.nanstd(sample, ddof=ddof)
-        boot_sr[b] = mu / sigma if sigma > 1e-15 else np.nan
+    if _HAS_NUMBA and numba_worthwhile(n_reps * n):
+        boot_sr = _sharpe_bootstrap_numba(r, indices, ddof)
+    else:
+        boot_sr = _sharpe_bootstrap_fallback(r, indices, ddof)
 
     # Remove NaN replicates
     boot_sr = boot_sr[~np.isnan(boot_sr)]

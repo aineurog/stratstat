@@ -751,3 +751,57 @@ class TestSkewnessAdjustedSharpe:
         inp = ReturnsInput(returns)
         with pytest.raises(ValueError, match="periods_per_year"):
             skewness_adjusted_sharpe(inp)
+
+
+# ---------------------------------------------------------------------------
+# Numba vs pure-numpy agreement
+# ---------------------------------------------------------------------------
+
+
+class TestNumbaAgreement:
+    def test_block_indices_agree(self):
+        """Numba and pure-numpy block-index assembly are bit identical."""
+        from stratstat.core.returns.inference import _HAS_NUMBA
+
+        if not _HAS_NUMBA:
+            pytest.skip("numba not installed")
+
+        from stratstat.core.returns.inference import (
+            _assemble_block_indices,
+            _assemble_block_indices_numba,
+        )
+
+        n, block_len, n_reps = 100, 3, 20
+        n_blocks = int(np.ceil(n / block_len))
+        rng = np.random.default_rng(123)
+        block_starts = rng.integers(0, n - block_len + 1, size=(n_reps, n_blocks))
+
+        assert np.array_equal(
+            _assemble_block_indices_numba(block_starts, n, block_len),
+            _assemble_block_indices(block_starts, n, block_len),
+        )
+
+    def test_sharpe_bootstrap_agree(self):
+        """Numba and pure-numpy per-replicate Sharpe agree within tolerance."""
+        from stratstat.core.returns.inference import _HAS_NUMBA
+
+        if not _HAS_NUMBA:
+            pytest.skip("numba not installed")
+
+        from stratstat.core.returns.inference import (
+            _block_bootstrap_indices,
+            _sharpe_bootstrap_fallback,
+            _sharpe_bootstrap_numba,
+        )
+
+        rng = np.random.default_rng(5)
+        r = rng.normal(0.0004, 0.01, size=100)
+        r[10] = np.nan
+        r[50] = np.nan
+
+        idx_rng = np.random.default_rng(9)
+        indices = _block_bootstrap_indices(100, 3, 500, idx_rng)
+
+        numba_sr = _sharpe_bootstrap_numba(r, indices, ddof=1)
+        pure_sr = _sharpe_bootstrap_fallback(r, indices, ddof=1)
+        assert np.allclose(numba_sr, pure_sr, rtol=1e-10, equal_nan=True)

@@ -2,6 +2,8 @@
 StratStat — Quantitative strategy evaluation statistics.
 """
 
+__version__ = "0.1.0"
+
 from typing import Any
 
 # Import the metric implementation modules so their @register_metric
@@ -23,6 +25,7 @@ from stratstat.registry import get_metric, list_metrics, register_metric
 from stratstat.results import MetricResult, MetricSet
 
 __all__ = [
+    "__version__",
     "register_metric",
     "list_metrics",
     "get_metric",

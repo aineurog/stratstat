@@ -636,3 +636,56 @@ class TestRegistryIntegration:
 
         result = compute(inp_basic, "correlation_matrix")
         assert result.name == "correlation_matrix"
+
+
+# ---------------------------------------------------------------------------
+# Numba vs pure-numpy agreement
+# ---------------------------------------------------------------------------
+
+
+class TestNumbaAgreement:
+    def test_stationary_bootstrap_agree(self):
+        """Numba and pure-numpy stationary bootstrap means agree."""
+        from stratstat.core.compare import _HAS_NUMBA
+
+        if not _HAS_NUMBA:
+            pytest.skip("numba not installed")
+
+        from stratstat.core.compare import (
+            _stationary_bootstrap_fallback,
+            _stationary_bootstrap_numba,
+        )
+
+        rng = np.random.default_rng(11)
+        data = rng.normal(0.0003, 0.008, size=(80, 2))
+        data[3, 0] = np.nan
+
+        n_boot, block_size, n_periods = 30, 1.0, data.shape[0]
+        draw_rng = np.random.default_rng(13)
+        starts = draw_rng.integers(0, n_periods, size=(n_boot, n_periods))
+        blens = draw_rng.geometric(1.0 / block_size, size=(n_boot, n_periods))
+
+        numba_means = _stationary_bootstrap_numba(data, starts, blens)
+        pure_means = _stationary_bootstrap_fallback(data, starts, blens)
+        assert np.allclose(numba_means, pure_means, rtol=1e-10, equal_nan=True)
+
+    def test_pbo_overfit_agree(self):
+        """Numba and pure-numpy PBO overfit counts agree."""
+        from stratstat.core.compare import _HAS_NUMBA
+
+        if not _HAS_NUMBA:
+            pytest.skip("numba not installed")
+
+        from stratstat.core.compare import (
+            _pbo_overfit_fallback,
+            _pbo_overfit_numba,
+        )
+
+        rng = np.random.default_rng(17)
+        data = rng.normal(0.0002, 0.01, size=(120, 3))
+        data[7, 1] = np.nan
+
+        split_points = np.array([40, 50, 60, 70], dtype=np.int64)
+        numba_count = _pbo_overfit_numba(data, split_points, purge=2, embargo=1, rf=0.0)
+        pure_count = _pbo_overfit_fallback(data, split_points, purge=2, embargo=1, rf=0.0)
+        assert numba_count == pure_count

@@ -1,7 +1,7 @@
 Metric Inventory
 ================
 
-StratStat ships **138 registered metrics** across 8 categories. Every metric returns
+StratStat ships **161 registered metrics** across 8 categories. Every metric returns
 :class:`~stratstat.results.MetricResult` with a ``.meta["ref"]`` field citing the
 formula's source.
 
@@ -14,23 +14,23 @@ formula's source.
      - Examples
    * - Descriptive
      - returns
-     - 16
+     - 21
      - CAGR, volatility, skewness, kurtosis, autocorrelation, percentiles
    * - Risk
      - returns
-     - 20
+     - 24
      - VaR, CVaR, max drawdown, drawdown duration, ulcer index, tail ratio, EVT
    * - Risk-Adjusted
      - returns
-     - 9
+     - 18
      - Sharpe, Sortino, Calmar, Omega, Kappa-3, Martin, gain-to-pain
    * - Inference
      - returns
-     - 8
+     - 10
      - PSR, DSR, Lo's SE, Sharpe CI (analytic & bootstrap), block-bootstrap CI
    * - Exposure
      - exposure
-     - 23
+     - 24
      - gross/net exposure, HHI, turnover, leverage, beta, position coverage
    * - Trades
      - trades
@@ -38,8 +38,8 @@ formula's source.
      - win rate, profit factor, expectancy, streaks, MFE/MAE, holding periods
    * - Benchmark
      - benchmark
-     - 18
-     - tracking error, information ratio, alpha, beta, M², up/down capture
+     - 20
+     - tracking error, information ratio, alpha, beta, information coefficient, up/down capture
    * - Compare
      - compare
      - 7

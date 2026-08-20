@@ -45,6 +45,31 @@ def is_numba_available() -> bool:
         return False
 
 
+# Threshold (in inner-loop element operations) above which the numba path is
+# preferred over the pure-numpy fallback.  Below this, the one-time numba JIT
+# compile cost (hundreds of milliseconds with ``cache=False``) dominates the
+# savings, so small inputs stay on numpy.
+_NUMBA_MIN_WORK = 1_000_000
+
+
+def numba_worthwhile(work: int) -> bool:
+    """Return True when the estimated work justifies the numba compile cost.
+
+    The numba kernels compile on first use, which costs a few hundred
+    milliseconds.  For inputs that represent only a few thousand inner-loop
+    iterations the numpy fallback finishes faster than numba can compile, so
+    the resampling dispatchers call this helper to keep small workloads on the
+    numpy path.
+
+    Args:
+        work: Approximate number of inner-loop element operations.
+
+    Returns:
+        True if the numba path should be preferred over the numpy fallback.
+    """
+    return work >= _NUMBA_MIN_WORK
+
+
 def nanmean(a: NDArray[np.floating], axis: int | None = None) -> NDArray[np.floating] | float:
     """Compute the mean ignoring NaN values. Drop-in for when numba is unavailable."""
     return np.nanmean(a, axis=axis)  # type: ignore[no-any-return]

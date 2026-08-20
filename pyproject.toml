@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "stratstat"
-version = "0.1.0.dev0"
+dynamic = ["version"]
 description = "Quantitative strategy evaluation statistics — the modern successor to empyrical, pyfolio, and QuantStats."
 readme = "README.md"
 license = {text = "MIT"}
@@ -40,15 +40,15 @@ classifiers = [
 dependencies = [
     "numpy>=1.24",
     "pandas>=1.5",
-    "polars>=0.18",
 ]
 
 [project.optional-dependencies]
 fast = ["numba>=0.58"]
 report = ["plotly>=5.0"]
+polars = ["polars>=0.18"]
 image = ["kaleido>=0.2.1"]
 pdf = ["weasyprint"]
-all = ["stratstat[fast,report,image,pdf]"]
+all = ["stratstat[fast,report,polars,image,pdf]"]
 docs = [
     "sphinx>=7",
     "sphinx-rtd-theme>=1",
@@ -72,6 +72,9 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 stratstat = ["py.typed"]
+
+[tool.setuptools.dynamic]
+version = {attr = "stratstat.__version__"}
 
 [tool.ruff]
 target-version = "py310"

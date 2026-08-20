@@ -36,7 +36,8 @@ together in a `MetricResult` object. You always know where a number came from.
 ## Installation
 
 ```bash
-pip install stratstat                # core: numpy, pandas, polars
+pip install stratstat                # core: numpy, pandas
+pip install stratstat[polars]        # polars Series/DataFrame input support
 pip install stratstat[fast]          # numba acceleration for bootstraps
 pip install stratstat[report]        # plotly charts, tear sheets, dashboards
 pip install stratstat[all]           # everything
@@ -167,7 +168,7 @@ applicable metric, and a methodology section with citations.
 `underperforming_periods`, `max_outperformance`, `max_underperformance`,
 `benchmark_volatility`, `information_coefficient`, `directional_consistency`
 
-### Exposure (23 metrics)
+### Exposure (24 metrics)
 `gross_exposure`, `net_exposure`, `leverage`, `position_coverage`,
 `exposure_cv`, `exposure_directional_bias`, `avg_holding_weight`,
 `position_concentration`, `effective_n_positions`, `turnover`,
@@ -180,10 +181,10 @@ applicable metric, and a methodology section with citations.
 `payoff_ratio`, `cpc_ratio`, `best_trade`, `worst_trade`, `mfe`, `mae`,
 `implementation_shortfall`, `kelly_criterion`, and more
 
-### Relative / Comparison (8 metrics)
+### Relative / Comparison (7 metrics)
 `correlation_matrix`, `diversification_ratio`, `sharpe_difference_test`,
 `whites_reality_check`, `pbo`, `marginal_contribution_to_risk`,
-`component_var`, `compare_cagr`
+`component_var`
 
 ### Wrappers
 `rolling(metric_name, window)` slides any metric over time.
@@ -260,9 +261,9 @@ stratstat/
       inference.py               #   10 metrics
       wrappers.py                #   rolling(), by_regime()
     benchmark.py                 #   20 metrics
-    exposure.py                  #   23 metrics
+    exposure.py                  #   24 metrics
     trades.py                    #   37 metrics
-    compare.py                   #    8 metrics
+    compare.py                   #    7 metrics
   report/                        # Plotly visualization (optional extra)
     _charts.py                   #   7 individual chart functions
     _common.py                   #   Dynamic metric discovery from registry
@@ -364,7 +365,7 @@ git clone https://github.com/aineurog/stratstat.git
 cd stratstat
 pip install -e ".[dev]"
 
-pytest tests/ -q           # 864 tests
+pytest tests/ -q           # 893 passed, 1 skipped
 ruff check src/ tests/     # lint
 mypy src/stratstat/        # type check
 ```

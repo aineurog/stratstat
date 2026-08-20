@@ -3,7 +3,13 @@
 import numpy as np
 import pytest
 
-from stratstat.core._utils import annualization_factor, is_numba_available, nanmean, nanstd
+from stratstat.core._utils import (
+    annualization_factor,
+    is_numba_available,
+    nanmean,
+    nanstd,
+    numba_worthwhile,
+)
 
 
 class TestAnnualizationFactor:
@@ -36,6 +42,20 @@ class TestIsNumbaAvailable:
     def test_returns_bool(self):
         result = is_numba_available()
         assert isinstance(result, bool)
+
+
+class TestNumbaWorthwhile:
+    def test_zero_is_not_worthwhile(self):
+        assert numba_worthwhile(0) is False
+
+    def test_small_workload_is_not_worthwhile(self):
+        assert numba_worthwhile(999_999) is False
+
+    def test_at_threshold_is_worthwhile(self):
+        assert numba_worthwhile(1_000_000) is True
+
+    def test_large_workload_is_worthwhile(self):
+        assert numba_worthwhile(10_000_000) is True
 
 
 class TestNanMean:
