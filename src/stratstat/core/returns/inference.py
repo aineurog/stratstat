@@ -17,6 +17,7 @@ from typing import Any, cast
 import numpy as np
 from numpy.typing import NDArray
 
+from stratstat.conventions import resolve_convention
 from stratstat.core._utils import numba_worthwhile
 from stratstat.exceptions import MetricNotApplicableError
 from stratstat.inputs import ReturnsInput
@@ -100,6 +101,61 @@ else:
             out[b] = mu / sigma if sigma > 1e-15 else np.nan
         return out
 
+    @njit(cache=False)
+    def _bootstrap_stat_numba(
+        r: NDArray[np.floating],
+        indices: NDArray[np.int64],
+        target_code: int,
+        p: float,
+    ) -> NDArray[np.floating]:
+        """Per-replicate bootstrap statistic for one target.
+
+        ``target_code``: 0 equity terminal return, 1 Sharpe ratio,
+        2 maximum drawdown, 3 CAGR. ``r`` is assumed free of NaN and of
+        length at least 2 (the caller guarantees both).
+        """
+        n_sims = indices.shape[0]
+        n = indices.shape[1]
+        out = np.empty(n_sims, dtype=np.float64)
+
+        for b in range(n_sims):
+            if target_code == 2:
+                # Maximum drawdown: sequential equity walk from initial 1.0.
+                cum = 1.0
+                peak = 1.0
+                maxdd = 0.0
+                for j in range(n):
+                    cum *= 1.0 + r[indices[b, j]]
+                    if cum > peak:
+                        peak = cum
+                    dd = cum / peak - 1.0
+                    if dd < maxdd:
+                        maxdd = dd
+                out[b] = maxdd
+                continue
+
+            s = 0.0
+            ss = 0.0
+            sl = 0.0
+            for j in range(n):
+                v = r[indices[b, j]]
+                s += v
+                ss += v * v
+                sl += np.log(1.0 + v)
+
+            if target_code == 0:
+                out[b] = np.exp(sl) - 1.0
+            elif target_code == 1:
+                mu = s / n
+                var = (ss - n * mu * mu) / (n - 1.0)
+                sigma = np.sqrt(var) if var > 0.0 else 0.0
+                out[b] = mu / sigma * np.sqrt(p) if sigma > 1e-15 else np.nan
+            elif target_code == 3:
+                out[b] = np.exp(sl / n * p) - 1.0
+            else:
+                out[b] = np.nan
+        return out
+
 
 # ---------------------------------------------------------------------------
 # Helpers: period statistics (return raw ndarrays, not MetricResult)
@@ -123,6 +179,37 @@ def _period_sharpe(r: NDArray[np.floating], ddof: int = 1) -> NDArray[np.floatin
     sigma = np.nanstd(r, axis=0, ddof=ddof)
     sigma_safe = np.where(sigma < 1e-15, np.nan, sigma)
     arr: NDArray[np.floating] = mu / sigma_safe
+    return arr
+
+
+def _period_sortino(
+    r: NDArray[np.floating],
+    rf: float = 0.0,
+    mar: float = 0.0,
+    denominator: str = "full_downside",
+) -> NDArray[np.floating]:
+    """Period (non-annualized) Sortino ratio per strategy column.
+
+    Formula:
+        Sortino = (mean(r) - rf) / DD
+
+    where DD is the downside deviation below ``mar``. The ``denominator``
+    convention matches ``sortino_ratio``: ``"full_downside"`` spreads the
+    squared downside over all periods, ``"downside_only"`` spreads it over
+    only the downside periods.
+    """
+    excess_mean = np.nanmean(r, axis=0) - rf
+    below = np.minimum(r - mar, 0.0)
+
+    if denominator == "full_downside":
+        dd = np.sqrt(np.nanmean(below**2, axis=0))
+    else:
+        n_down = np.sum(~np.isnan(below) & (below < 0.0), axis=0).astype(np.float64)
+        sum_sq_down = np.nansum(below**2, axis=0)
+        dd = np.where(n_down > 0, np.sqrt(sum_sq_down / n_down), np.nan)
+
+    dd_safe = np.where(dd < 1e-15, np.nan, dd)
+    arr: NDArray[np.floating] = excess_mean / dd_safe
     return arr
 
 
@@ -214,16 +301,30 @@ def _psr_z(
     skew: NDArray[np.floating],
     excess_kurt: NDArray[np.floating],
     n: int,
+    se_formula: str = "blp",
 ) -> NDArray[np.floating]:
     """Compute the PSR z-score.
 
-    Formula (Bailey & Lopez de Prado 2012):
-        z = (SR - SR*) * sqrt(n-1) / sqrt(1 - γ₃·SR + (γ₄-1)/4 · SR²)
+    Numerator is shared by both standard-error variants:
+        z = (SR - SR*) * sqrt(n-1) / SE
 
-    where γ₃ is skewness and γ₄ is raw kurtosis (= excess_kurt + 3).
+    ``se_formula`` selects the standard-error denominator:
+
+    - ``"blp"`` (default, Bailey & Lopez de Prado 2012): raw-kurtosis form
+        SE = sqrt(1 - γ₃·SR + (γ₄-1)/4 · SR²),  γ₄ = excess_kurt + 3
+    - ``"lo"`` (Lo 2002 / QuantStats-compatible): excess-kurtosis form
+        SE = sqrt(1 + 0.5·SR² - γ₃·SR + (γ₄_excess - 3)/4 · SR²)
+
+    The two denominators differ by exactly ``0.75 * SR²``; negligible at a
+    period (non-annualized) base but material at an annualized base.
     """
-    kurt = excess_kurt + 3.0  # raw kurtosis
-    denom = np.sqrt(1.0 - skew * sr + (kurt - 1.0) / 4.0 * sr**2)
+    if se_formula == "lo":
+        denom = np.sqrt(
+            1.0 + 0.5 * sr**2 - skew * sr + (excess_kurt - 3.0) / 4.0 * sr**2
+        )
+    else:  # "blp"
+        kurt = excess_kurt + 3.0  # raw kurtosis
+        denom = np.sqrt(1.0 - skew * sr + (kurt - 1.0) / 4.0 * sr**2)
     denom_safe = np.where(denom < 1e-15, np.nan, denom)
     z: NDArray[np.floating] = (sr - sr_benchmark) * np.sqrt(float(n) - 1.0) / denom_safe
     return z
@@ -321,6 +422,7 @@ def psr(
     input_data: ReturnsInput,
     sr_benchmark: float = 0.0,
     ddof: int = 1,
+    se_formula: str | None = None,
 ) -> MetricResult:
     """Probabilistic Sharpe Ratio — probability that true SR exceeds benchmark.
 
@@ -340,6 +442,9 @@ def psr(
         input_data: A ``ReturnsInput``.
         sr_benchmark: Benchmark Sharpe ratio at period frequency (default 0.0).
         ddof: Delta degrees of freedom for Sharpe std computation (default 1).
+        se_formula: Standard-error formula — ``"blp"`` (default, Bailey &
+            Lopez de Prado raw-kurtosis form) or ``"lo"`` (QuantStats-
+            compatible Lo 2002 form).
 
     Returns:
         MetricResult with PSR value in [0, 1] (float or array).
@@ -352,7 +457,8 @@ def psr(
     skew = _sample_skewness(r)
     excess_kurt = _sample_excess_kurtosis(r)
 
-    z = _psr_z(sr, sr_benchmark, skew, excess_kurt, n)
+    se_formula = resolve_convention(se_formula, "psr", "se_formula", "blp")
+    z = _psr_z(sr, sr_benchmark, skew, excess_kurt, n, se_formula=se_formula)
 
     # Φ(z) per strategy
     arr = np.array([_norm_cdf(float(zi)) for zi in np.atleast_1d(z)], dtype=np.float64)
@@ -369,8 +475,165 @@ def psr(
             "ref": _PSR_REF,
             "sr_benchmark": sr_benchmark,
             "ddof": ddof,
+            "se_formula": se_formula,
             "sr_period": float(sr[0]) if input_data.is_single else sr,
         },
+    )
+
+
+# ---------------------------------------------------------------------------
+# 4.2b Probabilistic Sortino Ratio
+# Reference: Bailey & Lopez de Prado (2012), extended to the Sortino base
+# ---------------------------------------------------------------------------
+
+_PSR_SORTINO_REF = (
+    "Bailey & Lopez de Prado (2012), 'The Sharpe Ratio Efficient Frontier'; "
+    "probabilistic ratio applied to the Sortino base (QuantStats-compatible)."
+)
+
+
+def _probabilistic_sortino(
+    input_data: ReturnsInput,
+    rf: float,
+    mar: float,
+    sr_benchmark: float,
+    denominator: str | None,
+    adjusted: bool,
+    se_formula: str | None = None,
+) -> MetricResult:
+    """Shared body for the probabilistic Sortino metrics."""
+    denominator = resolve_convention(
+        denominator, "sortino_ratio", "denominator", "full_downside"
+    )
+    metric_name = (
+        "probabilistic_adjusted_sortino_ratio"
+        if adjusted
+        else "probabilistic_sortino_ratio"
+    )
+    se_formula = resolve_convention(se_formula, metric_name, "se_formula", "blp")
+
+    r = input_data.values
+    n = r.shape[0]
+
+    base = _period_sortino(r, rf=rf, mar=mar, denominator=denominator)
+    if adjusted:
+        base = base / np.sqrt(2.0)
+
+    skew = _sample_skewness(r)
+    excess_kurt = _sample_excess_kurtosis(r)
+
+    z = _psr_z(base, sr_benchmark, skew, excess_kurt, n, se_formula=se_formula)
+    arr = np.array(
+        [float(_norm_cdf(float(zi))) for zi in np.atleast_1d(z)], dtype=np.float64
+    )
+
+    value: float | NDArray[np.floating]
+    value = float(arr[0]) if input_data.is_single else arr
+
+    return MetricResult(
+        name=metric_name,
+        value=value,
+        category=("inference", "returns"),
+        periods_per_year=input_data.periods_per_year,
+        meta={
+            "ref": _PSR_SORTINO_REF,
+            "rf": rf,
+            "mar": mar,
+            "sr_benchmark": sr_benchmark,
+            "denominator": denominator,
+            "se_formula": se_formula,
+        },
+    )
+
+
+@register_metric(
+    name="probabilistic_sortino_ratio",
+    requires="returns",
+    category=("inference", "returns"),
+    backend="vectorized",
+    ref=_PSR_SORTINO_REF,
+)
+def probabilistic_sortino_ratio(
+    input_data: ReturnsInput,
+    rf: float = 0.0,
+    mar: float = 0.0,
+    sr_benchmark: float = 0.0,
+    denominator: str | None = None,
+    se_formula: str | None = None,
+) -> MetricResult:
+    """Probabilistic Sortino ratio.
+
+    Applies the Bailey & Lopez de Prado probabilistic ratio to the period
+    (non-annualized) Sortino ratio. The result is the probability that the
+    true Sortino ratio exceeds ``sr_benchmark``.
+
+    Args:
+        input_data: A ``ReturnsInput``.
+        rf: Risk-free rate per period (default 0.0).
+        mar: Minimum acceptable return for the downside deviation (default 0.0).
+        sr_benchmark: Benchmark Sortino ratio at period frequency (default 0.0).
+        denominator: Downside denominator convention; falls back to the
+            ``sortino_ratio`` convention.
+        se_formula: Standard-error formula — ``"blp"`` (default) or ``"lo"``
+            (QuantStats-compatible).
+
+    Returns:
+        MetricResult with the probabilistic Sortino ratio in [0, 1].
+    """
+    return _probabilistic_sortino(
+        input_data,
+        rf,
+        mar,
+        sr_benchmark,
+        denominator,
+        adjusted=False,
+        se_formula=se_formula,
+    )
+
+
+@register_metric(
+    name="probabilistic_adjusted_sortino_ratio",
+    requires="returns",
+    category=("inference", "returns"),
+    backend="vectorized",
+    ref=_PSR_SORTINO_REF,
+)
+def probabilistic_adjusted_sortino_ratio(
+    input_data: ReturnsInput,
+    rf: float = 0.0,
+    mar: float = 0.0,
+    sr_benchmark: float = 0.0,
+    denominator: str | None = None,
+    se_formula: str | None = None,
+) -> MetricResult:
+    """Probabilistic adjusted Sortino ratio.
+
+    Applies the probabilistic ratio to the period (non-annualized) adjusted
+    Sortino ratio (Sortino / sqrt(2)). The result is the probability that the
+    true adjusted Sortino ratio exceeds ``sr_benchmark``.
+
+    Args:
+        input_data: A ``ReturnsInput``.
+        rf: Risk-free rate per period (default 0.0).
+        mar: Minimum acceptable return for the downside deviation (default 0.0).
+        sr_benchmark: Benchmark adjusted Sortino ratio at period frequency
+            (default 0.0).
+        denominator: Downside denominator convention; falls back to the
+            ``sortino_ratio`` convention.
+        se_formula: Standard-error formula — ``"blp"`` (default) or ``"lo"``
+            (QuantStats-compatible).
+
+    Returns:
+        MetricResult with the probabilistic adjusted Sortino ratio in [0, 1].
+    """
+    return _probabilistic_sortino(
+        input_data,
+        rf,
+        mar,
+        sr_benchmark,
+        denominator,
+        adjusted=True,
+        se_formula=se_formula,
     )
 
 
@@ -1198,5 +1461,290 @@ def skewness_adjusted_sharpe(
             "ref": _ASR_REF,
             "rf": rf,
             "ddof": ddof,
+        },
+    )
+
+
+# ---------------------------------------------------------------------------
+# 4.12 Monte Carlo (non-parametric bootstrap)
+# Reference: Efron & Tibshirani (1994)
+# ---------------------------------------------------------------------------
+
+_MC_REF = "Efron & Tibshirani (1994, An Introduction to the Bootstrap)"
+
+_TARGET_CODES: dict[str, int] = {
+    "equity": 0,
+    "sharpe": 1,
+    "max_drawdown": 2,
+    "cagr": 3,
+}
+
+_MC_SUMMARY_INDEX = ["min", "p05", "median", "mean", "p95", "max", "std"]
+
+
+def _mc_indices(
+    n: int, sims: int, seed: int | None
+) -> NDArray[np.int64]:
+    """Pre-generate bootstrap indices (sims resamples of length n).
+
+    Draws are made in Python because numba does not support
+    ``np.random.Generator``. Sampling is with replacement.
+    """
+    rng = np.random.default_rng(seed)
+    return rng.integers(0, n, size=(sims, n)).astype(np.int64)
+
+
+def _bootstrap_stat_fallback(
+    r: NDArray[np.floating],
+    indices: NDArray[np.int64],
+    target_code: int,
+    p: float,
+) -> NDArray[np.floating]:
+    """Pure-numpy per-replicate bootstrap statistic for one target.
+
+    Reference implementation for ``_bootstrap_stat_numba``; the two must
+    agree within floating point tolerance. ``r`` is assumed free of NaN and
+    of length at least 2.
+    """
+    sampled: NDArray[np.floating] = r[indices]  # (n_sims, n)
+
+    if target_code == 0:  # equity terminal return
+        sl = np.sum(np.log(1.0 + sampled), axis=1)
+        equity: NDArray[np.floating] = np.exp(sl) - 1.0
+        return equity
+    if target_code == 1:  # Sharpe ratio
+        mu = np.mean(sampled, axis=1)
+        sigma = np.std(sampled, axis=1, ddof=1)
+        sigma_safe = np.where(sigma < 1e-15, np.nan, sigma)
+        sharpe: NDArray[np.floating] = mu / sigma_safe * np.sqrt(p)
+        return sharpe
+    if target_code == 2:  # maximum drawdown
+        eq = np.cumprod(1.0 + sampled, axis=1)
+        eq0 = np.concatenate(
+            [np.ones((eq.shape[0], 1), dtype=np.float64), eq], axis=1
+        )
+        running_max = np.maximum.accumulate(eq0, axis=1)[:, 1:]
+        dd = eq / running_max - 1.0
+        maxdd: NDArray[np.floating] = np.nanmin(dd, axis=1)
+        return maxdd
+    if target_code == 3:  # CAGR
+        ml = np.mean(np.log(1.0 + sampled), axis=1)
+        cagr_out: NDArray[np.floating] = np.exp(ml * p) - 1.0
+        return cagr_out
+    return np.full(indices.shape[0], np.nan, dtype=np.float64)
+
+
+def _mc_bootstrap(
+    r: NDArray[np.floating],
+    indices: NDArray[np.int64],
+    target_code: int,
+    p: float,
+) -> NDArray[np.floating]:
+    """Run the bootstrap for one target, dispatching numba vs numpy."""
+    if _HAS_NUMBA and numba_worthwhile(indices.size):
+        return _bootstrap_stat_numba(r, indices, target_code, p)
+    return _bootstrap_stat_fallback(r, indices, target_code, p)
+
+
+def _mc_summary(stats: NDArray[np.floating]) -> NDArray[np.floating]:
+    """Collapse a cross-simulation statistic into the summary array."""
+    return np.array(
+        [
+            np.min(stats),
+            np.percentile(stats, 5.0),
+            np.median(stats),
+            np.mean(stats),
+            np.percentile(stats, 95.0),
+            np.max(stats),
+            np.std(stats, ddof=1),
+        ],
+        dtype=np.float64,
+    )
+
+
+def _mc_inputs(
+    input_data: ReturnsInput,
+    method: str,
+    target: str,
+    sims: int,
+    seed: int | None,
+) -> tuple[NDArray[np.floating], NDArray[np.int64], float]:
+    """Validate and prepare the shared Monte Carlo inputs.
+
+    Returns ``(r_valid, indices, p)`` where ``r_valid`` is the NaN-free
+    single-strategy return series, ``indices`` the bootstrap index matrix,
+    and ``p`` the annualization factor (1.0 when not needed).
+    """
+    if not input_data.is_single:
+        raise MetricNotApplicableError(
+            "Monte Carlo metrics require single-strategy input. "
+            "Use compute() per strategy or wrap in a loop."
+        )
+    if method != "bootstrap":
+        raise ValueError(f"method must be 'bootstrap', got {method!r}")
+
+    p = 1.0
+    if target in ("sharpe", "cagr"):
+        if input_data.periods_per_year is None:
+            raise MetricNotApplicableError(
+                f"Monte Carlo target {target!r} requires periods_per_year "
+                "on the ReturnsInput."
+            )
+        p = float(input_data.periods_per_year)
+
+    r = input_data.values[:, 0]
+    r_valid = r[~np.isnan(r)]
+    if len(r_valid) < 2:
+        raise MetricNotApplicableError(
+            "Monte Carlo requires at least 2 non-NaN observations."
+        )
+
+    indices = _mc_indices(len(r_valid), sims, seed)
+    return r_valid, indices, p
+
+
+@register_metric(
+    name="monte_carlo_distribution",
+    requires="returns",
+    category=("inference", "returns"),
+    backend="resampling",
+    ref=_MC_REF,
+)
+def monte_carlo_distribution(
+    input_data: ReturnsInput,
+    target: str = "equity",
+    sims: int = 1000,
+    method: str = "bootstrap",
+    seed: int | None = None,
+) -> MetricResult:
+    """Cross-simulation distribution of a terminal statistic.
+
+    Resamples the historical returns with replacement (Efron's bootstrap)
+    ``sims`` times and returns the summary of the chosen ``target`` across
+    those paths.
+
+    Args:
+        input_data: A ``ReturnsInput`` (single strategy).
+        target: Terminal statistic, one of ``"equity"`` (total return),
+            ``"sharpe"`` (annualized), ``"max_drawdown"``, or ``"cagr"``
+            (annualized).
+        sims: Number of simulated paths (default 1000).
+        method: Resampling scheme; only ``"bootstrap"`` is supported.
+        seed: Optional seed for reproducibility.
+
+    Returns:
+        MetricResult whose value is the array
+        ``[min, p05, median, mean, p95, max, std]`` and whose meta records
+        ``target``, ``sims``, ``method``, and ``seed``.
+    """
+    if target not in _TARGET_CODES:
+        raise ValueError(
+            f"target must be one of {sorted(_TARGET_CODES)}, got {target!r}"
+        )
+
+    r_valid, indices, p = _mc_inputs(input_data, method, target, sims, seed)
+    stats = _mc_bootstrap(r_valid, indices, _TARGET_CODES[target], p)
+    summary = _mc_summary(stats)
+
+    value: float | NDArray[np.floating] = summary
+
+    return MetricResult(
+        name="monte_carlo_distribution",
+        value=value,
+        category=("inference", "returns"),
+        periods_per_year=input_data.periods_per_year,
+        meta={
+            "ref": _MC_REF,
+            "target": target,
+            "sims": sims,
+            "method": method,
+            "seed": seed,
+            "output_index": list(_MC_SUMMARY_INDEX),
+        },
+    )
+
+
+@register_metric(
+    name="monte_carlo_probabilities",
+    requires="returns",
+    category=("inference", "returns"),
+    backend="resampling",
+    ref=_MC_REF,
+)
+def monte_carlo_probabilities(
+    input_data: ReturnsInput,
+    bust: float | None = None,
+    goal: float | None = None,
+    sims: int = 1000,
+    method: str = "bootstrap",
+    seed: int | None = None,
+) -> MetricResult:
+    """Probability of busting or reaching a goal across simulated paths.
+
+    Resamples the historical returns with replacement ``sims`` times and
+    returns ``[p_bust, p_goal]``.
+
+    Args:
+        input_data: A ``ReturnsInput`` (single strategy).
+        bust: Drawdown threshold (negative, e.g. -0.1 for a 10% drawdown).
+            ``p_bust`` is the share of paths whose maximum drawdown is at
+            least this bad.
+        goal: Return threshold (e.g. 1.0 for +100%). ``p_goal`` is the share
+            of paths whose terminal total return reaches this level.
+        sims: Number of simulated paths (default 1000).
+        method: Resampling scheme; only ``"bootstrap"`` is supported.
+        seed: Optional seed for reproducibility.
+
+    Returns:
+        MetricResult whose value is the array ``[p_bust, p_goal]``. A
+        threshold left as ``None`` yields NaN for that probability.
+    """
+    if bust is None and goal is None:
+        return MetricResult(
+            name="monte_carlo_probabilities",
+            value=np.array([np.nan, np.nan], dtype=np.float64),
+            category=("inference", "returns"),
+            periods_per_year=input_data.periods_per_year,
+            meta={
+                "ref": _MC_REF,
+                "bust": None,
+                "goal": None,
+                "sims": sims,
+                "method": method,
+                "seed": seed,
+                "output_index": ["p_bust", "p_goal"],
+            },
+        )
+
+    r_valid, indices, _ = _mc_inputs(
+        input_data, method, "equity", sims, seed
+    )
+
+    p_bust = np.nan
+    p_goal = np.nan
+
+    if bust is not None:
+        maxdd = _mc_bootstrap(r_valid, indices, _TARGET_CODES["max_drawdown"], 1.0)
+        p_bust = float(np.mean(maxdd <= bust))
+
+    if goal is not None:
+        terminal = _mc_bootstrap(r_valid, indices, _TARGET_CODES["equity"], 1.0)
+        p_goal = float(np.mean(terminal >= goal))
+
+    value: float | NDArray[np.floating] = np.array([p_bust, p_goal], dtype=np.float64)
+
+    return MetricResult(
+        name="monte_carlo_probabilities",
+        value=value,
+        category=("inference", "returns"),
+        periods_per_year=input_data.periods_per_year,
+        meta={
+            "ref": _MC_REF,
+            "bust": bust,
+            "goal": goal,
+            "sims": sims,
+            "method": method,
+            "seed": seed,
+            "output_index": ["p_bust", "p_goal"],
         },
     )

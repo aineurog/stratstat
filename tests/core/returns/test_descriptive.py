@@ -18,18 +18,24 @@ from stratstat.core.returns.descriptive import (
     annualized_volatility,
     arithmetic_mean_return,
     autocorrelation,
+    avg_down_period,
+    avg_up_period,
     best_period,
     cagr,
     coefficient_of_variation,
     consecutive_wins_losses,
     cumulative_return,
     excess_kurtosis,
+    exposure_time,
     fractal_dimension,
     geometric_mean_return,
     hurst_exponent,
     negative_period_ratio,
     outlier_iqr,
     percentiles,
+    period_kelly_criterion,
+    period_payoff_ratio,
+    period_profit_factor,
     positive_period_ratio,
     return_range,
     skewness,
@@ -1018,7 +1024,7 @@ class TestAllZeroReturns:
 
 class TestRegistryIntegration:
     def test_all_metrics_registered(self):
-        """All 21 descriptive metrics appear in the registry."""
+        """All 27 descriptive metrics appear in the registry."""
         from stratstat.registry import list_metrics
 
         desc_metrics = list_metrics(requires="returns", category="descriptive")
@@ -1045,6 +1051,12 @@ class TestRegistryIntegration:
             "hurst_exponent",
             "fractal_dimension",
             "consecutive_wins_losses",
+            "exposure_time",
+            "avg_up_period",
+            "avg_down_period",
+            "period_profit_factor",
+            "period_payoff_ratio",
+            "period_kelly_criterion",
         }
         assert names == expected
 
@@ -1057,16 +1069,18 @@ class TestRegistryIntegration:
         assert isinstance(result.value, float)
 
     def test_compute_all_descriptive(self, sample_input):
-        """compute_all with category='descriptive' returns all 21 metrics."""
+        """compute_all with category='descriptive' returns all 27 metrics."""
         from stratstat import compute_all
 
         result_set = compute_all(sample_input, category="descriptive")
-        assert len(result_set) == 21
+        assert len(result_set) == 27
         names = {r.name for r in result_set}
         assert "cagr" in names
         assert "skewness" in names
         assert "stability" in names
         assert "hurst_exponent" in names
+        assert "exposure_time" in names
+        assert "period_kelly_criterion" in names
 
 
 # ---------------------------------------------------------------------------
@@ -1326,3 +1340,232 @@ class TestNegativePeriodRatio:
         result = negative_period_ratio(inp)
         # 2 negative out of 3 valid
         assert result.value == pytest.approx(2.0 / 3.0, rel=1e-12)
+
+
+# ---------------------------------------------------------------------------
+# 1.21 Exposure Time
+# ---------------------------------------------------------------------------
+
+
+class TestExposureTime:
+    def test_all_nonzero(self, sample_input):
+        """All non-zero periods -> full exposure."""
+        result = exposure_time(sample_input)
+        assert result.value == pytest.approx(1.0, rel=1e-12)
+
+    def test_with_zero_and_nan(self):
+        """Zeros and NaNs count as not invested."""
+        returns = np.array([0.01, 0.0, -0.02, np.nan, 0.03, 0.0])
+        inp = ReturnsInput(returns)
+        result = exposure_time(inp)
+        # invested periods: 0.01, -0.02, 0.03 -> 3 out of 6
+        assert result.value == pytest.approx(3.0 / 6.0, rel=1e-12)
+
+    def test_all_zero(self):
+        """All-zero returns -> zero exposure."""
+        returns = np.zeros(5)
+        result = exposure_time(ReturnsInput(returns))
+        assert result.value == 0.0
+
+    def test_multi_strategy(self, daily_pp):
+        """Per-column exposure for multi-strategy input."""
+        r = np.array(
+            [
+                [0.01, 0.0],
+                [0.0, 0.02],
+                [-0.01, 0.0],
+            ]
+        )
+        result = exposure_time(ReturnsInput(r, periods_per_year=daily_pp))
+        assert result.value[0] == pytest.approx(2.0 / 3.0, rel=1e-12)
+        assert result.value[1] == pytest.approx(1.0 / 3.0, rel=1e-12)
+
+    def test_percent_ceil_rounding(self):
+        """percent_ceil rounds exposure up to the nearest whole percent."""
+        returns = np.array(
+            [0.01, 0.0, -0.02, 0.03, 0.0, 0.005, -0.01, 0.02, 0.0, 0.0, 0.001]
+        )
+        # 7 nonzero out of 11 -> 7/11 = 0.6363... -> ceil(63.63)/100 = 0.64
+        result = exposure_time(ReturnsInput(returns), rounding="percent_ceil")
+        assert result.value == pytest.approx(0.64, rel=1e-12)
+
+    def test_default_rounding_is_raw(self):
+        """Default rounding returns the exact (unrounded) exposure share."""
+        returns = np.array(
+            [0.01, 0.0, -0.02, 0.03, 0.0, 0.005, -0.01, 0.02, 0.0, 0.0, 0.001]
+        )
+        result = exposure_time(ReturnsInput(returns))
+        assert result.value == pytest.approx(7.0 / 11.0, rel=1e-12)
+
+
+# ---------------------------------------------------------------------------
+# 1.22 Average Up Period
+# ---------------------------------------------------------------------------
+
+
+class TestAvgUpPeriod:
+    def test_known_value(self, sample_input):
+        """Positive periods: [0.01, 0.015, 0.03, 0.005, 0.02, 0.01] -> mean 0.015."""
+        result = avg_up_period(sample_input)
+        assert result.value == pytest.approx(0.015, rel=1e-12)
+
+    def test_no_positive_periods(self):
+        """NaN when there are no positive periods."""
+        returns = np.array([-0.01, -0.02, -0.03])
+        result = avg_up_period(ReturnsInput(returns))
+        assert np.isnan(result.value)
+
+    def test_excludes_zero(self):
+        """Zero periods are not positive."""
+        returns = np.array([0.0, 0.02, 0.04])
+        result = avg_up_period(ReturnsInput(returns))
+        assert result.value == pytest.approx(0.03, rel=1e-12)
+
+    def test_nan_handling(self):
+        """NaN periods excluded from the count and sum."""
+        returns = np.array([0.01, np.nan, 0.03])
+        result = avg_up_period(ReturnsInput(returns))
+        assert result.value == pytest.approx(0.02, rel=1e-12)
+
+
+# ---------------------------------------------------------------------------
+# 1.23 Average Down Period
+# ---------------------------------------------------------------------------
+
+
+class TestAvgDownPeriod:
+    def test_known_value(self, sample_input):
+        """Negative periods: [-0.02, -0.01, -0.015, -0.005] -> mean -0.0125."""
+        result = avg_down_period(sample_input)
+        assert result.value == pytest.approx(-0.0125, rel=1e-12)
+
+    def test_no_negative_periods(self):
+        """NaN when there are no negative periods."""
+        returns = np.array([0.01, 0.02, 0.03])
+        result = avg_down_period(ReturnsInput(returns))
+        assert np.isnan(result.value)
+
+    def test_sign_preserved(self):
+        """Returned value is negative."""
+        returns = np.array([0.01, -0.02, 0.03, -0.01])
+        result = avg_down_period(ReturnsInput(returns))
+        assert result.value < 0.0
+
+
+# ---------------------------------------------------------------------------
+# 1.24 Period Profit Factor
+# ---------------------------------------------------------------------------
+
+
+class TestPeriodProfitFactor:
+    def test_known_value(self, sample_input):
+        """gross profit 0.09 / gross loss 0.05 = 1.8."""
+        result = period_profit_factor(sample_input)
+        assert result.value == pytest.approx(1.8, rel=1e-12)
+
+    def test_all_positive(self):
+        """Inf when no losses but gains exist."""
+        returns = np.array([0.01, 0.02, 0.03])
+        result = period_profit_factor(ReturnsInput(returns))
+        assert np.isinf(result.value)
+
+    def test_all_negative(self):
+        """Zero when no gains but losses exist."""
+        returns = np.array([-0.01, -0.02, -0.03])
+        result = period_profit_factor(ReturnsInput(returns))
+        assert result.value == 0.0
+
+    def test_all_zero(self):
+        """NaN when there is neither gain nor loss."""
+        returns = np.zeros(5)
+        result = period_profit_factor(ReturnsInput(returns))
+        assert np.isnan(result.value)
+
+
+# ---------------------------------------------------------------------------
+# 1.25 Period Payoff Ratio
+# ---------------------------------------------------------------------------
+
+
+class TestPeriodPayoffRatio:
+    def test_known_value(self, sample_input):
+        """avg_up 0.015 / |avg_down| 0.0125 = 1.2."""
+        result = period_payoff_ratio(sample_input)
+        assert result.value == pytest.approx(1.2, rel=1e-12)
+
+    def test_no_negative_periods(self):
+        """Inf when there are gains but no losses."""
+        returns = np.array([0.01, 0.02])
+        result = period_payoff_ratio(ReturnsInput(returns))
+        assert np.isinf(result.value)
+
+    def test_no_positive_periods(self):
+        """NaN when there are no gains."""
+        returns = np.array([-0.01, -0.02])
+        result = period_payoff_ratio(ReturnsInput(returns))
+        assert np.isnan(result.value)
+
+
+# ---------------------------------------------------------------------------
+# 1.26 Period Kelly Criterion
+# ---------------------------------------------------------------------------
+
+
+class TestPeriodKellyCriterion:
+    def test_known_value(self, sample_input):
+        """win_prob 0.6, payoff 1.2 -> 0.6 - 0.4/1.2 = 0.266666..."""
+        result = period_kelly_criterion(sample_input)
+        assert result.value == pytest.approx(0.6 - 0.4 / 1.2, rel=1e-12)
+
+    def test_all_wins(self):
+        """Full Kelly when there are no losses."""
+        returns = np.array([0.01, 0.02, 0.03])
+        result = period_kelly_criterion(ReturnsInput(returns))
+        assert result.value == 1.0
+
+    def test_all_losses(self):
+        """Zero when there are no wins."""
+        returns = np.array([-0.01, -0.02, -0.03])
+        result = period_kelly_criterion(ReturnsInput(returns))
+        assert result.value == 0.0
+
+    def test_no_bets(self):
+        """NaN when there are no non-zero periods."""
+        returns = np.zeros(5)
+        result = period_kelly_criterion(ReturnsInput(returns))
+        assert np.isnan(result.value)
+
+
+# ---------------------------------------------------------------------------
+# 1.2 Annualized Volatility: return_type="log"
+# ---------------------------------------------------------------------------
+
+
+class TestAnnualizedVolatilityLog:
+    def test_log_matches_manual(self, sample_input):
+        """Log-return annualized vol = std(ln(1+r), ddof=1) * sqrt(252)."""
+        r = sample_input.values[:, 0]
+        expected = np.std(np.log(1.0 + r), ddof=1) * np.sqrt(252)
+        result = annualized_volatility(sample_input, return_type="log")
+        assert result.value == pytest.approx(expected, rel=1e-12)
+        assert result.meta["return_type"] == "log"
+
+    def test_log_differs_from_simple(self, sample_input):
+        """Simple and log dispersion generally differ."""
+        simple = annualized_volatility(sample_input)
+        log = annualized_volatility(sample_input, return_type="log")
+        assert log.value != pytest.approx(simple.value)
+
+    def test_invalid_return_type(self, sample_input):
+        """Unknown return_type raises ValueError."""
+        with pytest.raises(ValueError):
+            annualized_volatility(sample_input, return_type="bogus")
+
+    def test_log_excludes_nan(self, daily_pp):
+        """NaN periods are dropped before computing log dispersion."""
+        returns = np.array([0.01, np.nan, -0.02, 0.03])
+        inp = ReturnsInput(returns, periods_per_year=daily_pp)
+        valid = np.log(1.0 + np.array([0.01, -0.02, 0.03]))
+        expected = np.std(valid, ddof=1) * np.sqrt(daily_pp)
+        result = annualized_volatility(inp, return_type="log")
+        assert result.value == pytest.approx(expected, rel=1e-12)

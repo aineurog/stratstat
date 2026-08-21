@@ -11,6 +11,8 @@ import pandas as pd
 import pytest
 
 from stratstat.core.returns.risk_adjusted import (
+    adjusted_sortino_ratio,
+    autocorr_penalty,
     burke_ratio,
     calmar_ratio,
     gain_to_pain_ratio,
@@ -20,11 +22,14 @@ from stratstat.core.returns.risk_adjusted import (
     modified_sharpe_ratio,
     omega_ratio,
     pain_ratio,
+    rar,
     recovery_factor,
     risk_return_ratio,
     roys_safety_first,
     serenity_ratio,
     sharpe_ratio,
+    smart_sharpe,
+    smart_sortino,
     sortino_ratio,
     sterling_ratio,
     upi,
@@ -750,7 +755,7 @@ class TestNaNHandling:
 
 class TestRegistryIntegration:
     def test_list_metrics_risk_adjusted(self):
-        """All 18 risk-adjusted metrics appear under the risk_adjusted category."""
+        """All 23 risk-adjusted metrics appear under the risk_adjusted category."""
         from stratstat.registry import list_metrics
 
         metrics = list_metrics(category="risk_adjusted")
@@ -774,6 +779,11 @@ class TestRegistryIntegration:
             "upside_potential_ratio",
             "risk_return_ratio",
             "roys_safety_first",
+            "autocorr_penalty",
+            "smart_sharpe",
+            "smart_sortino",
+            "adjusted_sortino_ratio",
+            "rar",
         }
         assert names == expected
 
@@ -786,17 +796,20 @@ class TestRegistryIntegration:
         assert isinstance(result.value, float)
 
     def test_compute_all_risk_adjusted(self, sample_input):
-        """compute_all(category='risk_adjusted') returns all 18 metrics."""
+        """compute_all(category='risk_adjusted') returns all 23 metrics."""
         from stratstat import compute_all
 
         results = compute_all(sample_input, category="risk_adjusted")
-        assert len(results) == 18
+        assert len(results) == 23
         names = {r.name for r in results}
         assert "sharpe_ratio" in names
         assert "kappa_3" in names
         assert "pain_ratio" in names
         assert "k_ratio" in names
         assert "upi" in names
+        assert "autocorr_penalty" in names
+        assert "smart_sharpe" in names
+        assert "rar" in names
 
 
 # ---------------------------------------------------------------------------
@@ -1029,3 +1042,147 @@ class TestRoysSafetyFirst:
         inp = ReturnsInput(returns)
         with pytest.raises(ValueError, match="periods_per_year"):
             roys_safety_first(inp)
+
+
+# ---------------------------------------------------------------------------
+# 3.19 Autocorrelation Penalty (Lo 2002)
+# ---------------------------------------------------------------------------
+
+
+class TestAutocorrPenalty:
+    def test_known_value(self):
+        """r = [1, -1, 1, -1] has |lag-1 corr| = 1 -> penalty = 2.0.
+
+        corr_k = ((n-k)/n) * 1^k summed over k=1..3 gives 1.5, so
+        penalty = sqrt(1 + 2*1.5) = 2.0.
+        """
+        returns = np.array([1.0, -1.0, 1.0, -1.0])
+        result = autocorr_penalty(ReturnsInput(returns))
+        assert result.value == pytest.approx(2.0, rel=1e-12)
+
+    def test_constant_series(self):
+        """Constant returns -> penalty 1.0 (no adjustment)."""
+        returns = np.full(10, 0.01)
+        result = autocorr_penalty(ReturnsInput(returns))
+        assert result.value == 1.0
+
+    def test_at_least_one(self, sample_input):
+        """Penalty is always >= 1 for real data."""
+        result = autocorr_penalty(sample_input)
+        assert result.value >= 1.0
+
+    def test_few_observations(self):
+        """Single observation -> NaN."""
+        result = autocorr_penalty(ReturnsInput(np.array([0.01])))
+        assert np.isnan(result.value)
+
+
+# ---------------------------------------------------------------------------
+# 3.20 Smart Sharpe Ratio (Lo 2002)
+# ---------------------------------------------------------------------------
+
+
+class TestSmartSharpe:
+    def test_equals_sharpe_over_penalty(self, sample_input):
+        """smart_sharpe = sharpe_ratio / autocorr_penalty."""
+        expected = sharpe_ratio(sample_input).value / autocorr_penalty(sample_input).value
+        result = smart_sharpe(sample_input)
+        assert result.value == pytest.approx(expected, rel=1e-12)
+
+    def test_meta_records_penalty(self, sample_input):
+        """The penalty is stored in meta for auditability."""
+        result = smart_sharpe(sample_input)
+        assert result.meta["autocorr_penalty"] == pytest.approx(
+            autocorr_penalty(sample_input).value, rel=1e-12
+        )
+
+    def test_nonzero_rf(self, sample_input):
+        """rf is threaded through to the Sharpe base."""
+        result = smart_sharpe(sample_input, rf=0.001)
+        expected = sharpe_ratio(sample_input, rf=0.001).value / autocorr_penalty(
+            sample_input
+        ).value
+        assert result.value == pytest.approx(expected, rel=1e-12)
+
+
+# ---------------------------------------------------------------------------
+# 3.21 Smart Sortino Ratio (Lo 2002)
+# ---------------------------------------------------------------------------
+
+
+class TestSmartSortino:
+    def test_equals_sortino_over_penalty(self, sample_input):
+        """smart_sortino = sortino_ratio / autocorr_penalty."""
+        expected = sortino_ratio(sample_input).value / autocorr_penalty(sample_input).value
+        result = smart_sortino(sample_input)
+        assert result.value == pytest.approx(expected, rel=1e-12)
+
+
+# ---------------------------------------------------------------------------
+# 3.22 Adjusted Sortino Ratio (Schwager)
+# ---------------------------------------------------------------------------
+
+
+class TestAdjustedSortinoRatio:
+    def test_equals_sortino_over_sqrt2(self, sample_input):
+        """adjusted_sortino = sortino_ratio / sqrt(2)."""
+        expected = sortino_ratio(sample_input).value / np.sqrt(2.0)
+        result = adjusted_sortino_ratio(sample_input)
+        assert result.value == pytest.approx(expected, rel=1e-12)
+
+    def test_denominator_convention(self, sample_input):
+        """Downside-only denominator threads through."""
+        expected = sortino_ratio(
+            sample_input, denominator="downside_only"
+        ).value / np.sqrt(2.0)
+        result = adjusted_sortino_ratio(sample_input, denominator="downside_only")
+        assert result.value == pytest.approx(expected, rel=1e-12)
+
+
+# ---------------------------------------------------------------------------
+# 3.23 Risk-Adjusted Return (RAR)
+# ---------------------------------------------------------------------------
+
+
+class TestRar:
+    def test_equals_cagr_over_exposure(self, sample_input):
+        """RAR = CAGR(excess) / exposure. With rf=0, exposure=1.0 here."""
+        from stratstat.core.returns.descriptive import cagr, exposure_time
+
+        expected = cagr(sample_input).value / exposure_time(sample_input).value
+        result = rar(sample_input)
+        assert result.value == pytest.approx(expected, rel=1e-12)
+
+    def test_requires_periods_per_year(self):
+        """RAR raises MetricNotApplicableError without periods_per_year."""
+        from stratstat.exceptions import MetricNotApplicableError
+
+        inp = ReturnsInput(np.array([0.01, -0.02, 0.03]))
+        with pytest.raises(MetricNotApplicableError):
+            rar(inp)
+
+    def test_all_zero_returns(self, daily_pp):
+        """Zero exposure -> NaN RAR (division by zero avoided)."""
+        inp = ReturnsInput(np.zeros(10), periods_per_year=daily_pp)
+        result = rar(inp)
+        assert np.isnan(result.value)
+
+    def test_percent_ceil_rounding(self, daily_pp):
+        """percent_ceil divides by the rounded exposure (QuantStats-compatible)."""
+        from stratstat.core.returns.descriptive import cagr, exposure_time
+
+        returns = np.array(
+            [0.01, 0.0, -0.02, 0.03, 0.0, 0.005, -0.01, 0.02, 0.0, 0.0, 0.001]
+        )
+        inp = ReturnsInput(returns, periods_per_year=daily_pp)
+        expected = cagr(inp).value / exposure_time(inp, rounding="percent_ceil").value
+        result = rar(inp, rounding="percent_ceil")
+        assert result.value == pytest.approx(expected, rel=1e-12)
+
+    def test_percent_ceil_differs_from_raw(self, daily_pp):
+        """Rounded exposure changes RAR when exposure is not a whole percent."""
+        returns = np.array(
+            [0.01, 0.0, -0.02, 0.03, 0.0, 0.005, -0.01, 0.02, 0.0, 0.0, 0.001]
+        )
+        inp = ReturnsInput(returns, periods_per_year=daily_pp)
+        assert rar(inp, rounding="percent_ceil").value != rar(inp).value

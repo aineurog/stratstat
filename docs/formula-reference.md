@@ -18,6 +18,7 @@
 | VaR / CVaR | `confidence` | `float` in `(0, 1)` | `0.95` | Jorion (2006, §5.2); Basel Committee (1996) |
 | CVaR / ES | `method` | `historical`, `parametric` | `historical` | Rockafellar & Uryasev (2000) |
 | Beta | `variant` | `least_squares` | `least_squares` | Sharpe (1964) |
+| Annualized volatility | `return_type` | `simple`, `log` | `simple` | CFA Institute, *Quantitative Methods* |
 | Tail ratio | `tail_cutoff` | `float` in `(0, 0.5)` | `0.05` | Connor, Goldberg & Korajczyk (2010, Ch. 9) |
 | Hill tail index | `tail_fraction` | `float` in `(0, 1)` | `0.10` | Hill (1975); upper 10 % tail |
 | PSR | `sharpe_benchmark` | `float` ≥ 0 | `0.0` | Bailey & López de Prado (2012) |
@@ -54,8 +55,13 @@ $$\sigma_{\text{ann}} = \sigma \cdot \sqrt{P}$$
 where $\sigma$ is the sample standard deviation (ddof = 1) of period
 returns and $P$ is `periods_per_year`.
 
+With `return_type="log"`, $\sigma$ is the standard deviation of the log
+returns $\ln(1 + r_t)$ instead of the simple returns $r_t$. This is the
+StratStat equivalent of QuantStats `implied_volatility`.
+
 **Citation:** CFA Institute, *Quantitative Methods* (CFA Program
-Curriculum, Level I, Vol. 1).
+Curriculum, Level I, Vol. 1). Convention parameter: `return_type` —
+`"simple"` (default) or `"log"`.
 
 ### 1.3 Cumulative Return
 
@@ -173,7 +179,59 @@ where $\text{IQR} = Q_3 - Q_1$.
 
 **Citation:** Tukey (1977, *Exploratory Data Analysis*).
 
-### 1.17 Negative-Period Ratio
+### 1.17 Stability of Time Series
+
+$$\text{Stability} = R^2 = 1 - \frac{SS_{\text{res}}}{SS_{\text{tot}}}$$
+
+from the OLS regression of the cumulative log return on time:
+
+$$y_t = \sum_{\tau=1}^{t}\ln(1 + r_\tau), \qquad
+y_t = \alpha + \beta\,t + \varepsilon_t$$
+
+An $R^2$ close to 1 indicates a smooth, consistent growth path; close to 0
+indicates an erratic equity curve. NaN for fewer than 3 observations.
+
+**Citation:** Standard regression; cited in empyrical.
+
+### 1.18 Hurst Exponent
+
+Rescaled-range (R/S) analysis. For lag scales
+$\tau = \lfloor n / 2^k \rfloor$ ($k = 1, 2, \dots$, stopping when
+$\tau < 10$), partition the series into blocks of length $\tau$. For each
+block compute the cumulative deviate from the block mean, then
+
+$$(R/S)_\tau = \text{mean}_{\text{blocks}}
+\frac{\max(\text{dev}) - \min(\text{dev})}{\sigma_{\text{block}}}$$
+
+Regressing $\ln(R/S)_\tau$ on $\ln\tau$ gives slope $H$. Requires at least
+50 periods. $H > 0.5$: trending; $H \approx 0.5$: random walk; $H < 0.5$:
+mean-reverting.
+
+**Citation:** Hurst (1951); Mandelbrot (1972).
+
+### 1.19 Fractal Dimension
+
+$$D = 2 - H$$
+
+where $H$ is the Hurst exponent (§1.18). $D \approx 1.5$ for a random walk,
+$D < 1.5$ for a smoother trending curve, $D > 1.5$ for a rougher
+mean-reverting curve. Requires at least 50 periods (inherited from the
+Hurst computation).
+
+**Citation:** Mandelbrot (1975).
+
+### 1.20 Consecutive Wins/Losses
+
+Maximum and current streaks of consecutive positive ($r_t > 0$) and
+negative ($r_t < 0$) return periods. A period with zero return or NaN
+breaks all streaks. Returns a dict with keys `max_win_streak`,
+`max_loss_streak`, `current_win_streak`, `current_loss_streak`. This is the
+returns-level analogue of the trade-level `max_consecutive_wins` /
+`max_consecutive_losses` metrics (§7.12–7.13).
+
+**Citation:** Schwager (1995, *Schwager on Futures: Technical Analysis*).
+
+### 1.21 Negative-Period Ratio
 
 $$\text{NPR} = \frac{1}{n}\sum_{t=1}^{n}\mathbf{1}_{[r_t < 0]}$$
 
@@ -182,6 +240,70 @@ non-negative. NPR + PPR ≤ 1, with strict inequality when any period
 returns exactly zero.
 
 **Citation:** Bacon (2008, §3.11).
+
+### 1.22 Exposure Time
+
+$$\text{exposure} = \frac{1}{n}\sum_{t=1}^{n}\mathbf{1}_{[r_t \neq 0]}$$
+
+Share of periods the strategy is invested (non-zero return). NaN periods
+are counted as not invested. Maps to QuantStats `exposure`.
+
+**Citation:** Industry convention; no independent academic source identified.
+
+### 1.23 Average Up Period
+
+$$\bar{r}_{\text{up}} = \frac{\sum_{t=1}^{n} r_t\,\mathbf{1}_{[r_t > 0]}}
+{\sum_{t=1}^{n}\mathbf{1}_{[r_t > 0]}}$$
+
+Mean of the strictly positive period returns. NaN when no positive periods.
+Maps to QuantStats `avg_win`.
+
+**Citation:** Industry convention; no independent academic source identified.
+
+### 1.24 Average Down Period
+
+$$\bar{r}_{\text{down}} = \frac{\sum_{t=1}^{n} r_t\,\mathbf{1}_{[r_t < 0]}}
+{\sum_{t=1}^{n}\mathbf{1}_{[r_t < 0]}}$$
+
+Mean of the strictly negative period returns, sign preserved (negative).
+NaN when no negative periods. Maps to QuantStats `avg_loss`.
+
+**Citation:** Industry convention; no independent academic source identified.
+
+### 1.25 Period Profit Factor
+
+$$\text{PF} = \frac{\sum_{t=1}^{n}\max(r_t,\,0)}
+{|\sum_{t=1}^{n}\min(r_t,\,0)|}$$
+
+Returns-level analogue of the trade-level `profit_factor` (§7.8). Inf when
+there are gains but no losses; NaN when there are neither.
+
+**Citation:** QuantStats-compatible convention; no independent academic
+source identified.
+
+### 1.26 Period Payoff Ratio
+
+$$\text{payoff} = \frac{\bar{r}_{\text{up}}}{|\bar{r}_{\text{down}}|}$$
+
+Returns-level analogue of the trade-level `payoff_ratio` (§7.20). Maps to
+QuantStats `payoff_ratio` / `win_loss_ratio` (which QuantStats defines at
+the period level as avg_win / |avg_loss|). Inf when there are gains but no
+losses.
+
+**Citation:** QuantStats-compatible convention; no independent academic
+source identified.
+
+### 1.27 Period Kelly Criterion
+
+$$f^{*} = W - \frac{1 - W}{\text{payoff}},\qquad
+W = \frac{n_{\text{up}}}{n_{\text{up}} + n_{\text{down}}}$$
+
+Optimal bet fraction treating each non-zero period as a bet. Zero and NaN
+periods are excluded from the win probability. Returns-level analogue of
+the trade-level `kelly_criterion` (§7.30).
+
+**Citation:** Kelly (1956), "A New Interpretation of Information Rate,"
+*Bell System Technical Journal*, 35(4); period-based adaptation.
 
 ---
 
@@ -409,7 +531,33 @@ Sum of all underwater-period lengths.
 
 **Citation:** Bacon (2008, §7.2).
 
-### 2.21 Downside Semi-Variance
+### 2.21 Pain Index
+
+$$\text{PI} = \frac{1}{n}\sum_{t=1}^{n} d_t, \qquad
+d_t = \frac{P_t - \max_{\tau \le t} P_\tau}{\max_{\tau \le t} P_\tau}$$
+
+Mean of percentage drawdowns over ALL periods, including periods at zero
+drawdown. Unlike average drawdown (§2.4), which averages only across
+underwater episodes, the Pain Index is smaller in magnitude (less negative)
+for strategies that spend time at new highs.
+
+**Citation:** Zephyr Associates; Becker (2006).
+
+### 2.22 Prospect Ratio
+
+$$\text{PR} = \frac{\text{USV}}{\text{DSV}}, \qquad
+\text{USV} = \frac{1}{n}\sum_{t=1}^{n}\max(r_t - \text{mar},\,0)^2, \qquad
+\text{DSV} = \frac{1}{n}\sum_{t=1}^{n}\min(r_t - \text{mar},\,0)^2$$
+
+Ratio of upside semivariance to downside semivariance. The denominator DSV
+is the downside semi-variance (§2.23) — the raw second moment below MAR.
+Values > 1 indicate gain dispersion exceeds loss dispersion; < 1 the
+reverse. Inf when there is no downside; NaN when there is neither upside
+nor downside.
+
+**Citation:** Watanabe (2005). Convention parameter: `mar` — default `0.0`.
+
+### 2.23 Downside Semi-Variance
 
 $$\text{DSV} = \frac{1}{n}\sum_{t=1}^{n}\min(r_t - \tau,\; 0)^2$$
 
@@ -419,7 +567,7 @@ so it is additive across positions and suits portfolio optimisation.
 
 **Citation:** Markowitz (1959); Sortino & van der Meer (1991).
 
-### 2.22 Modified VaR
+### 2.24 Modified VaR
 
 $$\text{MVaR} = -(\mu + z_{\text{CF}}\cdot\sigma)$$
 
@@ -530,7 +678,95 @@ $$\text{GPR} = \frac{\sum_{t=1}^{n}\max(r_t, 0)}
 
 **Citation:** Bacon (2008, §8.4).
 
-### 3.10 Roy's Safety-First Ratio
+### 3.10 Pain Ratio
+
+$$\text{Pain Ratio} = \frac{\text{CAGR}}{|\text{PI}|}$$
+
+CAGR divided by the absolute value of the Pain Index (§2.21). Higher values
+indicate a better return per unit of drawdown pain. Inf when the Pain Index
+is zero; NaN when CAGR is undefined.
+
+**Citation:** Zephyr Associates.
+
+### 3.11 Recovery Factor
+
+$$\text{RF} = \frac{\prod_{t=1}^{n}(1 + r_t) - 1}{|\text{MDD}|}$$
+
+Total cumulative return divided by absolute max drawdown (§2.1). Uses TOTAL
+return, not CAGR (which is the Calmar ratio, §3.3). Inf when max drawdown is
+zero.
+
+**Citation:** Industry convention.
+
+### 3.12 K-Ratio
+
+$$y_t = \sum_{\tau=1}^{t}\ln(1 + r_\tau), \qquad
+y_t = \alpha + \beta\,t + \varepsilon_t, \qquad
+K = \frac{\beta}{\text{SE}(\beta)}, \qquad
+\text{SE}(\beta) = \sqrt{\frac{\text{MSE}}{\sum_t (t - \bar{t})^2}}$$
+
+Slope of the log-VAMI regression divided by its standard error; measures the
+consistency of equity-curve growth. Higher values indicate a smoother, more
+linear curve. Requires at least 3 periods.
+
+**Citation:** Kestner (1996), revised 2003.
+
+### 3.13 Serenity Ratio
+
+$$\text{Serenity} = \frac{R_p - R_f}{\sigma_p \cdot \text{UI}}$$
+
+where $R_p$ is the annualized arithmetic mean return, $R_f$ the annualized
+risk-free rate, $\sigma_p$ the annualized volatility (§1.2), and UI the
+Ulcer Index (§2.6). Both volatility and drawdown risk must be low for a high
+score. NaN when volatility or Ulcer Index is zero.
+
+**Citation:** Industry metric; used by PortfolioMetrics.
+
+### 3.14 UPI (Ulcer Performance Index)
+
+$$\text{UPI} = \frac{R_p - R_f}{\text{UI}}$$
+
+Same numerator as the Serenity ratio (§3.13) but divided by the Ulcer Index
+alone, not the product with volatility. Differs from the Martin ratio
+(§3.8), which uses CAGR in the numerator. NaN when the Ulcer Index is zero.
+
+**Citation:** Martin & McCann (1989).
+
+### 3.15 Modified Sharpe Ratio
+
+$$\text{MSR} = \frac{R_p - R_f}{\text{MVaR}}$$
+
+Excess return divided by Modified VaR (§2.24), which uses the Cornish-Fisher
+expansion to adjust for skewness and excess kurtosis rather than assuming
+normality. NaN when Modified VaR is zero.
+
+**Citation:** Gregoriou & Gueyie (2003). Convention parameter: `confidence`
+— default `0.95`.
+
+### 3.16 Upside Potential Ratio
+
+$$\text{UPR} = \frac{\frac{1}{n}\sum_{t=1}^{n}\max(r_t - \text{mar},\,0)}
+{\sqrt{\frac{1}{n}\sum_{t=1}^{n}\min(r_t - \text{mar},\,0)^2}}$$
+
+Sortino variant that replaces the mean excess return in the numerator with
+upside potential (the mean of only positive excess returns). The denominator
+is downside deviation (§2.7). Inf when there is no downside; NaN when there
+is neither upside nor downside.
+
+**Citation:** Sortino, van der Meer & Plantinga (1999). Convention
+parameter: `mar` — default `0.0`.
+
+### 3.17 Risk Return Ratio
+
+$$\text{RRR} = \frac{\bar{r} \cdot P}{|\text{MDD}|}$$
+
+Annualized arithmetic return divided by absolute max drawdown (§2.1).
+Simpler than the Calmar ratio (§3.3), which uses CAGR. Inf when max drawdown
+is zero.
+
+**Citation:** Industry convention.
+
+### 3.18 Roy's Safety-First Ratio
 
 $$\text{RSF} = \frac{\bar{R}_p - \text{MAR}}{\sigma_p}$$
 
@@ -540,6 +776,53 @@ probability of falling short of MAR under a normality assumption.
 
 **Citation:** Roy (1952), "Safety First and the Holding of Assets,"
 *Econometrica*, 20(3).
+
+### 3.19 Autocorrelation Penalty (Lo 2002)
+
+$$\rho_1 = \text{Corr}(r_{t}, r_{t-1}),\qquad
+\text{penalty} = \sqrt{1 + 2\sum_{k=1}^{n-1}\frac{n-k}{n}\,|\rho_1|^k}$$
+
+The penalty factor is ≥ 1 and shrinks the Sharpe/Sortino ratios to account
+for positive serial dependence. A constant series yields a penalty of 1.0.
+
+**Citation:** Lo (2002), "The Statistics of Sharpe Ratios," *Financial
+Analysts Journal*, 58(4).
+
+### 3.20 Smart Sharpe Ratio
+
+$$\text{smart\_sharpe} = \frac{\text{Sharpe}}{\text{autocorrelation penalty}}$$
+
+Sharpe ratio (§3.1) divided by the Lo autocorrelation penalty (§3.19).
+
+**Citation:** Lo (2002), *Financial Analysts Journal*, 58(4).
+
+### 3.21 Smart Sortino Ratio
+
+$$\text{smart\_sortino} = \frac{\text{Sortino}}{\text{autocorrelation penalty}}$$
+
+Sortino ratio (§3.2) divided by the Lo autocorrelation penalty (§3.19).
+
+**Citation:** Lo (2002), *Financial Analysts Journal*, 58(4).
+
+### 3.22 Adjusted Sortino Ratio
+
+$$\text{adjusted\_sortino} = \frac{\text{Sortino}}{\sqrt{2}}$$
+
+The Sortino ratio (§3.2) divided by $\sqrt{2}$, so a symmetric return
+distribution gives an adjusted Sortino comparable to the Sharpe ratio.
+
+**Citation:** Schwager (2012), *Hedge Fund Market Wizards*.
+
+### 3.23 Risk-Adjusted Return (RAR)
+
+$$\text{RAR} = \frac{\text{CAGR}(r - r_f)}{\text{exposure}}$$
+
+CAGR of the excess returns divided by exposure time (§1.22). A higher value
+means more growth per unit of time actually invested. Maps to QuantStats
+`rar`.
+
+**Citation:** QuantStats-compatible convention; no independent academic
+source identified.
 
 ---
 
@@ -646,6 +929,90 @@ each resample, return empirical CI.
 and the Bootstrap for General Stationary Observations," *Annals of
 Statistics*, 17(3). Politis & White (2004) for block-length selection.
 Default: 5,000 reps, automatic block length, 95 % equal-tailed CI.
+
+### 4.9 Bias Ratio
+
+$$\text{Bias Ratio} = \frac{\sum_{t}\mathbf{1}_{[\,|r_t| < b\,\sigma\,]}}
+{\max\!\left(\sum_{t}\mathbf{1}_{[\,|r_t| \ge b\,\sigma\,]},\;1\right)}$$
+
+Count of returns within a narrow band around zero (width $b$ standard
+deviations, default $b = 1.0$, with $\sigma$ the sample standard deviation
+ddof = 1) divided by the count outside the band (floored at 1). Detects
+smoothed or manipulated returns: a high value suggests clustering around
+zero. Requires at least 2 periods.
+
+**Citation:** Abdulali (2006), "Detecting Smoothed Returns." Convention
+parameter: `bandwidth` — default `1.0`.
+
+### 4.10 Skewness-Adjusted Sharpe Ratio (ASR)
+
+$$\text{ASR} = \text{SR}\!\left(1 + \frac{\gamma_3}{6}\text{SR} -
+\frac{\gamma_4}{24}\text{SR}^2\right)$$
+
+Adjusts the (annualized) Sharpe ratio (§3.1) for the sample skewness
+$\gamma_3$ (§1.6) and sample excess kurtosis $\gamma_4$ (§1.7). For normal
+returns ASR ≈ SR; positive skewness raises ASR, excess kurtosis lowers it
+(penalising fat tails). Requires at least 4 observations.
+
+**Citation:** Pezier & White (2008).
+
+### 4.11 Probabilistic Sortino Ratio
+
+$$\text{PSortino} = \Phi\!\left(\frac{(\widehat{So} - So^*) \sqrt{n-1}}
+{\sqrt{1 - \hat{\gamma}_3 \widehat{So} +
+\frac{\hat{\gamma}_4 - 1}{4} \widehat{So}^2}}\right)$$
+
+The probabilistic ratio of Bailey & López de Prado applied to the period
+(non-annualized) Sortino base instead of the Sharpe base. $\widehat{So}$ is
+the period Sortino ratio, $So^*$ the benchmark Sortino at period frequency
+(default 0), and $\Phi$ the standard normal CDF.
+
+**Citation:** Bailey & López de Prado (2012), "The Sharpe Ratio Efficient
+Frontier," *JPM*, 38(5); QuantStats-compatible extension to the Sortino
+base.
+
+### 4.12 Probabilistic Adjusted Sortino Ratio
+
+$$\text{PAdjSortino} = \Phi\!\left(\frac{(\widehat{So}/\sqrt{2} - So^*) \sqrt{n-1}}
+{\sqrt{1 - \hat{\gamma}_3 \widehat{So}/\sqrt{2} +
+\frac{\hat{\gamma}_4 - 1}{4} (\widehat{So}/\sqrt{2})^2}}\right)$$
+
+The same construction as §4.11, with the adjusted Sortino base
+($\widehat{So}/\sqrt{2}$) in place of the Sortino base.
+
+**Citation:** Bailey & López de Prado (2012); Schwager (2012) adjusted
+Sortino base; QuantStats-compatible extension.
+
+### 4.13 Monte Carlo Distribution
+
+Non-parametric with-replacement bootstrap (Efron). Resample the historical
+returns $n$ periods at a time, `sims` times (default 1000), compute the
+chosen terminal statistic on each path, and return the summary
+
+$$[\min,\; p_{05},\; \text{median},\; \text{mean},\; p_{95},\; \max,\; \sigma]$$
+
+`target` selects the terminal statistic: `"equity"` (total return),
+`"sharpe"` (annualized), `"max_drawdown"`, or `"cagr"` (annualized).
+Sampling is **with replacement** — a permutation would leave the mean,
+standard deviation, and terminal equity invariant, yielding degenerate
+distributions for the Sharpe, CAGR, and equity targets.
+
+**Citation:** Efron & Tibshirani (1994, *An Introduction to the
+Bootstrap*).
+
+### 4.14 Monte Carlo Probabilities
+
+Bootstrap the same paths as §4.13 and report
+
+$$\left[p_{\text{bust}},\; p_{\text{goal}}\right] =
+\left[\Pr(\text{MDD} \le \text{bust}),\;
+\Pr(R_{\text{terminal}} \ge \text{goal})\right]$$
+
+where `bust` is a (negative) drawdown threshold and `goal` a terminal-return
+threshold. A threshold left as `None` yields NaN for its probability.
+
+**Citation:** Efron & Tibshirani (1994, *An Introduction to the
+Bootstrap*).
 
 ---
 

@@ -92,3 +92,45 @@ def test_explicit_argument_beats_default():
     r = ReturnsInput(np.array([0.01, -0.02, 0.03, 0.01, -0.01]), periods_per_year=252)
     result = sharpe_ratio(r, ddof=1)
     assert result.meta["ddof"] == 1
+
+
+def test_default_wires_into_exposure_time_rounding():
+    """Session default should round exposure up to the nearest percent."""
+    from stratstat.core.returns.descriptive import exposure_time
+
+    set_default("exposure_time", "rounding=percent_ceil")
+    returns = np.array(
+        [0.01, 0.0, -0.02, 0.03, 0.0, 0.005, -0.01, 0.02, 0.0, 0.0, 0.001]
+    )
+    result = exposure_time(ReturnsInput(returns))
+    assert result.value == pytest.approx(0.64, rel=1e-12)
+
+
+def test_default_wires_into_rar_rounding():
+    """Session default should select RAR's rounded exposure denominator."""
+    from stratstat.core.returns.risk_adjusted import rar
+
+    set_default("rar", "rounding=percent_ceil")
+    returns = np.array(
+        [0.01, 0.0, -0.02, 0.03, 0.0, 0.005, -0.01, 0.02, 0.0, 0.0, 0.001]
+    )
+    result = rar(ReturnsInput(returns, periods_per_year=252))
+    assert result.meta["rounding"] == "percent_ceil"
+
+
+def test_default_wires_into_psr_se_formula():
+    """Session default should select the Lo standard-error formula."""
+    from stratstat.core.returns.inference import psr
+
+    set_default("psr", "se_formula=lo")
+    r = ReturnsInput(np.array([0.01, -0.02, 0.03, 0.01, -0.01]), periods_per_year=252)
+    result = psr(r)
+    assert result.meta["se_formula"] == "lo"
+
+
+def test_invalid_new_conventions_raise():
+    """The new convention parameters reject out-of-vocabulary values."""
+    with pytest.raises(ConventionError):
+        set_default("exposure_time", "rounding=nearest")
+    with pytest.raises(ConventionError):
+        set_default("psr", "se_formula=lo2")

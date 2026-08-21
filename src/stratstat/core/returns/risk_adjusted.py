@@ -1335,3 +1335,335 @@ def roys_safety_first(
             "ddof": ddof,
         },
     )
+
+
+# ---------------------------------------------------------------------------
+# Autocorrelation penalty and its smart ratios
+# Reference: Lo (2002)
+# ---------------------------------------------------------------------------
+
+_LO_2002_REF = (
+    "Lo (2002), 'The Statistics of Sharpe Ratios,' "
+    "Financial Analysts Journal, 58(4)"
+)
+
+
+def _autocorr_penalty_col(col: NDArray[np.floating]) -> float:
+    """Lo (2002) autocorrelation penalty factor for one return column.
+
+    The penalty is sqrt(1 + 2 * sum_{k=1}^{n-1} ((n - k) / n) * rho^k)
+    where rho is the absolute lag-1 autocorrelation. NaN observations are
+    dropped before computing the lag-1 coefficient.
+    """
+    x = col[~np.isnan(col)]
+    n = len(x)
+    if n < 2:
+        return np.nan
+
+    if np.nanstd(x, ddof=1) < 1e-15:
+        return 1.0  # constant series → no autocorrelation adjustment
+
+    coef = abs(np.corrcoef(x[:-1], x[1:])[0, 1])
+    if np.isnan(coef):
+        return np.nan
+
+    k = np.arange(1, n)
+    corr = ((n - k) / n) * (coef**k)
+    return float(np.sqrt(1.0 + 2.0 * np.sum(corr)))
+
+
+@register_metric(
+    name="autocorr_penalty",
+    requires="returns",
+    category=("risk_adjusted", "returns"),
+    backend="vectorized",
+    ref=_LO_2002_REF,
+)
+def autocorr_penalty(input_data: ReturnsInput) -> MetricResult:
+    """Lo (2002) autocorrelation penalty factor (>= 1).
+
+    Formula:
+        penalty = sqrt(1 + 2 * sum_{k=1}^{n-1} ((n - k) / n) * rho^k)
+
+    where rho is the absolute lag-1 autocorrelation of the returns. A value
+    greater than 1 shrinks the Sharpe and Sortino ratios to account for
+    positive serial dependence.
+
+    Args:
+        input_data: A ``ReturnsInput``.
+
+    Returns:
+        MetricResult with the penalty factor (float or array).
+    """
+    r = input_data.values
+    n_strat = r.shape[1]
+
+    arr = np.full(n_strat, np.nan, dtype=np.float64)
+    for col in range(n_strat):
+        arr[col] = _autocorr_penalty_col(r[:, col])
+
+    value: float | NDArray[np.floating]
+    value = float(arr[0]) if input_data.is_single else arr
+
+    return MetricResult(
+        name="autocorr_penalty",
+        value=value,
+        category=("risk_adjusted", "returns"),
+        periods_per_year=input_data.periods_per_year,
+        meta={"ref": _LO_2002_REF},
+    )
+
+
+# ---------------------------------------------------------------------------
+# 3.19 Smart Sharpe Ratio
+# Reference: Lo (2002)
+# ---------------------------------------------------------------------------
+
+
+@register_metric(
+    name="smart_sharpe",
+    requires="returns",
+    category=("risk_adjusted", "returns"),
+    backend="vectorized",
+    ref=_LO_2002_REF,
+)
+def smart_sharpe(
+    input_data: ReturnsInput,
+    rf: float = 0.0,
+    ddof: int | None = None,
+) -> MetricResult:
+    """Sharpe ratio divided by the Lo (2002) autocorrelation penalty.
+
+    Formula:
+        smart_sharpe = sharpe_ratio / autocorr_penalty
+
+    Args:
+        input_data: A ``ReturnsInput`` with ``periods_per_year`` set.
+        rf: Risk-free rate per period (default 0.0).
+        ddof: Delta degrees of freedom for the Sharpe std; falls back to the
+            ``sharpe_ratio`` convention (default 1).
+
+    Returns:
+        MetricResult with the smart Sharpe ratio (float or array).
+    """
+    ddof = resolve_convention(ddof, "sharpe_ratio", "ddof", 1)
+
+    sr = sharpe_ratio(input_data, rf=rf, ddof=ddof)
+    penalty = autocorr_penalty(input_data)
+
+    arr = sr.value / penalty.value
+
+    value: float | NDArray[np.floating]
+    value = float(arr) if input_data.is_single else arr
+
+    return MetricResult(
+        name="smart_sharpe",
+        value=value,
+        category=("risk_adjusted", "returns"),
+        periods_per_year=input_data.periods_per_year,
+        meta={
+            "ref": _LO_2002_REF,
+            "rf": rf,
+            "ddof": ddof,
+            "autocorr_penalty": penalty.value,
+        },
+    )
+
+
+# ---------------------------------------------------------------------------
+# 3.20 Smart Sortino Ratio
+# Reference: Lo (2002)
+# ---------------------------------------------------------------------------
+
+
+@register_metric(
+    name="smart_sortino",
+    requires="returns",
+    category=("risk_adjusted", "returns"),
+    backend="vectorized",
+    ref=_LO_2002_REF,
+)
+def smart_sortino(
+    input_data: ReturnsInput,
+    rf: float = 0.0,
+    mar: float = 0.0,
+    denominator: str | None = None,
+) -> MetricResult:
+    """Sortino ratio divided by the Lo (2002) autocorrelation penalty.
+
+    Formula:
+        smart_sortino = sortino_ratio / autocorr_penalty
+
+    Args:
+        input_data: A ``ReturnsInput`` with ``periods_per_year`` set.
+        rf: Risk-free rate per period (default 0.0).
+        mar: Minimum acceptable return for the downside deviation (default 0.0).
+        denominator: Downside denominator convention; falls back to the
+            ``sortino_ratio`` convention (default ``"full_downside"``).
+
+    Returns:
+        MetricResult with the smart Sortino ratio (float or array).
+    """
+    denominator = resolve_convention(
+        denominator, "sortino_ratio", "denominator", "full_downside"
+    )
+
+    so = sortino_ratio(input_data, rf=rf, mar=mar, denominator=denominator)
+    penalty = autocorr_penalty(input_data)
+
+    arr = so.value / penalty.value
+
+    value: float | NDArray[np.floating]
+    value = float(arr) if input_data.is_single else arr
+
+    return MetricResult(
+        name="smart_sortino",
+        value=value,
+        category=("risk_adjusted", "returns"),
+        periods_per_year=input_data.periods_per_year,
+        meta={
+            "ref": _LO_2002_REF,
+            "rf": rf,
+            "mar": mar,
+            "denominator": denominator,
+            "autocorr_penalty": penalty.value,
+        },
+    )
+
+
+# ---------------------------------------------------------------------------
+# 3.21 Adjusted Sortino Ratio
+# Reference: Schwager (2012)
+# ---------------------------------------------------------------------------
+
+_ADJ_SORTINO_REF = (
+    "Schwager (2012), 'Hedge Fund Market Wizards'; the adjusted Sortino "
+    "ratio, which divides the Sortino ratio by sqrt(2) for comparability "
+    "with the Sharpe ratio."
+)
+
+
+@register_metric(
+    name="adjusted_sortino_ratio",
+    requires="returns",
+    category=("risk_adjusted", "returns"),
+    backend="vectorized",
+    ref=_ADJ_SORTINO_REF,
+)
+def adjusted_sortino_ratio(
+    input_data: ReturnsInput,
+    rf: float = 0.0,
+    mar: float = 0.0,
+    denominator: str | None = None,
+) -> MetricResult:
+    """Schwager's adjusted Sortino ratio: the Sortino ratio divided by sqrt(2).
+
+    Formula:
+        adjusted_sortino = sortino_ratio / sqrt(2)
+
+    Args:
+        input_data: A ``ReturnsInput`` with ``periods_per_year`` set.
+        rf: Risk-free rate per period (default 0.0).
+        mar: Minimum acceptable return for the downside deviation (default 0.0).
+        denominator: Downside denominator convention; falls back to the
+            ``sortino_ratio`` convention (default ``"full_downside"``).
+
+    Returns:
+        MetricResult with the adjusted Sortino ratio (float or array).
+    """
+    denominator = resolve_convention(
+        denominator, "sortino_ratio", "denominator", "full_downside"
+    )
+
+    so = sortino_ratio(input_data, rf=rf, mar=mar, denominator=denominator)
+
+    arr = so.value / np.sqrt(2.0)
+
+    value: float | NDArray[np.floating]
+    value = float(arr) if input_data.is_single else arr
+
+    return MetricResult(
+        name="adjusted_sortino_ratio",
+        value=value,
+        category=("risk_adjusted", "returns"),
+        periods_per_year=input_data.periods_per_year,
+        meta={
+            "ref": _ADJ_SORTINO_REF,
+            "rf": rf,
+            "mar": mar,
+            "denominator": denominator,
+        },
+    )
+
+
+# ---------------------------------------------------------------------------
+# 3.22 Risk-Adjusted Return (RAR)
+# ---------------------------------------------------------------------------
+
+_RAR_REF = (
+    "QuantStats-compatible convention; no independent academic source identified."
+)
+
+
+@register_metric(
+    name="rar",
+    requires="returns",
+    category=("risk_adjusted", "returns"),
+    backend="vectorized",
+    ref=_RAR_REF,
+)
+def rar(input_data: ReturnsInput, rf: float = 0.0, rounding: str | None = None) -> MetricResult:
+    """Risk-adjusted return: CAGR divided by exposure time.
+
+    Formula:
+        RAR = CAGR(excess) / exposure
+
+    where ``excess = r - rf`` (rf per period), CAGR is computed on the excess
+    returns, and exposure is the share of periods with a non-zero excess
+    return. A higher value means more growth per unit of time actually
+    invested.
+
+    Args:
+        input_data: A ``ReturnsInput`` with ``periods_per_year`` set.
+        rf: Risk-free rate per period (default 0.0).
+        rounding: ``"raw"`` (default) divides by the exact exposure share;
+            ``"percent_ceil"`` rounds the exposure denominator up to the
+            nearest whole percent (QuantStats-compatible).
+
+    Returns:
+        MetricResult with the risk-adjusted return (float or array).
+    """
+    if input_data.periods_per_year is None:
+        raise MetricNotApplicableError(
+            "rar requires periods_per_year on the ReturnsInput"
+        )
+
+    rounding = resolve_convention(rounding, "rar", "rounding", "raw")
+
+    r = input_data.values
+    p = float(input_data.periods_per_year)
+
+    excess = r - rf
+    cagr_arr = compute_cagr(excess, p)  # (n_strategies,)
+
+    nonzero = (~np.isnan(excess)) & (excess != 0.0)
+    n_nonzero = np.sum(nonzero, axis=0).astype(np.float64)
+    n = r.shape[0]
+    exposure = np.where(n > 0, n_nonzero / float(n), np.nan)
+    if rounding == "percent_ceil":
+        exposure = np.ceil(exposure * 100.0) / 100.0
+
+    exposure_safe = np.where(exposure == 0.0, np.nan, exposure)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        arr = cagr_arr / exposure_safe
+
+    value: float | NDArray[np.floating]
+    value = float(arr[0]) if input_data.is_single else arr
+
+    return MetricResult(
+        name="rar",
+        value=value,
+        category=("risk_adjusted", "returns"),
+        periods_per_year=input_data.periods_per_year,
+        meta={"ref": _RAR_REF, "rf": rf, "rounding": rounding},
+    )

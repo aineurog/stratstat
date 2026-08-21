@@ -26,6 +26,10 @@ from stratstat.core.returns.inference import (
     jarque_bera,
     lo_sharpe_se,
     min_track_record_length,
+    monte_carlo_distribution,
+    monte_carlo_probabilities,
+    probabilistic_adjusted_sortino_ratio,
+    probabilistic_sortino_ratio,
     psr,
     sharpe_ci_analytic,
     sharpe_ci_bootstrap,
@@ -116,6 +120,17 @@ class TestHelpers:
         # denom = sqrt(1 - 0 + (3-1)/4 * 0.25) = sqrt(1 + 0.125) = sqrt(1.125) ≈ 1.06066
         # z = 0.5 * sqrt(99) / 1.06066 ≈ 4.689
         expected = 0.5 * np.sqrt(99) / np.sqrt(1.0 + 2.0 / 4.0 * 0.25)
+        assert float(z[0]) == pytest.approx(expected, rel=1e-10)
+
+    def test_psr_z_lo(self):
+        """PSR z-score under the Lo (2002)/QuantStats standard-error formula."""
+        sr = np.array([0.5])
+        skew = np.array([0.0])
+        ek = np.array([0.0])  # excess kurt = 0
+        z = _psr_z(sr, 0.0, skew, ek, n=100, se_formula="lo")
+        # denom = sqrt(1 + 0.5*0.25 - 0 + (0-3)/4*0.25)
+        #       = sqrt(1 + 0.125 - 0.1875) = sqrt(0.9375)
+        expected = 0.5 * np.sqrt(99) / np.sqrt(0.9375)
         assert float(z[0]) == pytest.approx(expected, rel=1e-10)
 
 
@@ -274,6 +289,39 @@ class TestPSR:
 
         result = psr(sample_input, sr_benchmark=0.0)
         assert result.value == pytest.approx(expected, rel=1e-10)
+
+    def test_se_formula_lo_matches_independent(self, sample_input):
+        """se_formula='lo' uses the Lo (2002)/QuantStats denominator."""
+        import math
+
+        r = sample_input.values[:, 0]
+        n = len(r)
+        mean = float(np.mean(r))
+        std = float(np.std(r, ddof=1))
+        sr = mean / std
+
+        z_vals = (r - mean) / std
+        m3 = float(np.sum(z_vals**3))
+        skew = n / ((n - 1) * (n - 2)) * m3
+        m4 = float(np.sum(z_vals**4))
+        a = n * (n + 1) / ((n - 1) * (n - 2) * (n - 3))
+        b = 3.0 * (n - 1) ** 2 / ((n - 2) * (n - 3))
+        excess_kurt = a * m4 - b
+
+        denom = math.sqrt(
+            1.0 + 0.5 * sr**2 - skew * sr + (excess_kurt - 3.0) / 4.0 * sr**2
+        )
+        z = (sr - 0.0) * math.sqrt(n - 1) / denom
+        expected = 0.5 * (1.0 + math.erf(z / math.sqrt(2.0)))
+
+        result = psr(sample_input, se_formula="lo")
+        assert result.value == pytest.approx(expected, rel=1e-10)
+
+    def test_se_formula_default_is_blp(self, sample_input):
+        """Default se_formula is the BLP raw-kurtosis form."""
+        default = psr(sample_input).value
+        explicit = psr(sample_input, se_formula="blp").value
+        assert default == pytest.approx(explicit, rel=1e-12)
 
     def test_nonzero_benchmark(self, sample_input):
         """Nonzero benchmark reduces PSR."""
@@ -608,6 +656,10 @@ class TestRegistryIntegration:
             "block_bootstrap_ci",
             "bias_ratio",
             "skewness_adjusted_sharpe",
+            "probabilistic_sortino_ratio",
+            "probabilistic_adjusted_sortino_ratio",
+            "monte_carlo_distribution",
+            "monte_carlo_probabilities",
         }
         assert names == expected
 
@@ -805,3 +857,205 @@ class TestNumbaAgreement:
         numba_sr = _sharpe_bootstrap_numba(r, indices, ddof=1)
         pure_sr = _sharpe_bootstrap_fallback(r, indices, ddof=1)
         assert np.allclose(numba_sr, pure_sr, rtol=1e-10, equal_nan=True)
+
+
+# ---------------------------------------------------------------------------
+# 4.2b Probabilistic Sortino Ratio
+# ---------------------------------------------------------------------------
+
+
+def _manual_prob_sortino(returns, rf, mar, sr_bench, adjusted, se_formula="blp"):
+    """Independent reference implementation of the probabilistic Sortino ratio.
+
+    Recomputes the bias-corrected skewness/excess kurtosis, the period
+    (non-annualized) Sortino denominator, the PSR z-score, and the normal
+    CDF via ``math.erf`` so the metric is validated against a fully
+    independent path. ``se_formula`` selects the same denominator variants
+    as the metric (``"blp"`` vs ``"lo"``).
+    """
+    import math
+
+    r = np.asarray(returns, dtype=np.float64)
+    n = len(r)
+    mean = np.mean(r)
+    std = np.std(r, ddof=1)
+    z = (r - mean) / std
+
+    skew = n / ((n - 1.0) * (n - 2.0)) * np.sum(z**3)
+    excess_kurt = (
+        n * (n + 1.0) / ((n - 1.0) * (n - 2.0) * (n - 3.0)) * np.sum(z**4)
+        - 3.0 * (n - 1.0) ** 2 / ((n - 2.0) * (n - 3.0))
+    )
+
+    below = np.minimum(r - mar, 0.0)
+    dd = np.sqrt(np.mean(below**2))
+    base = (mean - rf) / dd
+    if adjusted:
+        base = base / np.sqrt(2.0)
+
+    if se_formula == "lo":
+        denom = np.sqrt(
+            1.0 + 0.5 * base**2 - skew * base + (excess_kurt - 3.0) / 4.0 * base**2
+        )
+    else:
+        kurt = excess_kurt + 3.0
+        denom = np.sqrt(1.0 - skew * base + (kurt - 1.0) / 4.0 * base**2)
+    zscore = (base - sr_bench) * np.sqrt(float(n) - 1.0) / denom
+    return 0.5 * (1.0 + math.erf(zscore / np.sqrt(2.0)))
+
+
+class TestProbabilisticSortinoRatio:
+    def test_known_value(self, sample_input):
+        """Matches an independent numpy + math.erf reference."""
+        r = sample_input.values[:, 0]
+        expected = _manual_prob_sortino(r, 0.0, 0.0, 0.0, adjusted=False)
+        result = probabilistic_sortino_ratio(sample_input)
+        assert result.value == pytest.approx(expected, rel=1e-10)
+        assert 0.0 <= result.value <= 1.0
+
+    def test_known_value_adjusted(self, sample_input):
+        """Adjusted variant matches the same reference with base / sqrt(2)."""
+        r = sample_input.values[:, 0]
+        expected = _manual_prob_sortino(r, 0.0, 0.0, 0.0, adjusted=True)
+        result = probabilistic_adjusted_sortino_ratio(sample_input)
+        assert result.value == pytest.approx(expected, rel=1e-10)
+
+    def test_known_value_lo(self, sample_input):
+        """se_formula='lo' matches the independent Lo (2002) reference."""
+        r = sample_input.values[:, 0]
+        expected = _manual_prob_sortino(
+            r, 0.0, 0.0, 0.0, adjusted=False, se_formula="lo"
+        )
+        result = probabilistic_sortino_ratio(sample_input, se_formula="lo")
+        assert result.value == pytest.approx(expected, rel=1e-10)
+
+    def test_known_value_lo_adjusted(self, sample_input):
+        """Adjusted variant under 'lo' matches the reference with base / sqrt(2)."""
+        r = sample_input.values[:, 0]
+        expected = _manual_prob_sortino(
+            r, 0.0, 0.0, 0.0, adjusted=True, se_formula="lo"
+        )
+        result = probabilistic_adjusted_sortino_ratio(sample_input, se_formula="lo")
+        assert result.value == pytest.approx(expected, rel=1e-10)
+
+    def test_se_formula_default_is_blp(self, sample_input):
+        """Default se_formula is the BLP form."""
+        default = probabilistic_sortino_ratio(sample_input).value
+        explicit = probabilistic_sortino_ratio(sample_input, se_formula="blp").value
+        assert default == pytest.approx(explicit, rel=1e-12)
+
+    def test_adjusted_lower_than_unadjusted(self, sample_input):
+        """For a positive base, dividing by sqrt(2) lowers z -> lower prob."""
+        unadj = probabilistic_sortino_ratio(sample_input).value
+        adj = probabilistic_adjusted_sortino_ratio(sample_input).value
+        assert adj < unadj
+
+    def test_nonzero_benchmark_lowers_probability(self, sample_input):
+        """A higher benchmark Sortino yields a lower exceedance probability."""
+        base = probabilistic_sortino_ratio(sample_input, sr_benchmark=0.0).value
+        high = probabilistic_sortino_ratio(sample_input, sr_benchmark=2.0).value
+        assert high < base
+
+
+# ---------------------------------------------------------------------------
+# 4.12 Monte Carlo (non-parametric bootstrap)
+# ---------------------------------------------------------------------------
+
+
+class TestMonteCarloDistribution:
+    def test_output_shape_and_labels(self, sample_input):
+        """Summary array of 7 statistics with the documented labels."""
+        result = monte_carlo_distribution(sample_input, seed=0)
+        assert result.value.shape == (7,)
+        assert result.meta["output_index"] == [
+            "min", "p05", "median", "mean", "p95", "max", "std",
+        ]
+        assert result.meta["target"] == "equity"
+
+    def test_reproducible_with_seed(self, sample_input):
+        """Same seed -> identical summary; different seed -> different."""
+        a = monte_carlo_distribution(sample_input, seed=42).value
+        b = monte_carlo_distribution(sample_input, seed=42).value
+        c = monte_carlo_distribution(sample_input, seed=7).value
+        assert np.array_equal(a, b)
+        assert not np.array_equal(a, c)
+
+    def test_summary_ordered(self, sample_input):
+        """Quantiles are internally ordered."""
+        v = monte_carlo_distribution(sample_input, seed=1).value
+        min_, p05, median, mean, p95, max_, std = v
+        assert min_ <= p05 <= median <= p95 <= max_
+        assert std >= 0.0
+
+    def test_equity_min_above_minus_one(self, sample_input):
+        """Terminal total return cannot fall below -100%."""
+        v = monte_carlo_distribution(sample_input, target="equity", seed=3).value
+        assert v[0] > -1.0
+
+    def test_invalid_target(self, sample_input):
+        """Unknown target raises ValueError."""
+        with pytest.raises(ValueError):
+            monte_carlo_distribution(sample_input, target="bogus")
+
+    def test_multi_strategy_raises(self, daily_pp):
+        """Monte Carlo requires single-strategy input."""
+        from stratstat.exceptions import MetricNotApplicableError
+
+        r = np.column_stack([[0.01, -0.02, 0.03], [0.02, 0.01, -0.01]])
+        inp = ReturnsInput(r, periods_per_year=daily_pp)
+        with pytest.raises(MetricNotApplicableError):
+            monte_carlo_distribution(inp)
+
+
+class TestMonteCarloProbabilities:
+    def test_none_thresholds_return_nan(self, sample_input):
+        """No thresholds -> [nan, nan] without running simulations."""
+        result = monte_carlo_probabilities(sample_input)
+        assert result.value.shape == (2,)
+        assert np.isnan(result.value).all()
+        assert result.meta["output_index"] == ["p_bust", "p_goal"]
+
+    def test_probabilities_in_unit_interval(self, sample_input):
+        """Bust and goal probabilities are valid probabilities."""
+        result = monte_carlo_probabilities(
+            sample_input, bust=-0.05, goal=0.10, seed=0
+        )
+        p_bust, p_goal = result.value
+        assert 0.0 <= p_bust <= 1.0
+        assert 0.0 <= p_goal <= 1.0
+
+    def test_lower_goal_higher_probability(self, sample_input):
+        """A more attainable goal is reached more often."""
+        high_goal = monte_carlo_probabilities(sample_input, goal=1.0, seed=0)
+        low_goal = monte_carlo_probabilities(sample_input, goal=0.01, seed=0)
+        assert low_goal.value[1] >= high_goal.value[1]
+
+    def test_reproducible_with_seed(self, sample_input):
+        """Same seed -> identical probabilities."""
+        a = monte_carlo_probabilities(sample_input, bust=-0.1, goal=0.2, seed=5)
+        b = monte_carlo_probabilities(sample_input, bust=-0.1, goal=0.2, seed=5)
+        assert np.array_equal(a.value, b.value)
+
+
+class TestMonteCarloNumbaAgreement:
+    def test_bootstrap_stat_agree(self):
+        """Numba and pure-numpy bootstrap kernels agree for every target."""
+        from stratstat.core.returns.inference import _HAS_NUMBA
+
+        if not _HAS_NUMBA:
+            pytest.skip("numba not installed")
+
+        from stratstat.core.returns.inference import (
+            _bootstrap_stat_fallback,
+            _bootstrap_stat_numba,
+        )
+
+        rng = np.random.default_rng(7)
+        r = rng.normal(0.0004, 0.01, size=100)
+        idx = np.random.default_rng(11).integers(0, 100, size=(500, 100))
+
+        for code in (0, 1, 2, 3):
+            p = 252.0 if code in (1, 3) else 1.0
+            numba_stat = _bootstrap_stat_numba(r, idx, code, p)
+            pure_stat = _bootstrap_stat_fallback(r, idx, code, p)
+            assert np.allclose(numba_stat, pure_stat, rtol=1e-10, equal_nan=True)

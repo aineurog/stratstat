@@ -14,6 +14,7 @@ from __future__ import annotations
 import numpy as np
 from numpy.typing import NDArray
 
+from stratstat.conventions import resolve_convention
 from stratstat.core._utils import compute_cagr as _compute_cagr
 from stratstat.exceptions import MetricNotApplicableError
 from stratstat.inputs import ReturnsInput
@@ -83,7 +84,10 @@ def cagr(input_data: ReturnsInput) -> MetricResult:
     backend="vectorized",
     ref="CFA Institute, Quantitative Methods (CFA Program Curriculum, Level I, Vol. 1)",
 )
-def annualized_volatility(input_data: ReturnsInput) -> MetricResult:
+def annualized_volatility(
+    input_data: ReturnsInput,
+    return_type: str | None = None,
+) -> MetricResult:
     """Annualized volatility (standard deviation of returns).
 
     Formula:
@@ -94,6 +98,11 @@ def annualized_volatility(input_data: ReturnsInput) -> MetricResult:
 
     Args:
         input_data: A ``ReturnsInput`` with ``periods_per_year`` set.
+        return_type: ``"simple"`` (default) measures dispersion of simple
+            period returns; ``"log"`` measures dispersion of log returns
+            ``ln(1 + r)``. Overridden by a session default set via
+            ``stratstat.set_default("annualized_volatility",
+            "return_type=log")``.
 
     Returns:
         MetricResult with annualized volatility.
@@ -101,6 +110,15 @@ def annualized_volatility(input_data: ReturnsInput) -> MetricResult:
     Raises:
         ValueError: If ``periods_per_year`` is None.
     """
+    return_type = resolve_convention(
+        return_type, "annualized_volatility", "return_type", "simple"
+    )
+
+    if return_type not in ("simple", "log"):
+        raise ValueError(
+            f"return_type must be 'simple' or 'log', got {return_type!r}"
+        )
+
     if input_data.periods_per_year is None:
         raise MetricNotApplicableError(
             "Annualized volatility requires periods_per_year to be set on the ReturnsInput."
@@ -109,7 +127,8 @@ def annualized_volatility(input_data: ReturnsInput) -> MetricResult:
     r = input_data.values
     p = float(input_data.periods_per_year)
 
-    sigma = np.nanstd(r, axis=0, ddof=1)  # shape: (n_strategies,)
+    data = r if return_type == "simple" else np.log(1.0 + r)
+    sigma = np.nanstd(data, axis=0, ddof=1)  # shape: (n_strategies,)
     arr = sigma * np.sqrt(p)
 
     value: float | NDArray[np.floating]
@@ -126,6 +145,7 @@ def annualized_volatility(input_data: ReturnsInput) -> MetricResult:
                 "(CFA Program Curriculum, Level I, Vol. 1)"
             ),
             "ddof": 1,
+            "return_type": return_type,
         },
     )
 
@@ -1446,4 +1466,370 @@ def consecutive_wins_losses(input_data: ReturnsInput) -> MetricResult:
                 "current_loss_streak",
             ],
         },
+    )
+
+
+# ---------------------------------------------------------------------------
+# 1.21 Exposure Time (time in market)
+# ---------------------------------------------------------------------------
+
+_EXPOSURE_REF = (
+    "Industry convention; time in market measured as the share of periods "
+    "with a non-zero return."
+)
+
+
+@register_metric(
+    name="exposure_time",
+    requires="returns",
+    category=("descriptive", "returns"),
+    backend="vectorized",
+    ref=_EXPOSURE_REF,
+)
+def exposure_time(input_data: ReturnsInput, rounding: str | None = None) -> MetricResult:
+    """Share of periods the strategy is invested (non-zero return).
+
+    Formula:
+        exposure = (1/n) * sum(1_{r_t != 0})
+
+    where NaN periods are counted as not invested. The result lies in [0, 1].
+
+    Args:
+        input_data: A ``ReturnsInput``.
+        rounding: ``"raw"`` (default) returns the exact share of invested
+            periods; ``"percent_ceil"`` rounds up to the nearest whole percent
+            (QuantStats-compatible ``ceil(exposure*100)/100``).
+
+    Returns:
+        MetricResult with exposure time as a float (or array).
+    """
+    rounding = resolve_convention(rounding, "exposure_time", "rounding", "raw")
+
+    r = input_data.values  # (n_periods, n_strategies)
+    n = r.shape[0]
+
+    nonzero = (~np.isnan(r)) & (r != 0.0)
+    n_nonzero = np.sum(nonzero, axis=0).astype(np.float64)
+
+    if n == 0:
+        arr: NDArray[np.floating] = np.full(r.shape[1], np.nan)
+    else:
+        arr = n_nonzero / float(n)
+        if rounding == "percent_ceil":
+            arr = np.ceil(arr * 100.0) / 100.0
+
+    value: float | NDArray[np.floating]
+    value = float(arr[0]) if input_data.is_single else arr
+
+    return MetricResult(
+        name="exposure_time",
+        value=value,
+        category=("descriptive", "returns"),
+        periods_per_year=input_data.periods_per_year,
+        meta={"ref": _EXPOSURE_REF, "rounding": rounding},
+    )
+
+
+# ---------------------------------------------------------------------------
+# 1.22 Average Up Period
+# ---------------------------------------------------------------------------
+
+_AVG_UP_REF = "Industry convention; mean of the positive period returns."
+
+
+@register_metric(
+    name="avg_up_period",
+    requires="returns",
+    category=("descriptive", "returns"),
+    backend="vectorized",
+    ref=_AVG_UP_REF,
+)
+def avg_up_period(input_data: ReturnsInput) -> MetricResult:
+    """Mean of the strictly positive period returns.
+
+    Formula:
+        avg_up = (1 / n_up) * sum(r_t * 1_{r_t > 0})
+
+    where n_up is the count of positive periods. NaN for no positive periods.
+
+    Args:
+        input_data: A ``ReturnsInput``.
+
+    Returns:
+        MetricResult with the average up period.
+    """
+    r = input_data.values
+    pos = (r > 0.0) & ~np.isnan(r)
+    n_pos = np.sum(pos, axis=0).astype(np.float64)
+
+    sum_up = np.sum(np.where(pos, r, 0.0), axis=0)
+    arr = sum_up / np.maximum(n_pos, 1.0)
+    arr = np.where(n_pos > 0.0, arr, np.nan)
+
+    value: float | NDArray[np.floating]
+    value = float(arr[0]) if input_data.is_single else arr
+
+    return MetricResult(
+        name="avg_up_period",
+        value=value,
+        category=("descriptive", "returns"),
+        periods_per_year=input_data.periods_per_year,
+        meta={"ref": _AVG_UP_REF},
+    )
+
+
+# ---------------------------------------------------------------------------
+# 1.23 Average Down Period
+# ---------------------------------------------------------------------------
+
+_AVG_DOWN_REF = (
+    "Industry convention; mean of the negative period returns "
+    "(sign preserved, negative value)."
+)
+
+
+@register_metric(
+    name="avg_down_period",
+    requires="returns",
+    category=("descriptive", "returns"),
+    backend="vectorized",
+    ref=_AVG_DOWN_REF,
+)
+def avg_down_period(input_data: ReturnsInput) -> MetricResult:
+    """Mean of the strictly negative period returns.
+
+    Formula:
+        avg_down = (1 / n_down) * sum(r_t * 1_{r_t < 0})
+
+    where n_down is the count of negative periods. The sign is preserved, so
+    the value is negative. NaN for no negative periods.
+
+    Args:
+        input_data: A ``ReturnsInput``.
+
+    Returns:
+        MetricResult with the average down period.
+    """
+    r = input_data.values
+    neg = (r < 0.0) & ~np.isnan(r)
+    n_neg = np.sum(neg, axis=0).astype(np.float64)
+
+    sum_down = np.sum(np.where(neg, r, 0.0), axis=0)
+    arr = sum_down / np.maximum(n_neg, 1.0)
+    arr = np.where(n_neg > 0.0, arr, np.nan)
+
+    value: float | NDArray[np.floating]
+    value = float(arr[0]) if input_data.is_single else arr
+
+    return MetricResult(
+        name="avg_down_period",
+        value=value,
+        category=("descriptive", "returns"),
+        periods_per_year=input_data.periods_per_year,
+        meta={"ref": _AVG_DOWN_REF, "sign": "preserved (negative)"},
+    )
+
+
+# ---------------------------------------------------------------------------
+# 1.24 Period Profit Factor
+# ---------------------------------------------------------------------------
+
+_PERIOD_PF_REF = (
+    "QuantStats-compatible convention; no independent academic source identified."
+)
+
+
+@register_metric(
+    name="period_profit_factor",
+    requires="returns",
+    category=("descriptive", "returns"),
+    backend="vectorized",
+    ref=_PERIOD_PF_REF,
+)
+def period_profit_factor(input_data: ReturnsInput) -> MetricResult:
+    """Gross positive return divided by gross negative return (absolute).
+
+    Formula:
+        PF = sum(max(r_t, 0)) / |sum(min(r_t, 0))|
+
+    This is the returns level analogue of the trade level ``profit_factor``.
+    Periods with exactly zero return are included in the numerator.
+
+    Args:
+        input_data: A ``ReturnsInput``.
+
+    Returns:
+        MetricResult with the period profit factor. Inf when there are no
+        negative periods but positive ones exist; NaN when there are neither.
+    """
+    r = input_data.values
+
+    gross_profit = np.nansum(np.maximum(r, 0.0), axis=0)
+    gross_loss = np.abs(np.nansum(np.minimum(r, 0.0), axis=0))
+
+    with np.errstate(invalid="ignore", divide="ignore"):
+        arr = gross_profit / gross_loss
+        arr = np.where(
+            gross_loss == 0.0,
+            np.where(gross_profit > 0.0, np.inf, np.nan),
+            arr,
+        )
+
+    value: float | NDArray[np.floating]
+    value = float(arr[0]) if input_data.is_single else arr
+
+    return MetricResult(
+        name="period_profit_factor",
+        value=value,
+        category=("descriptive", "returns"),
+        periods_per_year=input_data.periods_per_year,
+        meta={"ref": _PERIOD_PF_REF},
+    )
+
+
+# ---------------------------------------------------------------------------
+# 1.25 Period Payoff Ratio
+# ---------------------------------------------------------------------------
+
+_PERIOD_PAYOFF_REF = (
+    "QuantStats-compatible convention; no independent academic source identified."
+)
+
+
+@register_metric(
+    name="period_payoff_ratio",
+    requires="returns",
+    category=("descriptive", "returns"),
+    backend="vectorized",
+    ref=_PERIOD_PAYOFF_REF,
+)
+def period_payoff_ratio(input_data: ReturnsInput) -> MetricResult:
+    """Average up period divided by the absolute average down period.
+
+    Formula:
+        payoff = avg_up / |avg_down|
+
+    This is the returns level analogue of the trade level ``payoff_ratio``.
+
+    Args:
+        input_data: A ``ReturnsInput``.
+
+    Returns:
+        MetricResult with the period payoff ratio. Inf when there are no
+        negative periods but positive ones exist; NaN when there are neither.
+    """
+    r = input_data.values
+    pos = (r > 0.0) & ~np.isnan(r)
+    neg = (r < 0.0) & ~np.isnan(r)
+    n_pos = np.sum(pos, axis=0).astype(np.float64)
+    n_neg = np.sum(neg, axis=0).astype(np.float64)
+
+    avg_up = np.sum(np.where(pos, r, 0.0), axis=0) / np.maximum(n_pos, 1.0)
+    avg_up = np.where(n_pos > 0.0, avg_up, np.nan)
+
+    avg_down = np.sum(np.where(neg, r, 0.0), axis=0) / np.maximum(n_neg, 1.0)
+    avg_down = np.where(n_neg > 0.0, avg_down, 0.0)
+    avg_down_abs = np.abs(avg_down)
+
+    with np.errstate(invalid="ignore", divide="ignore"):
+        arr = avg_up / avg_down_abs
+        arr = np.where(np.isnan(avg_up) | np.isnan(avg_down_abs), np.nan, arr)
+        arr = np.where(
+            avg_down_abs == 0.0,
+            np.where(avg_up > 0.0, np.inf, np.nan),
+            arr,
+        )
+
+    value: float | NDArray[np.floating]
+    value = float(arr[0]) if input_data.is_single else arr
+
+    return MetricResult(
+        name="period_payoff_ratio",
+        value=value,
+        category=("descriptive", "returns"),
+        periods_per_year=input_data.periods_per_year,
+        meta={"ref": _PERIOD_PAYOFF_REF},
+    )
+
+
+# ---------------------------------------------------------------------------
+# 1.26 Period Kelly Criterion
+# ---------------------------------------------------------------------------
+
+_PERIOD_KELLY_REF = (
+    "Kelly (1956), 'A New Interpretation of Information Rate'; "
+    "period-based adaptation."
+)
+
+
+def _period_kelly_col(col: NDArray[np.floating]) -> float:
+    """Kelly fraction for one return column, treating periods as bets.
+
+    A win is a positive period, a loss a negative period. Zero and NaN
+    periods are not bets and are excluded from the win probability.
+    """
+    valid = ~np.isnan(col)
+    pos = (col > 0.0) & valid
+    neg = (col < 0.0) & valid
+    n_pos = int(np.sum(pos))
+    n_neg = int(np.sum(neg))
+    n_bet = n_pos + n_neg
+
+    if n_bet == 0:
+        return np.nan
+    if n_pos == 0:
+        return 0.0  # no wins → do not bet
+    if n_neg == 0:
+        return 1.0  # no losses → full Kelly
+
+    win_prob = n_pos / n_bet
+    avg_up = float(np.mean(col[pos]))
+    avg_down_abs = float(np.abs(np.mean(col[neg])))
+    if avg_down_abs == 0.0:
+        return 1.0
+    payoff = avg_up / avg_down_abs
+    if payoff == 0.0:
+        return 0.0
+    return win_prob - (1.0 - win_prob) / payoff
+
+
+@register_metric(
+    name="period_kelly_criterion",
+    requires="returns",
+    category=("descriptive", "returns"),
+    backend="vectorized",
+    ref=_PERIOD_KELLY_REF,
+)
+def period_kelly_criterion(input_data: ReturnsInput) -> MetricResult:
+    """Estimated optimal Kelly fraction from period returns.
+
+    Formula:
+        f* = W - (1 - W) / payoff
+
+    where W is the win probability (positive periods over all non-zero
+    periods) and payoff is ``avg_up / |avg_down|``. This is the returns level
+    analogue of the trade level ``kelly_criterion``.
+
+    Args:
+        input_data: A ``ReturnsInput``.
+
+    Returns:
+        MetricResult with the period Kelly fraction.
+    """
+    r = input_data.values
+    n_strat = r.shape[1]
+
+    arr = np.full(n_strat, np.nan, dtype=np.float64)
+    for col in range(n_strat):
+        arr[col] = _period_kelly_col(r[:, col])
+
+    value: float | NDArray[np.floating]
+    value = float(arr[0]) if input_data.is_single else arr
+
+    return MetricResult(
+        name="period_kelly_criterion",
+        value=value,
+        category=("descriptive", "returns"),
+        periods_per_year=input_data.periods_per_year,
+        meta={"ref": _PERIOD_KELLY_REF},
     )

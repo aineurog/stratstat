@@ -9,15 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- 161 registered metrics across eight modules, each with a formula citation in
+- 176 registered metrics across eight modules, each with a formula citation in
   its `meta["ref"]` field:
-  - `core.returns.descriptive` (21 metrics): CAGR, volatility, skewness,
+  - `core.returns.descriptive` (27 metrics): CAGR, volatility, skewness,
     kurtosis, percentiles, Hurst exponent, stability, and more.
   - `core.returns.risk` (24 metrics): max drawdown, drawdown duration, VaR,
     CVaR, tail ratio, EVT tail fits, pain index, and more.
-  - `core.returns.risk_adjusted` (18 metrics): Sharpe, Sortino, Calmar, Omega,
+  - `core.returns.risk_adjusted` (23 metrics): Sharpe, Sortino, Calmar, Omega,
     Kappa 3, gain to pain, and more.
-  - `core.returns.inference` (10 metrics): PSR, DSR, Lo's Sharpe standard error,
+  - `core.returns.inference` (14 metrics): PSR, DSR, Lo's Sharpe standard error,
     analytic and bootstrap Sharpe intervals, minimum track record length, and more.
   - `core.benchmark` (20 metrics): alpha, beta, tracking error, information
     ratio, up/down capture, Treynor ratio, and more.
@@ -27,6 +27,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     SQN, MFE/MAE, Kelly criterion, and more.
   - `core.compare` (7 metrics): correlation matrix, diversification ratio,
     Sharpe difference test, White's Reality Check, PBO, risk contributions.
+- QuantStats parity metrics: exposure time, average up/down period, period
+  profit factor, period payoff ratio, period Kelly criterion, autocorrelation
+  penalty, smart Sharpe/Sortino, adjusted Sortino, RAR, probabilistic Sortino
+  ratios, and non-parametric Monte Carlo distribution/probabilities, closing
+  the coverage gap with QuantStats under an honest citation policy.
 - Decorator based metric registry: `@register_metric`, `compute()`,
   `compute_all()`, `list_metrics()`, `get_metric()`.
 - Typed input containers: `ReturnsInput`, `ExposureInput`, `TradeInput`,

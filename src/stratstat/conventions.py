@@ -77,8 +77,14 @@ def _float_range(low: float, high: float, *, inclusive_high: bool = False) -> _P
 _CONVENTIONS: dict[str, dict[str, _ParamSpec]] = {
     "sharpe_ratio": {"ddof": _int_choice("0", "1")},
     "sortino_ratio": {"denominator": _choice("full_downside", "downside_only")},
+    "exposure_time": {"rounding": _choice("raw", "percent_ceil")},
+    "rar": {"rounding": _choice("raw", "percent_ceil")},
+    "annualized_volatility": {"return_type": _choice("simple", "log")},
     "max_drawdown": {"return_type": _choice("simple", "log")},
     "longest_drawdown_duration": {"units": _choice("periods", "years")},
+    "psr": {"se_formula": _choice("blp", "lo")},
+    "probabilistic_sortino_ratio": {"se_formula": _choice("blp", "lo")},
+    "probabilistic_adjusted_sortino_ratio": {"se_formula": _choice("blp", "lo")},
     "var": {
         "method": _choice("historical", "parametric", "cornish_fisher"),
         "confidence": _float_range(0.0, 1.0),
