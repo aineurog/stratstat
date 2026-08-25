@@ -89,9 +89,7 @@ print()
 # ---------------------------------------------------------------------------
 print("1. Sharpe ratio distribution")
 print("-" * 96)
-ss_sharpe = ss.compute(
-    inp, "monte_carlo_distribution", target="sharpe", sims=SIMS, seed=SEED
-).value
+ss_sharpe = ss.compute(inp, "monte_carlo_distribution", target="sharpe", sims=SIMS, seed=SEED).value
 qs_sharpe = qs.stats.montecarlo_sharpe(series, sims=SIMS, seed=SEED)
 _show("Sharpe [min, p05, median, mean, p95, max, std]", ss_sharpe, _dist(qs_sharpe))
 print("  QuantStats std ~ 0 (a permutation preserves mean & std, so every shuffled")
@@ -105,9 +103,7 @@ print()
 # ---------------------------------------------------------------------------
 print("2. CAGR distribution")
 print("-" * 96)
-ss_cagr = ss.compute(
-    inp, "monte_carlo_distribution", target="cagr", sims=SIMS, seed=SEED
-).value
+ss_cagr = ss.compute(inp, "monte_carlo_distribution", target="cagr", sims=SIMS, seed=SEED).value
 qs_cagr = qs.stats.montecarlo_cagr(series, sims=SIMS, seed=SEED)
 _show("CAGR [min, p05, median, mean, p95, max, std]", ss_cagr, _dist(qs_cagr))
 print("  QuantStats std ~ 0: shuffle preserves the product of (1+r), so every")
@@ -119,9 +115,7 @@ print()
 # ---------------------------------------------------------------------------
 print("3. Terminal total-return (equity) distribution")
 print("-" * 96)
-ss_equity = ss.compute(
-    inp, "monte_carlo_distribution", target="equity", sims=SIMS, seed=SEED
-).value
+ss_equity = ss.compute(inp, "monte_carlo_distribution", target="equity", sims=SIMS, seed=SEED).value
 qs_mc = qs.stats.montecarlo(series, sims=SIMS, bust=BUST, goal=GOAL, seed=SEED)
 qs_equity = _dist(qs_mc.stats)
 _show("Equity [min, p05, median, mean, p95, max, std]", ss_equity, qs_equity)

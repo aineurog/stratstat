@@ -40,8 +40,7 @@ def returns_input(daily_returns):
 class TestRolling:
     def test_basic(self, daily_returns):
         """Rolling Sharpe produces a time series with leading NaN."""
-        result = rolling(daily_returns, "sharpe_ratio", window=60,
-                         periods_per_year=252)
+        result = rolling(daily_returns, "sharpe_ratio", window=60, periods_per_year=252)
         assert result.name == "rolling_60_sharpe_ratio"
         vals = result.value
         assert vals.shape == (252,)
@@ -89,9 +88,14 @@ class TestRolling:
 
     def test_kwargs_forwarding(self, daily_returns):
         """metric_kwargs are forwarded to the inner metric."""
-        result = rolling(daily_returns, "var", window=60,
-                         confidence=0.99, method="historical",
-                         periods_per_year=252)
+        result = rolling(
+            daily_returns,
+            "var",
+            window=60,
+            confidence=0.99,
+            method="historical",
+            periods_per_year=252,
+        )
         vals = result.value
         assert np.all(np.isfinite(vals[59:]))
 
@@ -111,9 +115,8 @@ class TestByRegime:
         """Two regimes with integer labels."""
         n = len(daily_returns)
         labels = np.zeros(n, dtype=int)
-        labels[n // 2:] = 1  # second half is regime 1
-        result = by_regime(daily_returns, "cagr", labels,
-                           periods_per_year=252)
+        labels[n // 2 :] = 1  # second half is regime 1
+        result = by_regime(daily_returns, "cagr", labels, periods_per_year=252)
         assert result.name == "cagr_by_regime"
         vals = result.value
         assert vals.shape == (2,)  # 2 regimes
@@ -124,10 +127,9 @@ class TestByRegime:
         """String regime labels work."""
         n = len(daily_returns)
         labels = np.array(["bull"] * n, dtype=object)
-        labels[n // 3:] = "bear"
-        labels[2 * n // 3:] = "neutral"
-        result = by_regime(daily_returns, "annualized_volatility",
-                           labels, periods_per_year=252)
+        labels[n // 3 :] = "bear"
+        labels[2 * n // 3 :] = "neutral"
+        result = by_regime(daily_returns, "annualized_volatility", labels, periods_per_year=252)
         vals = result.value
         assert vals.shape == (3,)
         assert result.meta["regime_labels"] == ["bear", "bull", "neutral"]
@@ -135,8 +137,7 @@ class TestByRegime:
     def test_bool_labels(self, daily_returns):
         """Boolean labels work (True/False regimes)."""
         labels = daily_returns > 0  # positive vs non-positive days
-        result = by_regime(daily_returns, "cagr", labels,
-                           periods_per_year=252)
+        result = by_regime(daily_returns, "cagr", labels, periods_per_year=252)
         vals = result.value
         assert vals.shape == (2,)
         assert result.meta["regime_labels"] == [False, True]
@@ -144,8 +145,7 @@ class TestByRegime:
     def test_single_regime(self, daily_returns):
         """All same label — one regime."""
         labels = np.full(len(daily_returns), "single")
-        result = by_regime(daily_returns, "cagr", labels,
-                           periods_per_year=252)
+        result = by_regime(daily_returns, "cagr", labels, periods_per_year=252)
         assert result.value.shape == (1,)
         assert np.isfinite(result.value[0])
 
@@ -153,8 +153,7 @@ class TestByRegime:
         """A regime with < 2 observations yields NaN."""
         labels = np.full(len(daily_returns), "main")
         labels[0] = "tiny"  # only 1 observation
-        result = by_regime(daily_returns, "cagr", labels,
-                           periods_per_year=252)
+        result = by_regime(daily_returns, "cagr", labels, periods_per_year=252)
         vals = result.value
         tiny_idx = result.meta["regime_labels"].index("tiny")
         assert np.isnan(vals[tiny_idx])
@@ -183,8 +182,8 @@ class TestByRegime:
     def test_kwargs_forwarding(self, daily_returns):
         """metric_kwargs are forwarded."""
         labels = np.full(len(daily_returns), 0)
-        labels[len(daily_returns) // 2:] = 1
-        result = by_regime(daily_returns, "var", labels,
-                           confidence=0.99, method="historical",
-                           periods_per_year=252)
+        labels[len(daily_returns) // 2 :] = 1
+        result = by_regime(
+            daily_returns, "var", labels, confidence=0.99, method="historical", periods_per_year=252
+        )
         assert np.all(np.isfinite(result.value))

@@ -98,11 +98,13 @@ def discover_and_format(
             val = mr.value
             if isinstance(val, np.ndarray) and val.size == 1:
                 val = float(val.flat[0])
-            metrics.append({
-                "name": mr.name,
-                "value": val,
-                "ref": mr.meta.get("ref", ""),
-            })
+            metrics.append(
+                {
+                    "name": mr.name,
+                    "value": val,
+                    "ref": mr.meta.get("ref", ""),
+                }
+            )
         sections.append({"section": label, "metrics": metrics})
 
     return sections

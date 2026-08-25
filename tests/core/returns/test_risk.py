@@ -50,9 +50,7 @@ def daily_pp():
 @pytest.fixture
 def sample_returns():
     """10 daily returns used in descriptive tests."""
-    return np.array(
-        [0.01, -0.02, 0.015, 0.03, -0.01, 0.005, -0.015, 0.02, -0.005, 0.01]
-    )
+    return np.array([0.01, -0.02, 0.015, 0.03, -0.01, 0.005, -0.015, 0.02, -0.005, 0.01])
 
 
 @pytest.fixture
@@ -136,9 +134,7 @@ class TestLongestDrawdownDuration:
         inp = ReturnsInput(r, periods_per_year=daily_pp)
         result_periods = longest_drawdown_duration(inp, units="periods")
         result_years = longest_drawdown_duration(inp, units="years")
-        assert result_years.value == pytest.approx(
-            result_periods.value / daily_pp
-        )
+        assert result_years.value == pytest.approx(result_periods.value / daily_pp)
 
     def test_units_years_requires_pp(self):
         """units='years' without periods_per_year raises ValueError."""
@@ -340,9 +336,7 @@ class TestVaR:
 
     def test_cornish_fisher(self):
         """Cornish-Fisher VaR with well-behaved data."""
-        r = np.array(
-            [0.01, -0.02, 0.015, -0.01, 0.005, 0.02, -0.015, 0.01] * 30
-        )
+        r = np.array([0.01, -0.02, 0.015, -0.01, 0.005, 0.02, -0.015, 0.01] * 30)
         inp = ReturnsInput(r)
         result = var(inp, method="cornish_fisher", confidence=0.95)
         assert result.value > 0.0
@@ -363,9 +357,7 @@ class TestVaR:
 class TestCVaR:
     def test_historical_positive(self):
         """CVaR is a positive loss magnitude for mixed returns."""
-        r = np.array(
-            [-0.05, -0.03, -0.02, -0.01, 0.0, 0.01, 0.02, 0.03, 0.04, 0.05]
-        )
+        r = np.array([-0.05, -0.03, -0.02, -0.01, 0.0, 0.01, 0.02, 0.03, 0.04, 0.05])
         inp = ReturnsInput(r)
         result = cvar(inp, method="historical", confidence=0.80)
         assert result.value > 0.0
@@ -668,9 +660,7 @@ class TestVaRKnownValues:
         Actually, numpy method='linear' (type 7): pct at 10% = -0.029 (interpolation).
         VaR = -percentile.
         """
-        r = np.array(
-            [0.02, -0.03, 0.01, -0.01, -0.02, 0.04, -0.01, 0.005, 0.015, -0.005]
-        )
+        r = np.array([0.02, -0.03, 0.01, -0.01, -0.02, 0.04, -0.01, 0.005, 0.015, -0.005])
         inp = ReturnsInput(r)
         result = var(inp, method="historical", confidence=0.90)
         expected = -np.percentile(r, 10.0)
@@ -780,10 +770,12 @@ class TestDrawdownVolatility:
 class TestMultiStrategy:
     def test_var_multi(self):
         """VaR on multi-strategy returns."""
-        multi = np.column_stack([
-            [0.01, -0.02, 0.03, -0.01, 0.005],
-            [0.02, -0.01, 0.01, -0.03, 0.015],
-        ])
+        multi = np.column_stack(
+            [
+                [0.01, -0.02, 0.03, -0.01, 0.005],
+                [0.02, -0.01, 0.01, -0.03, 0.015],
+            ]
+        )
         inp = ReturnsInput(multi)
         result = var(inp, method="historical", confidence=0.95)
         assert isinstance(result.value, np.ndarray)
@@ -791,10 +783,12 @@ class TestMultiStrategy:
 
     def test_cvar_multi(self):
         """CVaR on multi-strategy returns."""
-        multi = np.column_stack([
-            [0.01, -0.02, 0.03, -0.01, 0.005],
-            [0.02, -0.01, 0.01, -0.03, 0.015],
-        ])
+        multi = np.column_stack(
+            [
+                [0.01, -0.02, 0.03, -0.01, 0.005],
+                [0.02, -0.01, 0.01, -0.03, 0.015],
+            ]
+        )
         inp = ReturnsInput(multi)
         result = cvar(inp, method="historical", confidence=0.95)
         assert isinstance(result.value, np.ndarray)
@@ -802,10 +796,12 @@ class TestMultiStrategy:
 
     def test_ulcer_index_multi(self):
         """Ulcer index on multi-strategy returns."""
-        multi = np.column_stack([
-            [0.10, -0.20, 0.05],
-            [0.05, -0.10, 0.02],
-        ])
+        multi = np.column_stack(
+            [
+                [0.10, -0.20, 0.05],
+                [0.05, -0.10, 0.02],
+            ]
+        )
         inp = ReturnsInput(multi)
         result = ulcer_index(inp)
         assert isinstance(result.value, np.ndarray)

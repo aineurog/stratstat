@@ -110,14 +110,10 @@ def annualized_volatility(
     Raises:
         ValueError: If ``periods_per_year`` is None.
     """
-    return_type = resolve_convention(
-        return_type, "annualized_volatility", "return_type", "simple"
-    )
+    return_type = resolve_convention(return_type, "annualized_volatility", "return_type", "simple")
 
     if return_type not in ("simple", "log"):
-        raise ValueError(
-            f"return_type must be 'simple' or 'log', got {return_type!r}"
-        )
+        raise ValueError(f"return_type must be 'simple' or 'log', got {return_type!r}")
 
     if input_data.periods_per_year is None:
         raise MetricNotApplicableError(
@@ -141,8 +137,7 @@ def annualized_volatility(
         periods_per_year=input_data.periods_per_year,
         meta={
             "ref": (
-                "CFA Institute, Quantitative Methods "
-                "(CFA Program Curriculum, Level I, Vol. 1)"
+                "CFA Institute, Quantitative Methods (CFA Program Curriculum, Level I, Vol. 1)"
             ),
             "ddof": 1,
             "return_type": return_type,
@@ -276,8 +271,7 @@ def geometric_mean_return(input_data: ReturnsInput) -> MetricResult:
         periods_per_year=input_data.periods_per_year,
         meta={
             "ref": (
-                "Campbell, Lo & MacKinlay (1997, The Econometrics of "
-                "Financial Markets, Sec. 1.4)"
+                "Campbell, Lo & MacKinlay (1997, The Econometrics of Financial Markets, Sec. 1.4)"
             ),
         },
     )
@@ -323,8 +317,7 @@ def skewness(input_data: ReturnsInput) -> MetricResult:
             periods_per_year=input_data.periods_per_year,
             meta={
                 "ref": (
-                    "Fisher (1930); Cramer (1946, Mathematical Methods "
-                    "of Statistics, Sec. 27.4)"
+                    "Fisher (1930); Cramer (1946, Mathematical Methods of Statistics, Sec. 27.4)"
                 ),
                 "note": "Undefined for fewer than 3 observations.",
             },
@@ -365,10 +358,7 @@ def skewness(input_data: ReturnsInput) -> MetricResult:
         category=("descriptive", "returns"),
         periods_per_year=input_data.periods_per_year,
         meta={
-            "ref": (
-                "Fisher (1930); Cramer (1946, Mathematical Methods "
-                "of Statistics, Sec. 27.4)"
-            ),
+            "ref": ("Fisher (1930); Cramer (1946, Mathematical Methods of Statistics, Sec. 27.4)"),
             "bias_corrected": True,
         },
     )
@@ -417,8 +407,7 @@ def excess_kurtosis(input_data: ReturnsInput) -> MetricResult:
             periods_per_year=input_data.periods_per_year,
             meta={
                 "ref": (
-                    "Fisher (1930); Cramer (1946, Mathematical Methods "
-                    "of Statistics, Sec. 27.4)"
+                    "Fisher (1930); Cramer (1946, Mathematical Methods of Statistics, Sec. 27.4)"
                 ),
                 "note": "Undefined for fewer than 4 observations.",
             },
@@ -438,9 +427,7 @@ def excess_kurtosis(input_data: ReturnsInput) -> MetricResult:
     n_eff = np.sum(~np.isnan(r), axis=0).astype(np.float64)
 
     with np.errstate(invalid="ignore"):
-        term1 = n_eff * (n_eff + 1.0) / (
-            (n_eff - 1.0) * (n_eff - 2.0) * (n_eff - 3.0)
-        )
+        term1 = n_eff * (n_eff + 1.0) / ((n_eff - 1.0) * (n_eff - 2.0) * (n_eff - 3.0))
         term2 = 3.0 * (n_eff - 1.0) ** 2 / ((n_eff - 2.0) * (n_eff - 3.0))
         arr = term1 * m4 - term2
         arr = np.where(n_eff < 4, np.nan, arr)
@@ -456,10 +443,7 @@ def excess_kurtosis(input_data: ReturnsInput) -> MetricResult:
         category=("descriptive", "returns"),
         periods_per_year=input_data.periods_per_year,
         meta={
-            "ref": (
-                "Fisher (1930); Cramer (1946, Mathematical Methods "
-                "of Statistics, Sec. 27.4)"
-            ),
+            "ref": ("Fisher (1930); Cramer (1946, Mathematical Methods of Statistics, Sec. 27.4)"),
             "bias_corrected": True,
             "fisher": True,
         },
@@ -727,8 +711,7 @@ def autocorrelation(input_data: ReturnsInput) -> MetricResult:
         periods_per_year=input_data.periods_per_year,
         meta={
             "ref": (
-                "Campbell, Lo & MacKinlay (1997, The Econometrics of "
-                "Financial Markets, Sec. 2.4)"
+                "Campbell, Lo & MacKinlay (1997, The Econometrics of Financial Markets, Sec. 2.4)"
             ),
         },
     )
@@ -855,9 +838,7 @@ def percentiles(input_data: ReturnsInput) -> MetricResult:
     r = input_data.values  # (n_periods, n_strategies)
 
     # np.nanpercentile along axis 0 returns (len(levels), n_strategies)
-    arr: NDArray[np.floating] = np.nanpercentile(
-        r, _PERCENTILE_LEVELS, axis=0, method="linear"
-    )
+    arr: NDArray[np.floating] = np.nanpercentile(r, _PERCENTILE_LEVELS, axis=0, method="linear")
 
     # For a single strategy, squeeze to 1-D
     if input_data.is_single:
@@ -923,8 +904,7 @@ def coefficient_of_variation(input_data: ReturnsInput) -> MetricResult:
         periods_per_year=input_data.periods_per_year,
         meta={
             "ref": (
-                "Pearson (1896); Everitt & Skrondal (2010, "
-                "The Cambridge Dictionary of Statistics)"
+                "Pearson (1896); Everitt & Skrondal (2010, The Cambridge Dictionary of Statistics)"
             ),
         },
     )
@@ -968,9 +948,9 @@ def outlier_iqr(input_data: ReturnsInput) -> MetricResult:
     # Comparisons with NaN→False per numpy semantics, so NaN positions are
     # implicitly excluded from the outlier mask without an explicit skip.
     outlier_mask = (r < lower) | (r > upper)  # (n_periods, n_strategies)
-    count_arr = np.nansum(
-        outlier_mask.astype(np.float64), axis=0
-    ).astype(np.float64)  # (n_strategies,)
+    count_arr = np.nansum(outlier_mask.astype(np.float64), axis=0).astype(
+        np.float64
+    )  # (n_strategies,)
     n_eff = np.sum(~np.isnan(r), axis=0).astype(np.float64)  # (n_strategies,)
     with np.errstate(invalid="ignore"):
         pct_arr = count_arr / n_eff * 100.0
@@ -1257,9 +1237,7 @@ def hurst_exponent(input_data: ReturnsInput) -> MetricResult:
 # Reference: Mandelbrot (1975)
 # ---------------------------------------------------------------------------
 
-_FRACTAL_DIM_REF = (
-    "Mandelbrot (1975), 'Les Objets Fractals: Forme, Hasard et Dimension'"
-)
+_FRACTAL_DIM_REF = "Mandelbrot (1975), 'Les Objets Fractals: Forme, Hasard et Dimension'"
 
 
 @register_metric(
@@ -1474,8 +1452,7 @@ def consecutive_wins_losses(input_data: ReturnsInput) -> MetricResult:
 # ---------------------------------------------------------------------------
 
 _EXPOSURE_REF = (
-    "Industry convention; time in market measured as the share of periods "
-    "with a non-zero return."
+    "Industry convention; time in market measured as the share of periods with a non-zero return."
 )
 
 
@@ -1584,8 +1561,7 @@ def avg_up_period(input_data: ReturnsInput) -> MetricResult:
 # ---------------------------------------------------------------------------
 
 _AVG_DOWN_REF = (
-    "Industry convention; mean of the negative period returns "
-    "(sign preserved, negative value)."
+    "Industry convention; mean of the negative period returns (sign preserved, negative value)."
 )
 
 
@@ -1636,9 +1612,7 @@ def avg_down_period(input_data: ReturnsInput) -> MetricResult:
 # 1.24 Period Profit Factor
 # ---------------------------------------------------------------------------
 
-_PERIOD_PF_REF = (
-    "QuantStats-compatible convention; no independent academic source identified."
-)
+_PERIOD_PF_REF = "QuantStats-compatible convention; no independent academic source identified."
 
 
 @register_metric(
@@ -1694,9 +1668,7 @@ def period_profit_factor(input_data: ReturnsInput) -> MetricResult:
 # 1.25 Period Payoff Ratio
 # ---------------------------------------------------------------------------
 
-_PERIOD_PAYOFF_REF = (
-    "QuantStats-compatible convention; no independent academic source identified."
-)
+_PERIOD_PAYOFF_REF = "QuantStats-compatible convention; no independent academic source identified."
 
 
 @register_metric(
@@ -1761,8 +1733,7 @@ def period_payoff_ratio(input_data: ReturnsInput) -> MetricResult:
 # ---------------------------------------------------------------------------
 
 _PERIOD_KELLY_REF = (
-    "Kelly (1956), 'A New Interpretation of Information Rate'; "
-    "period-based adaptation."
+    "Kelly (1956), 'A New Interpretation of Information Rate'; period-based adaptation."
 )
 
 

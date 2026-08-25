@@ -25,12 +25,8 @@ from stratstat.results import MetricResult
 # ---------------------------------------------------------------------------
 
 _REF_SCHWAGER = "Schwager (1995), Schwager on Futures: Technical Analysis, Wiley, Ch. 38."
-_REF_THARP = (
-    "Tharp (1998), Trade Your Way to Financial Freedom, McGraw-Hill, Ch. 5."
-)
-_REF_THARP_CH7 = (
-    "Tharp (1998), Trade Your Way to Financial Freedom, McGraw-Hill, Ch. 7."
-)
+_REF_THARP = "Tharp (1998), Trade Your Way to Financial Freedom, McGraw-Hill, Ch. 5."
+_REF_THARP_CH7 = "Tharp (1998), Trade Your Way to Financial Freedom, McGraw-Hill, Ch. 7."
 _REF_HYNDMAN = "Hyndman & Fan (1996); standard order statistics."
 _REF_FISHER = "Fisher (1925); standard statistic."
 _REF_TUKEY = "Tukey (1977); outlier criterion based on IQR."
@@ -38,13 +34,8 @@ _REF_CAMPBELL = (
     "Campbell, Lo & MacKinlay (1997), The Econometrics of Financial Markets, "
     "Princeton University Press, §1.4."
 )
-_REF_PEROLD = (
-    'Perold (1988), "The Implementation Shortfall: Paper versus Reality," '
-    "JPM, 14(3)."
-)
-_REF_SWEENEY = (
-    'Sweeney (1988), "The Maximum Favorable Excursion Methodology."'
-)
+_REF_PEROLD = 'Perold (1988), "The Implementation Shortfall: Paper versus Reality," JPM, 14(3).'
+_REF_SWEENEY = 'Sweeney (1988), "The Maximum Favorable Excursion Methodology."'
 _REF_KELLY = (
     'Kelly (1956), "A New Interpretation of Information Rate," '
     "Bell System Technical Journal, 35(4). "
@@ -68,9 +59,7 @@ _FIELD_CHECKS: dict[str, tuple[str, str]] = {
 }
 
 
-def _require_field(
-    inp: TradeInput, field: str, metric_name: str
-) -> None:
+def _require_field(inp: TradeInput, field: str, metric_name: str) -> None:
     """Check that *inp* has *field*; raise ``ValueError`` if not.
 
     Used by metrics that need optional trade-log columns (``side``,
@@ -108,9 +97,7 @@ def _max_consecutive(mask: NDArray[np.bool_]) -> int:
     if len(mask) == 0:
         return 0
     # Pad with False at both ends to detect runs at boundaries.
-    padded = np.concatenate(
-        [np.array([False]), mask, np.array([False])]
-    )
+    padded = np.concatenate([np.array([False]), mask, np.array([False])])
     diffs: NDArray[np.intp] = np.diff(padded.astype(int))
     starts = np.where(diffs == 1)[0]
     ends = np.where(diffs == -1)[0]
@@ -838,11 +825,7 @@ def payoff_ratio(inp: TradeInput) -> MetricResult:
     losses = pnl[_loss_mask(pnl)]
     avg_w = float(np.mean(wins)) if len(wins) > 0 else np.nan
     avg_l_abs = float(np.abs(np.mean(losses))) if len(losses) > 0 else np.nan
-    if (
-        np.isnan(avg_w)
-        or np.isnan(avg_l_abs)
-        or avg_l_abs == 0.0
-    ):
+    if np.isnan(avg_w) or np.isnan(avg_l_abs) or avg_l_abs == 0.0:
         value: float = np.inf if avg_w > 0.0 else np.nan
     else:
         value = float(avg_w / avg_l_abs)
@@ -930,9 +913,7 @@ def sqn(inp: TradeInput) -> MetricResult:
         mean_val = np.mean(valid)
         std_val = np.std(valid, ddof=1)
         if std_val == 0.0:
-            value = np.inf if mean_val > 0.0 else (
-                -np.inf if mean_val < 0.0 else np.nan
-            )
+            value = np.inf if mean_val > 0.0 else (-np.inf if mean_val < 0.0 else np.nan)
         else:
             value = float((mean_val / std_val) * np.sqrt(n))
     return MetricResult(
@@ -1387,9 +1368,7 @@ def long_short_trade_pct(inp: TradeInput) -> MetricResult:
     if n == 0:
         arr: NDArray[np.floating] = np.full(2, np.nan)
     else:
-        arr = np.array(
-            [np.mean(is_long), np.mean(~is_long)], dtype=np.float64
-        )
+        arr = np.array([np.mean(is_long), np.mean(~is_long)], dtype=np.float64)
     return MetricResult(
         name="long_short_trade_pct",
         value=arr,
@@ -1443,7 +1422,10 @@ def long_short_winning_losing(inp: TradeInput) -> MetricResult:
         meta={
             "ref": _REF_SCHWAGER,
             "output_index": [
-                "long_win", "long_loss", "short_win", "short_loss",
+                "long_win",
+                "long_loss",
+                "short_win",
+                "short_loss",
             ],
         },
     )
@@ -1605,9 +1587,7 @@ def long_short_best_worst(inp: TradeInput) -> MetricResult:
     best_short = float(np.nanmax(short_pnl)) if len(short_pnl) > 0 else np.nan
     worst_short = float(np.nanmin(short_pnl)) if len(short_pnl) > 0 else np.nan
 
-    arr: NDArray[np.floating] = np.array(
-        [best_long, worst_long, best_short, worst_short]
-    )
+    arr: NDArray[np.floating] = np.array([best_long, worst_long, best_short, worst_short])
     return MetricResult(
         name="long_short_best_worst",
         value=arr,
@@ -1616,7 +1596,10 @@ def long_short_best_worst(inp: TradeInput) -> MetricResult:
         meta={
             "ref": _REF_SCHWAGER,
             "output_index": [
-                "best_long", "worst_long", "best_short", "worst_short",
+                "best_long",
+                "worst_long",
+                "best_short",
+                "worst_short",
             ],
         },
     )

@@ -70,8 +70,7 @@ def to_image(
 
     p = _path(path)
     p.parent.mkdir(parents=True, exist_ok=True)
-    fig.write_image(str(p), format=format, width=width, height=height,
-                    scale=scale)
+    fig.write_image(str(p), format=format, width=width, height=height, scale=scale)
 
 
 # ---------------------------------------------------------------------------

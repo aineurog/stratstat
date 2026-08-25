@@ -73,9 +73,7 @@ else:
         return means
 
     @njit(cache=False)
-    def _sharpe_slice_numba(
-        r: NDArray[np.floating], lo: int, hi: int, k: int, rf: float
-    ) -> float:
+    def _sharpe_slice_numba(r: NDArray[np.floating], lo: int, hi: int, k: int, rf: float) -> float:
         """NaN-aware per-period Sharpe ratio of ``r[lo:hi, k]`` against ``rf``."""
         s = 0.0
         cnt = 0
@@ -155,10 +153,7 @@ else:
 # ---------------------------------------------------------------------------
 
 _REF_PEARSON = "Pearson (1895); Johnson & Wichern (2007, §2.5)."
-_REF_CHOUEIFATY = (
-    'Choueifaty & Coignard (2008), "Toward Maximum Diversification," '
-    "JPM, 35(1)."
-)
+_REF_CHOUEIFATY = 'Choueifaty & Coignard (2008), "Toward Maximum Diversification," JPM, 35(1).'
 _REF_JK = (
     'Jobson & Korkie (1981), "Performance Hypothesis Testing with the '
     'Sharpe and Treynor Measures," J. Finance, 36(4); '
@@ -179,9 +174,7 @@ _REF_MCR = (
     'Litterman (1996), "Hot Spots and Hedges," JPM Special Issue; '
     'Qian (2005), "Risk Parity and Diversification," J. of Investing, 14(3).'
 )
-_REF_CVAR = (
-    "Jorion (2006, Value at Risk, 3rd ed., Ch. 7); Litterman (1996)."
-)
+_REF_CVAR = "Jorion (2006, Value at Risk, 3rd ed., Ch. 7); Litterman (1996)."
 
 
 # ---------------------------------------------------------------------------
@@ -189,25 +182,19 @@ _REF_CVAR = (
 # ---------------------------------------------------------------------------
 
 
-def _require_min_strategies(
-    inp: CompareInput, n: int, metric_name: str
-) -> None:
+def _require_min_strategies(inp: CompareInput, n: int, metric_name: str) -> None:
     """Raise ``MetricNotApplicableError`` if fewer than *n* strategy columns."""
     if inp.n_strategies < n:
         raise MetricNotApplicableError(
-            f"{metric_name} requires at least {n} strategies. "
-            f"Got {inp.n_strategies}."
+            f"{metric_name} requires at least {n} strategies. Got {inp.n_strategies}."
         )
 
 
-def _require_exact_strategies(
-    inp: CompareInput, n: int, metric_name: str
-) -> None:
+def _require_exact_strategies(inp: CompareInput, n: int, metric_name: str) -> None:
     """Raise ``MetricNotApplicableError`` if not exactly *n* strategy columns."""
     if inp.n_strategies != n:
         raise MetricNotApplicableError(
-            f"{metric_name} requires exactly {n} strategies. "
-            f"Got {inp.n_strategies}."
+            f"{metric_name} requires exactly {n} strategies. Got {inp.n_strategies}."
         )
 
 
@@ -215,8 +202,7 @@ def _require_benchmark(inp: CompareInput, metric_name: str) -> None:
     """Raise ``MetricNotApplicableError`` if benchmark returns are not provided."""
     if inp.benchmark is None:
         raise MetricNotApplicableError(
-            f"{metric_name} requires benchmark returns. "
-            f"Provide benchmark= to CompareInput."
+            f"{metric_name} requires benchmark returns. Provide benchmark= to CompareInput."
         )
 
 
@@ -229,9 +215,7 @@ def _require_periods_per_year(inp: CompareInput, metric_name: str) -> None:
         )
 
 
-def _per_period_sharpe(
-    r: NDArray[np.floating], rf: float
-) -> float:
+def _per_period_sharpe(r: NDArray[np.floating], rf: float) -> float:
     """Per-period (non-annualised) Sharpe ratio for a single series."""
     excess = r - rf
     mu = np.nanmean(excess)
@@ -626,9 +610,7 @@ def whites_reality_check(
 
     # Bootstrap
     rng = np.random.default_rng(seed)
-    boot_means = _stationary_bootstrap(
-        f_tilde, n_boot, float(block_size), rng
-    )
+    boot_means = _stationary_bootstrap(f_tilde, n_boot, float(block_size), rng)
     # Bootstrap max statistic
     v_star = np.sqrt(n_periods) * np.max(boot_means, axis=1)  # (n_boot,)
 
@@ -898,9 +880,7 @@ def marginal_contribution_to_risk(inp: CompareInput) -> MetricResult:
             meta={
                 "ref": _REF_MCR,
                 "weights": w.tolist(),
-                "portfolio_vol": (
-                    float(np.sqrt(port_var)) if port_var > 0.0 else np.nan
-                ),
+                "portfolio_vol": (float(np.sqrt(port_var)) if port_var > 0.0 else np.nan),
             },
         )
 
@@ -920,9 +900,7 @@ def marginal_contribution_to_risk(inp: CompareInput) -> MetricResult:
         meta={
             "ref": _REF_MCR,
             "weights": w.tolist(),
-            "portfolio_vol": (
-                float(np.sqrt(port_var)) if port_var > 0.0 else np.nan
-            ),
+            "portfolio_vol": (float(np.sqrt(port_var)) if port_var > 0.0 else np.nan),
         },
     )
 

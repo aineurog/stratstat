@@ -103,56 +103,113 @@ def _consec_losses():
 
 
 exact = [
-    ("geometric_mean_return", lambda: ss.compute(inp, "geometric_mean_return").value,
-     lambda: qs.stats.expected_return(series)),
-    ("cumulative_return", lambda: ss.compute(inp, "cumulative_return").value,
-     lambda: qs.stats.comp(series)),
+    (
+        "geometric_mean_return",
+        lambda: ss.compute(inp, "geometric_mean_return").value,
+        lambda: qs.stats.expected_return(series),
+    ),
+    (
+        "cumulative_return",
+        lambda: ss.compute(inp, "cumulative_return").value,
+        lambda: qs.stats.comp(series),
+    ),
     ("best_period", lambda: ss.compute(inp, "best_period").value, lambda: qs.stats.best(series)),
-    ("worst_period", lambda: ss.compute(inp, "worst_period").value,
-     lambda: qs.stats.worst(series)),
+    ("worst_period", lambda: ss.compute(inp, "worst_period").value, lambda: qs.stats.worst(series)),
     ("consecutive wins (max)", _consec_wins, lambda: qs.stats.consecutive_wins(series)),
     ("consecutive losses (max)", _consec_losses, lambda: qs.stats.consecutive_losses(series)),
-    ("avg_up_period", lambda: ss.compute(inp, "avg_up_period").value,
-     lambda: qs.stats.avg_win(series)),
-    ("avg_down_period", lambda: ss.compute(inp, "avg_down_period").value,
-     lambda: qs.stats.avg_loss(series)),
-    ("annualized_volatility", lambda: ss.compute(inp, "annualized_volatility").value,
-     lambda: qs.stats.volatility(series)),
+    (
+        "avg_up_period",
+        lambda: ss.compute(inp, "avg_up_period").value,
+        lambda: qs.stats.avg_win(series),
+    ),
+    (
+        "avg_down_period",
+        lambda: ss.compute(inp, "avg_down_period").value,
+        lambda: qs.stats.avg_loss(series),
+    ),
+    (
+        "annualized_volatility",
+        lambda: ss.compute(inp, "annualized_volatility").value,
+        lambda: qs.stats.volatility(series),
+    ),
     ("skewness", lambda: ss.compute(inp, "skewness").value, lambda: qs.stats.skew(series)),
-    ("excess_kurtosis", lambda: ss.compute(inp, "excess_kurtosis").value,
-     lambda: qs.stats.kurtosis(series)),
+    (
+        "excess_kurtosis",
+        lambda: ss.compute(inp, "excess_kurtosis").value,
+        lambda: qs.stats.kurtosis(series),
+    ),
     ("cagr", lambda: ss.compute(inp, "cagr").value, lambda: qs.stats.cagr(series)),
-    ("sharpe_ratio", lambda: ss.compute(inp, "sharpe_ratio", ddof=1).value,
-     lambda: qs.stats.sharpe(series)),
-    ("sortino_ratio", lambda: ss.compute(inp, "sortino_ratio").value,
-     lambda: qs.stats.sortino(series)),
+    (
+        "sharpe_ratio",
+        lambda: ss.compute(inp, "sharpe_ratio", ddof=1).value,
+        lambda: qs.stats.sharpe(series),
+    ),
+    (
+        "sortino_ratio",
+        lambda: ss.compute(inp, "sortino_ratio").value,
+        lambda: qs.stats.sortino(series),
+    ),
     ("omega_ratio", lambda: ss.compute(inp, "omega_ratio").value, lambda: qs.stats.omega(series)),
-    ("calmar_ratio", lambda: ss.compute(inp, "calmar_ratio").value,
-     lambda: qs.stats.calmar(series)),
-    ("max_drawdown", lambda: ss.compute(inp, "max_drawdown").value,
-     lambda: qs.stats.max_drawdown(series)),
-    ("period_payoff_ratio", lambda: ss.compute(inp, "period_payoff_ratio").value,
-     lambda: qs.stats.payoff_ratio(series)),
-    ("period_profit_factor", lambda: ss.compute(inp, "period_profit_factor").value,
-     lambda: qs.stats.profit_factor(series)),
-    ("period_kelly_criterion", lambda: ss.compute(inp, "period_kelly_criterion").value,
-     lambda: qs.stats.kelly_criterion(series)),
-    ("smart_sharpe", lambda: ss.compute(inp, "smart_sharpe").value,
-     lambda: qs.stats.smart_sharpe(series)),
-    ("smart_sortino", lambda: ss.compute(inp, "smart_sortino").value,
-     lambda: qs.stats.smart_sortino(series)),
-    ("adjusted_sortino_ratio", lambda: ss.compute(inp, "adjusted_sortino_ratio").value,
-     lambda: qs.stats.adjusted_sortino(series)),
-    ("autocorr_penalty", lambda: ss.compute(inp, "autocorr_penalty").value,
-     lambda: qs.stats.autocorr_penalty(series)),
-    ("psr  (se_formula=lo)", lambda: ss.compute(inp, "psr", se_formula="lo").value,
-     lambda: qs.stats.probabilistic_sharpe_ratio(series)),
-    ("probabilistic_sortino_ratio  (lo)", lambda: ss.compute(
-        inp, "probabilistic_sortino_ratio", se_formula="lo").value,
-     lambda: qs.stats.probabilistic_sortino_ratio(series)),
-    ("probabilistic_adjusted_sortino_ratio  (lo)", lambda: ss.compute(
-        inp, "probabilistic_adjusted_sortino_ratio", se_formula="lo").value,
-     lambda: qs.stats.probabilistic_adjusted_sortino_ratio(series)),
+    (
+        "calmar_ratio",
+        lambda: ss.compute(inp, "calmar_ratio").value,
+        lambda: qs.stats.calmar(series),
+    ),
+    (
+        "max_drawdown",
+        lambda: ss.compute(inp, "max_drawdown").value,
+        lambda: qs.stats.max_drawdown(series),
+    ),
+    (
+        "period_payoff_ratio",
+        lambda: ss.compute(inp, "period_payoff_ratio").value,
+        lambda: qs.stats.payoff_ratio(series),
+    ),
+    (
+        "period_profit_factor",
+        lambda: ss.compute(inp, "period_profit_factor").value,
+        lambda: qs.stats.profit_factor(series),
+    ),
+    (
+        "period_kelly_criterion",
+        lambda: ss.compute(inp, "period_kelly_criterion").value,
+        lambda: qs.stats.kelly_criterion(series),
+    ),
+    (
+        "smart_sharpe",
+        lambda: ss.compute(inp, "smart_sharpe").value,
+        lambda: qs.stats.smart_sharpe(series),
+    ),
+    (
+        "smart_sortino",
+        lambda: ss.compute(inp, "smart_sortino").value,
+        lambda: qs.stats.smart_sortino(series),
+    ),
+    (
+        "adjusted_sortino_ratio",
+        lambda: ss.compute(inp, "adjusted_sortino_ratio").value,
+        lambda: qs.stats.adjusted_sortino(series),
+    ),
+    (
+        "autocorr_penalty",
+        lambda: ss.compute(inp, "autocorr_penalty").value,
+        lambda: qs.stats.autocorr_penalty(series),
+    ),
+    (
+        "psr  (se_formula=lo)",
+        lambda: ss.compute(inp, "psr", se_formula="lo").value,
+        lambda: qs.stats.probabilistic_sharpe_ratio(series),
+    ),
+    (
+        "probabilistic_sortino_ratio  (lo)",
+        lambda: ss.compute(inp, "probabilistic_sortino_ratio", se_formula="lo").value,
+        lambda: qs.stats.probabilistic_sortino_ratio(series),
+    ),
+    (
+        "probabilistic_adjusted_sortino_ratio  (lo)",
+        lambda: ss.compute(inp, "probabilistic_adjusted_sortino_ratio", se_formula="lo").value,
+        lambda: qs.stats.probabilistic_adjusted_sortino_ratio(series),
+    ),
 ]
 
 print("1. EXACT MATCH (same formula, same value)")
@@ -188,12 +245,22 @@ print()
 # 2. CONVENTION — parity restored via a formula-selection option
 # ---------------------------------------------------------------------------
 convention = [
-    ("exposure_time", "rounding", "raw", "percent_ceil",
-     lambda r: ss.compute(inp, "exposure_time", rounding=r).value,
-     lambda: qs.stats.exposure(series)),
-    ("rar", "rounding", "raw", "percent_ceil",
-     lambda r: ss.compute(inp, "rar", rounding=r).value,
-     lambda: qs.stats.rar(series)),
+    (
+        "exposure_time",
+        "rounding",
+        "raw",
+        "percent_ceil",
+        lambda r: ss.compute(inp, "exposure_time", rounding=r).value,
+        lambda: qs.stats.exposure(series),
+    ),
+    (
+        "rar",
+        "rounding",
+        "raw",
+        "percent_ceil",
+        lambda r: ss.compute(inp, "rar", rounding=r).value,
+        lambda: qs.stats.rar(series),
+    ),
 ]
 
 print("2. CONVENTION (option restores exact parity)")
@@ -206,8 +273,10 @@ for label, param, default, chosen, ssfn, qsfn in convention:
     print(f"  StratStat default ({param}={default}): {_fmt(default_val)}")
     print(f"  StratStat {param}={chosen:<11s}              {_fmt(chosen_val)}")
     print(f"  QuantStats (rounded):            {_fmt(qs_val)}")
-    print(f"  -> {'MATCH' if _isclose(chosen_val, qs_val) else 'MISMATCH'} with "
-          f"{param}={chosen}; QuantStats rounds exposure up to the nearest 1%.")
+    print(
+        f"  -> {'MATCH' if _isclose(chosen_val, qs_val) else 'MISMATCH'} with "
+        f"{param}={chosen}; QuantStats rounds exposure up to the nearest 1%."
+    )
 print()
 
 # ---------------------------------------------------------------------------
@@ -218,40 +287,70 @@ print("-" * 96)
 ss_var = float(ss.compute(inp, "var", method="parametric").value)
 qs_var = float(qs.stats.var(series))
 print(f"  var (parametric):  StratStat={_fmt(ss_var)}  QuantStats={_fmt(qs_var)}")
-print(f"  -> {'MATCH (magnitude)' if _isclose(abs(ss_var), abs(qs_var)) else 'MISMATCH'}: "
-      "StratStat reports the loss magnitude (+); QuantStats reports the signed loss (-).")
+print(
+    f"  -> {'MATCH (magnitude)' if _isclose(abs(ss_var), abs(qs_var)) else 'MISMATCH'}: "
+    "StratStat reports the loss magnitude (+); QuantStats reports the signed loss (-)."
+)
 print()
 
 # ---------------------------------------------------------------------------
 # 4. FORMULA — genuinely different definitions (documented, not failures)
 # ---------------------------------------------------------------------------
 formula = [
-    ("cvar", lambda: ss.compute(inp, "cvar", method="parametric").value,
-     lambda: qs.stats.cvar(series),
-     "SS closed-form normal ES vs QS empirical mean below parametric VaR"),
-    ("tail_ratio", lambda: ss.compute(inp, "tail_ratio").value,
-     lambda: qs.stats.tail_ratio(series),
-     "SS tail-mean ratio vs QS quantile ratio |q95/q05|"),
-    ("common_sense_ratio", lambda: ss.compute(inp, "common_sense_ratio").value,
-     lambda: qs.stats.common_sense_ratio(series),
-     "inherits the tail-ratio difference (both scale by profit factor)"),
-    ("risk_of_ruin", lambda: ss.compute(inp, "risk_of_ruin").value,
-     lambda: qs.stats.risk_of_ruin(series),
-     "SS normal approximation vs QS gambler's-ruin win-rate formula"),
-    ("gain_to_pain_ratio", lambda: ss.compute(inp, "gain_to_pain_ratio").value,
-     lambda: qs.stats.gain_to_pain_ratio(series),
-     "SS sum(gains)/|sum(losses)| vs QS total-return/|sum(losses)| (= profit_factor - 1)"),
-    ("ulcer_index", lambda: ss.compute(inp, "ulcer_index").value,
-     lambda: qs.stats.ulcer_index(series),
-     "SS sqrt(mean(dd^2)) divides by n; QS divides by n-1"),
-    ("upi", lambda: ss.compute(inp, "upi").value, lambda: qs.stats.upi(series),
-     "SS annualized arithmetic mean / UI vs QS total compounded return / UI"),
-    ("serenity_ratio", lambda: ss.compute(inp, "serenity_ratio").value,
-     lambda: qs.stats.serenity_index(series),
-     "SS annualized excess / (sigma * UI) vs QS (sum(r) - rf) / (UI * pitfall)"),
-    ("recovery_factor", lambda: ss.compute(inp, "recovery_factor").value,
-     lambda: qs.stats.recovery_factor(series),
-     "SS total compounded return / |MDD| (signed) vs QS |sum(r)| / |MDD|"),
+    (
+        "cvar",
+        lambda: ss.compute(inp, "cvar", method="parametric").value,
+        lambda: qs.stats.cvar(series),
+        "SS closed-form normal ES vs QS empirical mean below parametric VaR",
+    ),
+    (
+        "tail_ratio",
+        lambda: ss.compute(inp, "tail_ratio").value,
+        lambda: qs.stats.tail_ratio(series),
+        "SS tail-mean ratio vs QS quantile ratio |q95/q05|",
+    ),
+    (
+        "common_sense_ratio",
+        lambda: ss.compute(inp, "common_sense_ratio").value,
+        lambda: qs.stats.common_sense_ratio(series),
+        "inherits the tail-ratio difference (both scale by profit factor)",
+    ),
+    (
+        "risk_of_ruin",
+        lambda: ss.compute(inp, "risk_of_ruin").value,
+        lambda: qs.stats.risk_of_ruin(series),
+        "SS normal approximation vs QS gambler's-ruin win-rate formula",
+    ),
+    (
+        "gain_to_pain_ratio",
+        lambda: ss.compute(inp, "gain_to_pain_ratio").value,
+        lambda: qs.stats.gain_to_pain_ratio(series),
+        "SS sum(gains)/|sum(losses)| vs QS total-return/|sum(losses)| (= profit_factor - 1)",
+    ),
+    (
+        "ulcer_index",
+        lambda: ss.compute(inp, "ulcer_index").value,
+        lambda: qs.stats.ulcer_index(series),
+        "SS sqrt(mean(dd^2)) divides by n; QS divides by n-1",
+    ),
+    (
+        "upi",
+        lambda: ss.compute(inp, "upi").value,
+        lambda: qs.stats.upi(series),
+        "SS annualized arithmetic mean / UI vs QS total compounded return / UI",
+    ),
+    (
+        "serenity_ratio",
+        lambda: ss.compute(inp, "serenity_ratio").value,
+        lambda: qs.stats.serenity_index(series),
+        "SS annualized excess / (sigma * UI) vs QS (sum(r) - rf) / (UI * pitfall)",
+    ),
+    (
+        "recovery_factor",
+        lambda: ss.compute(inp, "recovery_factor").value,
+        lambda: qs.stats.recovery_factor(series),
+        "SS total compounded return / |MDD| (signed) vs QS |sum(r)| / |MDD|",
+    ),
 ]
 
 print("4. FORMULA DIFFERENCES (both shown for documentation)")
@@ -269,19 +368,41 @@ print()
 # 5. BENCHMARK — metrics needing a benchmark series
 # ---------------------------------------------------------------------------
 bench_rows = [
-    ("beta", lambda: ss.compute(binp, "beta").value,
-     lambda: qs.stats.greeks(series, bench_series)["beta"], True, ""),
-    ("r_squared", lambda: ss.compute(binp, "r_squared").value,
-     lambda: qs.stats.r_squared(series, bench_series), True, ""),
-    ("alpha", lambda: ss.compute(binp, "alpha").value,
-     lambda: qs.stats.greeks(series, bench_series)["alpha"], False,
-     "SS Jensen (CAGR-based) vs QS greeks (arithmetic mean * periods)"),
-    ("information_ratio", lambda: ss.compute(binp, "information_ratio").value,
-     lambda: qs.stats.information_ratio(series, bench_series), False,
-     "SS annualizes (x sqrt(P)); QS returns the raw period ratio"),
-    ("treynor_ratio", lambda: ss.compute(binp, "treynor_ratio").value,
-     lambda: qs.stats.treynor_ratio(series, bench_series), False,
-     "SS annualized mean excess / beta vs QS total comp / beta"),
+    (
+        "beta",
+        lambda: ss.compute(binp, "beta").value,
+        lambda: qs.stats.greeks(series, bench_series)["beta"],
+        True,
+        "",
+    ),
+    (
+        "r_squared",
+        lambda: ss.compute(binp, "r_squared").value,
+        lambda: qs.stats.r_squared(series, bench_series),
+        True,
+        "",
+    ),
+    (
+        "alpha",
+        lambda: ss.compute(binp, "alpha").value,
+        lambda: qs.stats.greeks(series, bench_series)["alpha"],
+        False,
+        "SS Jensen (CAGR-based) vs QS greeks (arithmetic mean * periods)",
+    ),
+    (
+        "information_ratio",
+        lambda: ss.compute(binp, "information_ratio").value,
+        lambda: qs.stats.information_ratio(series, bench_series),
+        False,
+        "SS annualizes (x sqrt(P)); QS returns the raw period ratio",
+    ),
+    (
+        "treynor_ratio",
+        lambda: ss.compute(binp, "treynor_ratio").value,
+        lambda: qs.stats.treynor_ratio(series, bench_series),
+        False,
+        "SS annualized mean excess / beta vs QS total comp / beta",
+    ),
 ]
 
 print("5. BENCHMARK TIER")
@@ -305,18 +426,36 @@ print()
 # 6. QS-ONLY — no returns-tier StratStat equivalent (trades-tier instead)
 # ---------------------------------------------------------------------------
 qs_only = [
-    ("avg_return", lambda: qs.stats.avg_return(series),
-     "mean of NON-ZERO returns; SS arithmetic_mean_return uses every period"),
-    ("win_rate", lambda: qs.stats.win_rate(series),
-     "positives / non-zero; SS positive_period_ratio uses positives / all periods"),
-    ("profit_ratio", lambda: qs.stats.profit_ratio(series),
-     "no SS returns-tier equivalent (SS has trades-tier win_loss/payoff)"),
-    ("cpc_index", lambda: qs.stats.cpc_index(series),
-     "no SS returns-tier equivalent (SS has trades-tier cpc_ratio)"),
-    ("outlier_win_ratio", lambda: qs.stats.outlier_win_ratio(series),
-     "no SS returns-tier equivalent (SS has trades-tier outlier_win_ratio)"),
-    ("outlier_loss_ratio", lambda: qs.stats.outlier_loss_ratio(series),
-     "no SS returns-tier equivalent (SS has trades-tier outlier_loss_ratio)"),
+    (
+        "avg_return",
+        lambda: qs.stats.avg_return(series),
+        "mean of NON-ZERO returns; SS arithmetic_mean_return uses every period",
+    ),
+    (
+        "win_rate",
+        lambda: qs.stats.win_rate(series),
+        "positives / non-zero; SS positive_period_ratio uses positives / all periods",
+    ),
+    (
+        "profit_ratio",
+        lambda: qs.stats.profit_ratio(series),
+        "no SS returns-tier equivalent (SS has trades-tier win_loss/payoff)",
+    ),
+    (
+        "cpc_index",
+        lambda: qs.stats.cpc_index(series),
+        "no SS returns-tier equivalent (SS has trades-tier cpc_ratio)",
+    ),
+    (
+        "outlier_win_ratio",
+        lambda: qs.stats.outlier_win_ratio(series),
+        "no SS returns-tier equivalent (SS has trades-tier outlier_win_ratio)",
+    ),
+    (
+        "outlier_loss_ratio",
+        lambda: qs.stats.outlier_loss_ratio(series),
+        "no SS returns-tier equivalent (SS has trades-tier outlier_loss_ratio)",
+    ),
 ]
 
 print("6. QUANTSTATS-ONLY (informational — StratStat covers these at the trades tier)")

@@ -29,8 +29,7 @@ def _ensure_weasyprint() -> None:
         import weasyprint  # noqa: F401
     except ImportError as err:
         raise ImportError(
-            "weasyprint is required for PDF output. "
-            "Install it with: pip install stratstat[pdf]"
+            "weasyprint is required for PDF output. Install it with: pip install stratstat[pdf]"
         ) from err
 
 
@@ -105,9 +104,7 @@ def _metric_set_to_sections(
         groups.setdefault(primary, []).append(mr)
 
     # Build sections in display order
-    ordered = sorted(
-        groups.items(), key=lambda kv: _CATEGORY_ORDER.get(kv[0], 99)
-    )
+    ordered = sorted(groups.items(), key=lambda kv: _CATEGORY_ORDER.get(kv[0], 99))
     sections: list[dict[str, Any]] = []
     for cat_name, metrics in ordered:
         label = _CATEGORY_LABELS.get(cat_name, cat_name.title())
@@ -116,11 +113,13 @@ def _metric_set_to_sections(
             val = mr.value
             if isinstance(val, np.ndarray) and val.size == 1:
                 val = float(val.flat[0])
-            formatted.append({
-                "name": mr.name,
-                "value": val,
-                "ref": mr.meta.get("ref", ""),
-            })
+            formatted.append(
+                {
+                    "name": mr.name,
+                    "value": val,
+                    "ref": mr.meta.get("ref", ""),
+                }
+            )
         sections.append({"section": label, "metrics": formatted})
 
     return sections
@@ -145,11 +144,13 @@ def _lookup_metrics(
             val = mr.value
             if isinstance(val, np.ndarray) and val.size == 1:
                 val = float(val.flat[0])
-            result.append({
-                "name": name,
-                "value": val,
-                "ref": mr.meta.get("ref", ""),
-            })
+            result.append(
+                {
+                    "name": name,
+                    "value": val,
+                    "ref": mr.meta.get("ref", ""),
+                }
+            )
         else:
             result.append({"name": name, "value": np.nan, "ref": ""})
 
@@ -214,10 +215,15 @@ def generate_report(
 
     def _html_div(fig: Any, include_plotlyjs: bool = False) -> str:
         """Wrap a plotly figure as an HTML div string (responsive)."""
-        return cast(str, _fig_to_html_div(
-            fig, full_html=False, include_plotlyjs=include_plotlyjs,
-            config={"responsive": True},
-        ))
+        return cast(
+            str,
+            _fig_to_html_div(
+                fig,
+                full_html=False,
+                include_plotlyjs=include_plotlyjs,
+                config={"responsive": True},
+            ),
+        )
 
     # Trigger metric registration so the registry is populated.
     import stratstat.core.benchmark  # noqa: F401
@@ -246,13 +252,14 @@ def generate_report(
         bench_arr = np.asarray(benchmark, dtype=np.float64).ravel()
         bm_inp = BenchmarkInput(
             returns=strat,
-            benchmark=bench_arr[:len(strat)],
+            benchmark=bench_arr[: len(strat)],
             periods_per_year=periods_per_year,
         )
 
     exp_inp = None
     if positions is not None:
         from stratstat.inputs import ExposureInput
+
         exp_inp = ExposureInput(
             positions=positions,
             returns=asset_returns,
@@ -262,6 +269,7 @@ def generate_report(
     trd_inp = None
     if trades is not None:
         from stratstat.inputs import TradeInput
+
         trd_inp = TradeInput(trades=trades, periods_per_year=periods_per_year)
 
     # -- Build all chart figures (first one embeds plotly.js) -------------
@@ -273,38 +281,56 @@ def generate_report(
     x_idx = np.arange(len(cum))
 
     fig_eq = go.Figure()
-    fig_eq.add_trace(go.Scatter(
-        x=x_idx, y=cum, mode="lines", name="Strategy",
-        line={"color": "steelblue"},
-        hovertemplate="%{y:.3f}<extra></extra>",
-    ))
+    fig_eq.add_trace(
+        go.Scatter(
+            x=x_idx,
+            y=cum,
+            mode="lines",
+            name="Strategy",
+            line={"color": "steelblue"},
+            hovertemplate="%{y:.3f}<extra></extra>",
+        )
+    )
     if bench_arr is not None:
         n_b = min(len(bench_arr), len(strat))
-        bench_cum = np.cumprod(1.0 + np.where(
-            np.isfinite(bench_arr[:n_b]), bench_arr[:n_b], 0.0))
-        fig_eq.add_trace(go.Scatter(
-            x=np.arange(len(bench_cum)), y=bench_cum,
-            mode="lines", name="Benchmark",
-            line={"dash": "dash", "color": "gray"},
-            hovertemplate="%{y:.3f}<extra></extra>",
-        ))
+        bench_cum = np.cumprod(1.0 + np.where(np.isfinite(bench_arr[:n_b]), bench_arr[:n_b], 0.0))
+        fig_eq.add_trace(
+            go.Scatter(
+                x=np.arange(len(bench_cum)),
+                y=bench_cum,
+                mode="lines",
+                name="Benchmark",
+                line={"dash": "dash", "color": "gray"},
+                hovertemplate="%{y:.3f}<extra></extra>",
+            )
+        )
     fig_eq.update_layout(
-        title="Equity Curve", yaxis_title="Cumulative Return",
-        xaxis_title="Period", hovermode="x unified",
+        title="Equity Curve",
+        yaxis_title="Cumulative Return",
+        xaxis_title="Period",
+        hovermode="x unified",
         margin={"l": 50, "r": 20, "t": 40, "b": 40},
     )
 
     dd = _drawdown_series(strat.reshape(-1, 1))[:, 0]
     fig_dd = go.Figure()
-    fig_dd.add_trace(go.Scatter(
-        x=x_idx, y=dd, mode="lines", name="Drawdown",
-        fill="tozeroy", fillcolor="rgba(220, 50, 50, 0.3)",
-        line={"color": "crimson"},
-        hovertemplate="%{y:.1%}<extra></extra>",
-    ))
+    fig_dd.add_trace(
+        go.Scatter(
+            x=x_idx,
+            y=dd,
+            mode="lines",
+            name="Drawdown",
+            fill="tozeroy",
+            fillcolor="rgba(220, 50, 50, 0.3)",
+            line={"color": "crimson"},
+            hovertemplate="%{y:.1%}<extra></extra>",
+        )
+    )
     fig_dd.update_layout(
-        title="Drawdown", yaxis_title="Drawdown",
-        xaxis_title="Period", yaxis_tickformat=".0%",
+        title="Drawdown",
+        yaxis_title="Drawdown",
+        xaxis_title="Period",
+        yaxis_tickformat=".0%",
         hovermode="x unified",
         margin={"l": 50, "r": 20, "t": 40, "b": 40},
     )
@@ -318,28 +344,34 @@ def generate_report(
         '<div class="chart-row">'
         f'<div class="chart-col">{eq_fig_div}</div>'
         f'<div class="chart-col">{dd_fig_div}</div>'
-        '</div>'
+        "</div>"
     )
 
     # --- Performance charts ---
     from stratstat.report._charts import returns_distribution
+
     fig_dist = returns_distribution(strat, title="Returns Distribution")
     fig_dist.update_layout(margin={"l": 50, "r": 20, "t": 40, "b": 40})
 
     grid, years, months = _monthly_heatmap_data(strat)
     fig_hm = go.Figure()
     if grid.size > 0:
-        fig_hm.add_trace(go.Heatmap(
-            z=grid,
-            x=months[:grid.shape[1]] if grid.shape[1] <= 12 else months,
-            y=[str(y) for y in years],
-            colorscale="RdYlGn", zmid=0,
-            texttemplate="%{z:.1%}", textfont={"size": 10},
-            hovertemplate="%{y} %{x}: %{z:.2%}<extra></extra>",
-        ))
+        fig_hm.add_trace(
+            go.Heatmap(
+                z=grid,
+                x=months[: grid.shape[1]] if grid.shape[1] <= 12 else months,
+                y=[str(y) for y in years],
+                colorscale="RdYlGn",
+                zmid=0,
+                texttemplate="%{z:.1%}",
+                textfont={"size": 10},
+                hovertemplate="%{y} %{x}: %{z:.2%}<extra></extra>",
+            )
+        )
     fig_hm.update_layout(
         title="Monthly Returns Heatmap",
-        xaxis_title="Month", yaxis_title="Year",
+        xaxis_title="Month",
+        yaxis_title="Year",
         yaxis={"autorange": "reversed"},
         margin={"l": 50, "r": 20, "t": 40, "b": 40},
     )
@@ -347,33 +379,36 @@ def generate_report(
     all_charts["distribution_heatmap"] = (
         '<div class="chart-row">'
         f'<div class="chart-col">'
-        f'{_html_div(fig_dist)}'
-        f'</div>'
+        f"{_html_div(fig_dist)}"
+        f"</div>"
         f'<div class="chart-col">'
-        f'{_html_div(fig_hm)}'
-        f'</div>'
-        '</div>'
+        f"{_html_div(fig_hm)}"
+        f"</div>"
+        "</div>"
     )
 
     # --- Rolling metrics ---
     from stratstat.report._charts import rolling_metric_chart
+
     fig_rs = rolling_metric_chart(
-        inp, "sharpe_ratio", window=60, periods_per_year=periods_per_year,
+        inp,
+        "sharpe_ratio",
+        window=60,
+        periods_per_year=periods_per_year,
         title="Rolling Sharpe Ratio (60-period window)",
     )
     fig_rs.update_layout(margin={"l": 50, "r": 20, "t": 40, "b": 40})
     fig_rv = rolling_metric_chart(
-        inp, "annualized_volatility", window=60,
+        inp,
+        "annualized_volatility",
+        window=60,
         periods_per_year=periods_per_year,
         title="Rolling Volatility (60-period window)",
     )
     fig_rv.update_layout(margin={"l": 50, "r": 20, "t": 40, "b": 40})
 
     all_charts["rolling"] = (
-        '<div class="rolling-section">'
-        f'{_html_div(fig_rs)}'
-        f'{_html_div(fig_rv)}'
-        '</div>'
+        f'<div class="rolling-section">{_html_div(fig_rs)}{_html_div(fig_rv)}</div>'
     )
 
     # --- Exposure charts ---
@@ -394,15 +429,15 @@ def generate_report(
         all_charts["exposure"] = (
             '<div class="chart-row">'
             f'<div class="chart-col">'
-            f'{_html_div(fig_exp)}'
-            f'</div>'
+            f"{_html_div(fig_exp)}"
+            f"</div>"
             f'<div class="chart-col">'
-            f'{_html_div(fig_eff)}'
-            f'</div>'
-            '</div>'
+            f"{_html_div(fig_eff)}"
+            f"</div>"
+            "</div>"
             '<div class="full-width-chart">'
-            f'{_html_div(fig_ehm)}'
-            '</div>'
+            f"{_html_div(fig_ehm)}"
+            "</div>"
         )
 
     # --- Trade charts ---
@@ -416,33 +451,23 @@ def generate_report(
         fig_trades.update_layout(margin={"l": 50, "r": 20, "t": 40, "b": 40})
 
         trade_parts = [
-            '<div class="full-width-chart">'
-            f'{_html_div(fig_trades)}'
-            '</div>',
+            f'<div class="full-width-chart">{_html_div(fig_trades)}</div>',
         ]
 
         if trd_inp.has_duration:
             fig_dur = trade_duration_histogram(trd_inp, title="Trade Duration Distribution")
             fig_dur.update_layout(margin={"l": 50, "r": 20, "t": 40, "b": 40})
-            trade_parts.append(
-                '<div class="full-width-chart">'
-                f'{_html_div(fig_dur)}'
-                '</div>'
-            )
+            trade_parts.append(f'<div class="full-width-chart">{_html_div(fig_dur)}</div>')
 
         all_charts["trades"] = "\n".join(trade_parts)
 
     # --- Benchmark charts ---
     if bm_inp is not None:
         from stratstat.report._charts import benchmark_overlay_chart
-        fig_bm = benchmark_overlay_chart(strat, bench_arr,
-                                         title="Benchmark Comparison")
+
+        fig_bm = benchmark_overlay_chart(strat, bench_arr, title="Benchmark Comparison")
         fig_bm.update_layout(margin={"l": 50, "r": 20, "t": 40, "b": 40})
-        all_charts["benchmark"] = (
-            '<div class="full-width-chart">'
-            f'{_html_div(fig_bm)}'
-            '</div>'
-        )
+        all_charts["benchmark"] = f'<div class="full-width-chart">{_html_div(fig_bm)}</div>'
 
     # -- Collect per-tab statistics ---------------------------------------
     if metrics is not None:
@@ -450,18 +475,9 @@ def generate_report(
         perf_sections = _metric_set_to_sections(
             metrics, ["descriptive", "risk", "risk_adjusted", "inference"]
         )
-        exp_sections = (
-            _metric_set_to_sections(metrics, ["exposure"])
-            if exp_inp is not None else []
-        )
-        trd_sections = (
-            _metric_set_to_sections(metrics, ["trades"])
-            if trd_inp is not None else []
-        )
-        bm_sections = (
-            _metric_set_to_sections(metrics, ["benchmark"])
-            if bm_inp is not None else []
-        )
+        exp_sections = _metric_set_to_sections(metrics, ["exposure"]) if exp_inp is not None else []
+        trd_sections = _metric_set_to_sections(metrics, ["trades"]) if trd_inp is not None else []
+        bm_sections = _metric_set_to_sections(metrics, ["benchmark"]) if bm_inp is not None else []
         # Overview: extract curated metrics from the MetricSet.
         overview_metrics = _lookup_metrics(metrics, _OVERVIEW_METRICS)
         summary_metrics = _lookup_metrics(metrics, _SUMMARY_METRICS)
@@ -470,18 +486,9 @@ def generate_report(
         perf_sections = discover_and_format(
             inp, ["descriptive", "risk", "risk_adjusted", "inference"]
         )
-        exp_sections = (
-            discover_and_format(exp_inp, ["exposure"])
-            if exp_inp is not None else []
-        )
-        trd_sections = (
-            discover_and_format(trd_inp, ["trades"])
-            if trd_inp is not None else []
-        )
-        bm_sections = (
-            discover_and_format(bm_inp, ["benchmark"])
-            if bm_inp is not None else []
-        )
+        exp_sections = discover_and_format(exp_inp, ["exposure"]) if exp_inp is not None else []
+        trd_sections = discover_and_format(trd_inp, ["trades"]) if trd_inp is not None else []
+        bm_sections = discover_and_format(bm_inp, ["benchmark"]) if bm_inp is not None else []
         overview_metrics = None
         summary_metrics = None
 
@@ -490,9 +497,7 @@ def generate_report(
 
     # Overview tab
     overview_content = _build_overview_content(
-        summary_html=_build_summary_html(
-            inp, metric_set=summary_metrics
-        ),
+        summary_html=_build_summary_html(inp, metric_set=summary_metrics),
         data_summary_html=_build_data_summary(
             n_periods=len(strat),
             periods_per_year=periods_per_year,
@@ -508,8 +513,7 @@ def generate_report(
     # Performance tab
     perf_ref_index = _build_ref_index(perf_sections)
     perf_content = _build_domain_tab_content(
-        charts_html=all_charts["distribution_heatmap"]
-                   + all_charts["rolling"],
+        charts_html=all_charts["distribution_heatmap"] + all_charts["rolling"],
         sections=perf_sections,
         ref_index=perf_ref_index,
     )
@@ -568,6 +572,7 @@ def generate_report(
     if p.suffix.lower() == ".pdf":
         _ensure_weasyprint()
         from weasyprint import HTML
+
         HTML(string=html).write_pdf(p)
     else:
         p.write_text(html)
@@ -655,10 +660,10 @@ def _build_tab_nav(tabs: list[dict[str, Any]]) -> str:
         active = " active" if i == 0 else ""
         parts.append(
             f'<button class="tab-nav-btn{active}" '
-            f'onclick="switchTab(event, \'tab-{tab["id"]}\')">'
-            f'{tab["label"]}</button>'
+            f"onclick=\"switchTab(event, 'tab-{tab['id']}')\">"
+            f"{tab['label']}</button>"
         )
-    parts.append('</div>')
+    parts.append("</div>")
     return "\n".join(parts)
 
 
@@ -667,12 +672,8 @@ def _build_tab_panels(tabs: list[dict[str, Any]]) -> str:
     parts: list[str] = ['<div class="tab-panels">']
     for i, tab in enumerate(tabs):
         active = " active" if i == 0 else ""
-        parts.append(
-            f'<div id="tab-{tab["id"]}" class="tab-panel{active}">'
-            f'{tab["content"]}'
-            f'</div>'
-        )
-    parts.append('</div>')
+        parts.append(f'<div id="tab-{tab["id"]}" class="tab-panel{active}">{tab["content"]}</div>')
+    parts.append("</div>")
     return "\n".join(parts)
 
 
@@ -703,9 +704,7 @@ def _build_data_summary(
 # ---------------------------------------------------------------------------
 
 
-def _build_summary_html(
-    inp: Any, metric_set: list[dict[str, Any]] | None = None
-) -> str:
+def _build_summary_html(inp: Any, metric_set: list[dict[str, Any]] | None = None) -> str:
     """Build the hero summary cards from key metrics.
 
     When *metric_set* is provided (pre-computed from a MetricSet via
@@ -714,9 +713,7 @@ def _build_summary_html(
     """
     from stratstat.registry import _compute_one
 
-    by_name = (
-        {m["name"]: m for m in metric_set} if metric_set is not None else {}
-    )
+    by_name = {m["name"]: m for m in metric_set} if metric_set is not None else {}
 
     cards: list[str] = []
     for name in _SUMMARY_METRICS:
@@ -762,9 +759,9 @@ def _build_stats_html(
     # Multiple sections — each with an h3 heading
     parts: list[str] = ['<div class="stats-block">']
     for sec in sections:
-        parts.append(f'<h3>{sec["section"]}</h3>')
+        parts.append(f"<h3>{sec['section']}</h3>")
         parts.append(_build_one_table(sec, ref_index))
-    parts.append('</div>')
+    parts.append("</div>")
     return "\n".join(parts)
 
 
@@ -778,11 +775,7 @@ def _build_one_table(
         return ""
 
     parts: list[str] = ["<table>"]
-    parts.append(
-        "<thead><tr>"
-        "<th>Metric</th><th>Value</th><th>Ref</th>"
-        "</tr></thead>"
-    )
+    parts.append("<thead><tr><th>Metric</th><th>Value</th><th>Ref</th></tr></thead>")
     parts.append("<tbody>")
     for i, m in enumerate(metrics):
         bg = ' style="background:#f8fafc"' if i % 2 == 0 else ""

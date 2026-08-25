@@ -81,11 +81,13 @@ def inp_with_weights(simple_returns):
 def inp_empty():
     """CompareInput with minimal data (2 strategies, 3 periods)."""
     return CompareInput(
-        returns=np.array([
-            [0.01, 0.005],
-            [0.02, 0.01],
-            [-0.01, 0.0],
-        ]),
+        returns=np.array(
+            [
+                [0.01, 0.005],
+                [0.02, 0.01],
+                [-0.01, 0.0],
+            ]
+        ),
         periods_per_year=252,
     )
 
@@ -118,7 +120,7 @@ class TestCorrelationMatrix:
         rng = np.random.default_rng(42)
         x = rng.normal(0, 0.01, size=100)
         y = 2.0 * x  # perfect positive correlation
-        z = -x       # perfect negative correlation
+        z = -x  # perfect negative correlation
         returns = np.column_stack([x, y, z])
         inp = CompareInput(returns=returns)
         from stratstat.registry import _compute_one
@@ -238,8 +240,9 @@ class TestSharpeDifferenceTest:
 
         Uses deterministic alternating returns — both series identical.
         """
-        r = np.array([[0.01], [-0.005], [0.02], [-0.01], [0.015],
-                       [0.01], [-0.005], [0.02], [-0.01], [0.015]])
+        r = np.array(
+            [[0.01], [-0.005], [0.02], [-0.01], [0.015], [0.01], [-0.005], [0.02], [-0.01], [0.015]]
+        )
         returns = np.column_stack([r.ravel(), r.ravel()])
         inp = CompareInput(returns=returns)
         from stratstat.registry import _compute_one
@@ -311,12 +314,8 @@ class TestWhitesRealityCheck:
     def test_seed_reproducibility(self, inp_with_benchmark):
         from stratstat.registry import _compute_one
 
-        r1 = _compute_one(
-            inp_with_benchmark, "whites_reality_check", seed=42
-        )
-        r2 = _compute_one(
-            inp_with_benchmark, "whites_reality_check", seed=42
-        )
+        r1 = _compute_one(inp_with_benchmark, "whites_reality_check", seed=42)
+        r2 = _compute_one(inp_with_benchmark, "whites_reality_check", seed=42)
         assert r1.value[0] == r2.value[0]
         assert r1.value[1] == r2.value[1]
 
@@ -396,8 +395,7 @@ class TestPBO:
         from stratstat.registry import _compute_one
 
         result = _compute_one(
-            inp_basic, "pbo", n_splits=30, purge_pct=0.05,
-            embargo_pct=0.02, seed=42
+            inp_basic, "pbo", n_splits=30, purge_pct=0.05, embargo_pct=0.02, seed=42
         )
         assert result.meta["purge_pct"] == 0.05
         assert result.meta["embargo_pct"] == 0.02
@@ -442,9 +440,7 @@ class TestMarginalContributionToRisk:
     def test_custom_weights(self, inp_with_weights):
         from stratstat.registry import _compute_one
 
-        result = _compute_one(
-            inp_with_weights, "marginal_contribution_to_risk"
-        )
+        result = _compute_one(inp_with_weights, "marginal_contribution_to_risk")
         assert result.meta["weights"] == [0.5, 0.3, 0.2]
 
     def test_requires_two_strategies(self):
@@ -458,7 +454,7 @@ class TestMarginalContributionToRisk:
         from stratstat.registry import _compute_one
 
         result = _compute_one(inp_basic, "marginal_contribution_to_risk")
-        assert result.meta["weights"] == [1.0/3, 1.0/3, 1.0/3]
+        assert result.meta["weights"] == [1.0 / 3, 1.0 / 3, 1.0 / 3]
 
 
 # ===================================================================
@@ -540,7 +536,7 @@ class TestCompareInput:
         w = inp_basic.get_weights()
         assert w.shape == (3,)
         assert np.sum(w) == pytest.approx(1.0)
-        assert np.allclose(w, [1.0/3, 1.0/3, 1.0/3])
+        assert np.allclose(w, [1.0 / 3, 1.0 / 3, 1.0 / 3])
 
     def test_weight_length_mismatch_raises(self, simple_returns):
         with pytest.raises(ValueError, match="Weights length"):
@@ -632,7 +628,8 @@ class TestRegistryIntegration:
         # 5 vectorized compare metrics; the 2 resampling metrics are excluded.
         assert len(result_set) == 5
         assert set(result_set.meta.get("excluded_resampling", [])) == {
-            "whites_reality_check", "pbo",
+            "whites_reality_check",
+            "pbo",
         }
 
     def test_compute_top_level(self, inp_basic):

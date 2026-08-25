@@ -99,9 +99,7 @@ def test_default_wires_into_exposure_time_rounding():
     from stratstat.core.returns.descriptive import exposure_time
 
     set_default("exposure_time", "rounding=percent_ceil")
-    returns = np.array(
-        [0.01, 0.0, -0.02, 0.03, 0.0, 0.005, -0.01, 0.02, 0.0, 0.0, 0.001]
-    )
+    returns = np.array([0.01, 0.0, -0.02, 0.03, 0.0, 0.005, -0.01, 0.02, 0.0, 0.0, 0.001])
     result = exposure_time(ReturnsInput(returns))
     assert result.value == pytest.approx(0.64, rel=1e-12)
 
@@ -111,9 +109,7 @@ def test_default_wires_into_rar_rounding():
     from stratstat.core.returns.risk_adjusted import rar
 
     set_default("rar", "rounding=percent_ceil")
-    returns = np.array(
-        [0.01, 0.0, -0.02, 0.03, 0.0, 0.005, -0.01, 0.02, 0.0, 0.0, 0.001]
-    )
+    returns = np.array([0.01, 0.0, -0.02, 0.03, 0.0, 0.005, -0.01, 0.02, 0.0, 0.0, 0.001])
     result = rar(ReturnsInput(returns, periods_per_year=252))
     assert result.meta["rounding"] == "percent_ceil"
 

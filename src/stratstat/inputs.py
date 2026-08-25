@@ -105,9 +105,7 @@ class ReturnsInput:
         elif arr.ndim == 1:
             arr = arr.reshape(-1, 1)  # single-column for uniform batch handling
         elif arr.ndim > 2:
-            raise ValueError(
-                f"Returns data must be 1-D or 2-D, got {arr.ndim}-D array."
-            )
+            raise ValueError(f"Returns data must be 1-D or 2-D, got {arr.ndim}-D array.")
 
         self.values: NDArray[np.floating] = arr  # shape: (n_periods, n_strategies)
         self.n_periods: int = arr.shape[0]
@@ -192,9 +190,7 @@ class ExposureInput:
         elif pos.ndim == 1:
             pos = pos.reshape(-1, 1)
         elif pos.ndim > 2:
-            raise ValueError(
-                f"Positions must be 1-D or 2-D, got {pos.ndim}-D array."
-            )
+            raise ValueError(f"Positions must be 1-D or 2-D, got {pos.ndim}-D array.")
         self.positions: NDArray[np.floating] = pos  # (n_periods, n_assets)
         self.n_periods: int = pos.shape[0]
         self.n_assets: int = pos.shape[1]
@@ -219,8 +215,7 @@ class ExposureInput:
             bench = bench.ravel()
             if bench.shape[0] != self.n_periods:
                 raise ValueError(
-                    f"Benchmark length {bench.shape[0]} must match "
-                    f"n_periods {self.n_periods}."
+                    f"Benchmark length {bench.shape[0]} must match n_periods {self.n_periods}."
                 )
             self.benchmark: NDArray[np.floating] | None = bench
         else:
@@ -244,9 +239,7 @@ class ExposureInput:
                     )
                 self.benchmark_weights = bw
             else:
-                raise ValueError(
-                    f"benchmark_weights must be 1-D or 2-D, got {bw.ndim}-D array."
-                )
+                raise ValueError(f"benchmark_weights must be 1-D or 2-D, got {bw.ndim}-D array.")
         else:
             self.benchmark_weights = None
 
@@ -255,8 +248,7 @@ class ExposureInput:
             eq = _to_numpy(equity).ravel()
             if eq.shape[0] != self.n_periods:
                 raise ValueError(
-                    f"Equity length {eq.shape[0]} must match "
-                    f"n_periods {self.n_periods}."
+                    f"Equity length {eq.shape[0]} must match n_periods {self.n_periods}."
                 )
             self.equity: NDArray[np.floating] | None = eq
         elif self.returns is not None:
@@ -376,9 +368,7 @@ class TradeInput:
             elif ret.ndim == 1:
                 ret = ret.reshape(-1, 1)
             elif ret.ndim > 2:
-                raise ValueError(
-                    f"Returns data must be 1-D or 2-D, got {ret.ndim}-D array."
-                )
+                raise ValueError(f"Returns data must be 1-D or 2-D, got {ret.ndim}-D array.")
             self.returns: NDArray[np.floating] | None = ret
             self.n_periods: int = ret.shape[0]
         else:
@@ -429,13 +419,8 @@ class TradeInput:
                 pass
             else:
                 if isinstance(trades, pd.DataFrame):
-                    raw = {
-                        col: trades[col].to_numpy()
-                        for col in trades.columns
-                    }
-                    return TradeInput._validate_and_augment(
-                        TradeInput._apply_schema(raw, schema)
-                    )
+                    raw = {col: trades[col].to_numpy() for col in trades.columns}
+                    return TradeInput._validate_and_augment(TradeInput._apply_schema(raw, schema))
 
             # Try polars
             try:
@@ -444,22 +429,15 @@ class TradeInput:
                 pass
             else:
                 if isinstance(trades, pl.DataFrame):
-                    raw = {
-                        col: trades[col].to_numpy()
-                        for col in trades.columns
-                    }
-                    return TradeInput._validate_and_augment(
-                        TradeInput._apply_schema(raw, schema)
-                    )
+                    raw = {col: trades[col].to_numpy() for col in trades.columns}
+                    return TradeInput._validate_and_augment(TradeInput._apply_schema(raw, schema))
 
             raise TypeError(
                 f"Unsupported trades type: {type(trades).__name__}. "
                 f"Expected dict, pandas.DataFrame, or polars.DataFrame."
             )
 
-        return TradeInput._validate_and_augment(
-            TradeInput._apply_schema(raw, schema)
-        )
+        return TradeInput._validate_and_augment(TradeInput._apply_schema(raw, schema))
 
     @staticmethod
     def _apply_schema(raw: dict[str, Any], schema: Any) -> dict[str, Any]:
@@ -476,8 +454,7 @@ class TradeInput:
         # -- required: pnl ----------------------------------------------
         if "pnl" not in raw:
             raise ValueError(
-                "Trade log must contain a 'pnl' column with per-trade "
-                "profit/loss values."
+                "Trade log must contain a 'pnl' column with per-trade profit/loss values."
             )
         pnl = np.asarray(raw["pnl"], dtype=np.float64).ravel()
         result: dict[str, Any] = {"pnl": pnl}
@@ -485,15 +462,11 @@ class TradeInput:
 
         # -- optional: side -> is_long ---------------------------------
         if "side" in raw:
-            result["is_long"] = TradeInput._normalize_side(
-                raw["side"], n_trades
-            )
+            result["is_long"] = TradeInput._normalize_side(raw["side"], n_trades)
 
         # -- optional: duration (or entry_time/exit_time) ---------------
         if "duration" in raw:
-            result["duration"] = np.asarray(
-                raw["duration"], dtype=np.float64
-            ).ravel()
+            result["duration"] = np.asarray(raw["duration"], dtype=np.float64).ravel()
         elif "entry_time" in raw and "exit_time" in raw:
             entry = np.asarray(raw["entry_time"], dtype=np.float64).ravel()
             exit_ = np.asarray(raw["exit_time"], dtype=np.float64).ravel()
@@ -502,24 +475,18 @@ class TradeInput:
         # -- optional: fill_price, decision_price -----------------------
         for field in ("fill_price", "decision_price"):
             if field in raw:
-                result[field] = np.asarray(
-                    raw[field], dtype=np.float64
-                ).ravel()
+                result[field] = np.asarray(raw[field], dtype=np.float64).ravel()
 
         # -- optional: intratrade_prices --------------------------------
         if "intratrade_prices" in raw:
             itp = raw["intratrade_prices"]
             if isinstance(itp, (list, tuple)):
-                result["intratrade_prices"] = [
-                    np.asarray(p, dtype=np.float64).ravel() for p in itp
-                ]
+                result["intratrade_prices"] = [np.asarray(p, dtype=np.float64).ravel() for p in itp]
             else:
                 arr = np.asarray(itp, dtype=np.float64)
                 if arr.ndim == 2:
                     # 2D array: each row is one trade's price path.
-                    result["intratrade_prices"] = [
-                        arr[i] for i in range(arr.shape[0])
-                    ]
+                    result["intratrade_prices"] = [arr[i] for i in range(arr.shape[0])]
                 else:
                     # 1D array: a single intra-trade price path.
                     result["intratrade_prices"] = [arr.ravel()]
@@ -527,9 +494,7 @@ class TradeInput:
         return result
 
     @staticmethod
-    def _normalize_side(
-        side: Any, n_trades: int
-    ) -> NDArray[np.bool_]:
+    def _normalize_side(side: Any, n_trades: int) -> NDArray[np.bool_]:
         """Normalize the ``side`` field to a boolean ``is_long`` array.
 
         Accepts:
@@ -584,10 +549,7 @@ class TradeInput:
     @property
     def has_prices(self) -> bool:
         """True if fill/decision prices are available (implementation shortfall)."""
-        return (
-            "fill_price" in self._trades
-            and "decision_price" in self._trades
-        )
+        return "fill_price" in self._trades and "decision_price" in self._trades
 
     @property
     def has_intratrade(self) -> bool:
@@ -701,9 +663,7 @@ class BenchmarkInput:
         elif ret.ndim == 1:
             ret = ret.reshape(-1, 1)
         elif ret.ndim > 2:
-            raise ValueError(
-                f"Returns data must be 1-D or 2-D, got {ret.ndim}-D array."
-            )
+            raise ValueError(f"Returns data must be 1-D or 2-D, got {ret.ndim}-D array.")
         self.returns: NDArray[np.floating] = ret  # (n_periods, n_strategies)
         self.n_periods: int = ret.shape[0]
         self.n_strategies: int = ret.shape[1]
@@ -712,8 +672,7 @@ class BenchmarkInput:
         bench = _to_numpy(benchmark).ravel()
         if bench.shape[0] != self.n_periods:
             raise ValueError(
-                f"Benchmark length {bench.shape[0]} must match "
-                f"n_periods {self.n_periods}."
+                f"Benchmark length {bench.shape[0]} must match n_periods {self.n_periods}."
             )
         self.benchmark: NDArray[np.floating] = bench  # (n_periods,)
 
@@ -784,9 +743,7 @@ class CompareInput:
         elif ret.ndim == 1:
             ret = ret.reshape(-1, 1)
         elif ret.ndim > 2:
-            raise ValueError(
-                f"Returns data must be 1-D or 2-D, got {ret.ndim}-D array."
-            )
+            raise ValueError(f"Returns data must be 1-D or 2-D, got {ret.ndim}-D array.")
         self.returns: NDArray[np.floating] = ret  # (n_periods, n_strategies)
         self.n_periods: int = ret.shape[0]
         self.n_strategies: int = ret.shape[1]
@@ -796,8 +753,7 @@ class CompareInput:
             w = _to_numpy(weights).ravel()
             if w.shape[0] != self.n_strategies:
                 raise ValueError(
-                    f"Weights length {w.shape[0]} must match "
-                    f"n_strategies {self.n_strategies}."
+                    f"Weights length {w.shape[0]} must match n_strategies {self.n_strategies}."
                 )
             self.weights: NDArray[np.floating] | None = w
         else:
@@ -808,8 +764,7 @@ class CompareInput:
             bench = _to_numpy(benchmark).ravel()
             if bench.shape[0] != self.n_periods:
                 raise ValueError(
-                    f"Benchmark length {bench.shape[0]} must match "
-                    f"n_periods {self.n_periods}."
+                    f"Benchmark length {bench.shape[0]} must match n_periods {self.n_periods}."
                 )
             self.benchmark: NDArray[np.floating] | None = bench
         else:

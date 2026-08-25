@@ -192,13 +192,14 @@ class TestNetExposure:
 
         result = _compute_one(inp_no_ret, "net_exposure")
         ne = _compute_ne(inp_no_ret.positions)
-        expected = np.array(
-            [ne[-1], np.max(ne), np.min(ne), np.mean(ne),
-             np.max(ne) - np.min(ne)]
-        )
+        expected = np.array([ne[-1], np.max(ne), np.min(ne), np.mean(ne), np.max(ne) - np.min(ne)])
         np.testing.assert_array_equal(result.value, expected)
         assert result.meta["output_index"] == [
-            "current", "max", "min", "mean", "range",
+            "current",
+            "max",
+            "min",
+            "mean",
+            "range",
         ]
 
     def test_all_zero_positions(self):
@@ -216,9 +217,7 @@ class TestNetExposure:
 
     def test_negative_net_exposure(self):
         """Portfolio that stays net short throughout."""
-        positions = np.array(
-            [[-0.3, -0.2], [-0.4, -0.1], [-0.5, -0.2]]
-        )
+        positions = np.array([[-0.3, -0.2], [-0.4, -0.1], [-0.5, -0.2]])
         inp = ExposureInput(positions=positions)
         from stratstat.registry import _compute_one
 
@@ -267,9 +266,7 @@ class TestLeverage:
             _compute_one(inp_no_ret, "leverage")
 
     def test_with_explicit_equity(self, simple_positions):
-        equity = np.array(
-            [1.0, 1.01, 0.99, 1.02, 1.05, 1.03, 1.06, 1.08, 1.07, 1.10]
-        )
+        equity = np.array([1.0, 1.01, 0.99, 1.02, 1.05, 1.03, 1.06, 1.08, 1.07, 1.10])
         inp = ExposureInput(positions=simple_positions, equity=equity)
         from stratstat.registry import _compute_one
 
@@ -485,7 +482,9 @@ class TestLongBeta:
         returns = 1.5 * benchmark.reshape(-1, 1)
 
         inp = ExposureInput(
-            positions=positions, returns=returns, benchmark=benchmark,
+            positions=positions,
+            returns=returns,
+            benchmark=benchmark,
         )
         from stratstat.registry import _compute_one
 
@@ -512,7 +511,9 @@ class TestLongBeta:
         returns = np.array([[0.01, -0.02], [0.02, 0.01]])
         benchmark = np.array([0.005, 0.010])
         inp = ExposureInput(
-            positions=positions, returns=returns, benchmark=benchmark,
+            positions=positions,
+            returns=returns,
+            benchmark=benchmark,
         )
         from stratstat.registry import _compute_one
 
@@ -552,7 +553,9 @@ class TestShortBeta:
         returns = -2.0 * benchmark.reshape(-1, 1)
 
         inp = ExposureInput(
-            positions=positions, returns=returns, benchmark=benchmark,
+            positions=positions,
+            returns=returns,
+            benchmark=benchmark,
         )
         from stratstat.registry import _compute_one
 
@@ -585,7 +588,9 @@ class TestShortBeta:
         returns = np.array([[0.01, -0.02], [0.02, 0.01], [-0.01, 0.03]])
         benchmark = np.array([0.005, 0.010, -0.005])
         inp = ExposureInput(
-            positions=positions, returns=returns, benchmark=benchmark,
+            positions=positions,
+            returns=returns,
+            benchmark=benchmark,
         )
         from stratstat.registry import _compute_one
 
@@ -783,9 +788,7 @@ class TestAvgHoldingWeight:
 
     def test_with_zero_positions(self):
         """Periods with some zero positions should not affect the mean."""
-        positions = np.array(
-            [[0.5, 0.5, 0.0], [0.3, 0.0, 0.0], [0.0, 0.0, 0.0]]
-        )
+        positions = np.array([[0.5, 0.5, 0.0], [0.3, 0.0, 0.0], [0.0, 0.0, 0.0]])
         inp = ExposureInput(positions=positions)
         from stratstat.registry import _compute_one
 
@@ -1145,7 +1148,11 @@ class TestPeriodCounts:
 
         result = _compute_one(inp_no_ret, "period_counts")
         assert result.meta["output_index"] == [
-            "total", "position", "long", "short", "idle",
+            "total",
+            "position",
+            "long",
+            "short",
+            "idle",
         ]
         arr = result.value
         assert arr[0] == inp_no_ret.n_periods
@@ -1185,23 +1192,25 @@ class TestPeriodCounts:
         assert arr[4] == 2  # idle
 
     def test_mixed(self):
-        positions = np.array([
-            [0.3, 0.2],     # long
-            [-0.1, -0.4],   # short
-            [0.5, -0.1],    # long+short
-            [0.0, 0.0],     # idle
-            [0.0, 0.2],     # long
-        ])
+        positions = np.array(
+            [
+                [0.3, 0.2],  # long
+                [-0.1, -0.4],  # short
+                [0.5, -0.1],  # long+short
+                [0.0, 0.0],  # idle
+                [0.0, 0.2],  # long
+            ]
+        )
         inp = ExposureInput(positions=positions)
         from stratstat.registry import _compute_one
 
         result = _compute_one(inp, "period_counts")
         arr = result.value
-        assert arr[0] == 5   # total
-        assert arr[1] == 4   # position
-        assert arr[2] == 2   # long
-        assert arr[3] == 1   # short
-        assert arr[4] == 1   # idle
+        assert arr[0] == 5  # total
+        assert arr[1] == 4  # position
+        assert arr[2] == 2  # long
+        assert arr[3] == 1  # short
+        assert arr[4] == 1  # idle
 
 
 # ===================================================================
@@ -1325,7 +1334,8 @@ class TestInputTypes:
         benchmark_wrong = np.ones(5)  # wrong length
         with pytest.raises(ValueError, match="must match n_periods"):
             ExposureInput(
-                positions=simple_positions, benchmark=benchmark_wrong,
+                positions=simple_positions,
+                benchmark=benchmark_wrong,
             )
 
     def test_equity_length_mismatch_raises(self, simple_positions):
@@ -1427,7 +1437,9 @@ class TestExposureInputFeatures:
     """Tests for ExposureInput features and convenience properties."""
 
     def test_auto_equity_from_positions_returns(
-        self, simple_positions, simple_returns,
+        self,
+        simple_positions,
+        simple_returns,
     ):
         inp = ExposureInput(positions=simple_positions, returns=simple_returns)
         assert inp.has_equity
@@ -1538,16 +1550,20 @@ class TestActiveShare:
 
     def test_time_varying_benchmark(self):
         """Active Share with time-varying benchmark weights."""
-        positions = np.array([
-            [0.6, 0.4],
-            [0.5, 0.5],
-            [0.3, 0.7],
-        ])
-        bw = np.array([
-            [0.5, 0.5],
-            [0.6, 0.4],
-            [0.4, 0.6],
-        ])
+        positions = np.array(
+            [
+                [0.6, 0.4],
+                [0.5, 0.5],
+                [0.3, 0.7],
+            ]
+        )
+        bw = np.array(
+            [
+                [0.5, 0.5],
+                [0.6, 0.4],
+                [0.4, 0.6],
+            ]
+        )
         inp = ExposureInput(positions=positions, benchmark_weights=bw)
         result = active_share(inp)
         assert 0.0 <= result.value <= 1.0

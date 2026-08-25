@@ -54,6 +54,7 @@ __all__ = [
     "by_regime",
 ]
 
+
 # compute() and compute_all() are defined here for convenient top-level access.
 # They accept raw data (numpy, pandas, polars) or pre-built Input objects.
 def compute(
@@ -92,8 +93,11 @@ def compute(
     from stratstat.registry import _compute_one
 
     return _compute_one(
-        input_data, metric_name,
-        periods_per_year=periods_per_year, rf=rf, **kwargs,
+        input_data,
+        metric_name,
+        periods_per_year=periods_per_year,
+        rf=rf,
+        **kwargs,
     )
 
 

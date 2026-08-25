@@ -55,24 +55,18 @@ def test_benchmark_reachable_by_keyword(returns, benchmark, daily_periods):
 def test_keyword_form_matches_tuple_form(returns, benchmark, daily_periods):
     """The keyword form is a new spelling of an existing route, not a new
     computation. It must agree exactly, not merely approximately."""
-    by_kwarg = compute(
-        returns, "alpha", periods_per_year=daily_periods, benchmark=benchmark
-    ).value
+    by_kwarg = compute(returns, "alpha", periods_per_year=daily_periods, benchmark=benchmark).value
     by_tuple = compute((returns, benchmark), "alpha", periods_per_year=daily_periods).value
     assert by_kwarg == by_tuple
 
 
 def test_keyword_form_matches_prebuilt_container(returns, benchmark, daily_periods):
-    by_kwarg = compute(
-        returns, "alpha", periods_per_year=daily_periods, benchmark=benchmark
-    ).value
+    by_kwarg = compute(returns, "alpha", periods_per_year=daily_periods, benchmark=benchmark).value
     container = BenchmarkInput(returns, benchmark=benchmark, periods_per_year=daily_periods)
     assert by_kwarg == compute(container, "alpha").value
 
 
-def test_exposure_asset_returns_reachable_by_keyword(
-    positions, asset_returns, daily_periods
-):
+def test_exposure_asset_returns_reachable_by_keyword(positions, asset_returns, daily_periods):
     """ExposureInput.returns means asset level returns. It was unreachable, and
     the error blamed the metric."""
     result = compute(

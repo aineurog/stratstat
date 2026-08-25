@@ -50,9 +50,7 @@ def daily_pp():
 @pytest.fixture
 def sample_returns():
     """10 daily returns: 0.01, -0.02, 0.015, 0.03, -0.01, 0.005, -0.015, 0.02, -0.005, 0.01."""
-    return np.array(
-        [0.01, -0.02, 0.015, 0.03, -0.01, 0.005, -0.015, 0.02, -0.005, 0.01]
-    )
+    return np.array([0.01, -0.02, 0.015, 0.03, -0.01, 0.005, -0.015, 0.02, -0.005, 0.01])
 
 
 @pytest.fixture
@@ -147,9 +145,7 @@ class TestSortinoRatio:
         Sortino = 0.004 * sqrt(252) / 0.0086603 ≈ 7.327
         """
         result = sortino_ratio(sample_input)
-        expected_dd = np.sqrt(
-            (0.02**2 + 0.01**2 + 0.015**2 + 0.005**2) / 10
-        )
+        expected_dd = np.sqrt((0.02**2 + 0.01**2 + 0.015**2 + 0.005**2) / 10)
         expected = 0.004 * np.sqrt(252) / expected_dd
         assert result.value == pytest.approx(expected, rel=1e-10)
         assert result.meta["denominator"] == "full_downside"
@@ -163,9 +159,7 @@ class TestSortinoRatio:
         Sortino = 0.004 * sqrt(252) / 0.0136931 ≈ 4.637
         """
         result = sortino_ratio(sample_input, denominator="downside_only")
-        expected_dd = np.sqrt(
-            (0.02**2 + 0.01**2 + 0.015**2 + 0.005**2) / 4
-        )
+        expected_dd = np.sqrt((0.02**2 + 0.01**2 + 0.015**2 + 0.005**2) / 4)
         expected = 0.004 * np.sqrt(252) / expected_dd
         assert result.value == pytest.approx(expected, rel=1e-10)
         assert result.meta["denominator"] == "downside_only"
@@ -694,9 +688,7 @@ class TestInputTypes:
 
     def test_ndarray_2d(self, daily_pp):
         """Sortino works with 2-D ndarray."""
-        r = np.column_stack(
-            [[0.01, -0.02, 0.015], [0.005, 0.01, -0.005]]
-        )
+        r = np.column_stack([[0.01, -0.02, 0.015], [0.005, 0.01, -0.005]])
         inp = ReturnsInput(r, periods_per_year=daily_pp)
         result = sortino_ratio(inp)
         assert isinstance(result.value, np.ndarray)
@@ -1099,9 +1091,7 @@ class TestSmartSharpe:
     def test_nonzero_rf(self, sample_input):
         """rf is threaded through to the Sharpe base."""
         result = smart_sharpe(sample_input, rf=0.001)
-        expected = sharpe_ratio(sample_input, rf=0.001).value / autocorr_penalty(
-            sample_input
-        ).value
+        expected = sharpe_ratio(sample_input, rf=0.001).value / autocorr_penalty(sample_input).value
         assert result.value == pytest.approx(expected, rel=1e-12)
 
 
@@ -1132,9 +1122,7 @@ class TestAdjustedSortinoRatio:
 
     def test_denominator_convention(self, sample_input):
         """Downside-only denominator threads through."""
-        expected = sortino_ratio(
-            sample_input, denominator="downside_only"
-        ).value / np.sqrt(2.0)
+        expected = sortino_ratio(sample_input, denominator="downside_only").value / np.sqrt(2.0)
         result = adjusted_sortino_ratio(sample_input, denominator="downside_only")
         assert result.value == pytest.approx(expected, rel=1e-12)
 
@@ -1171,9 +1159,7 @@ class TestRar:
         """percent_ceil divides by the rounded exposure (QuantStats-compatible)."""
         from stratstat.core.returns.descriptive import cagr, exposure_time
 
-        returns = np.array(
-            [0.01, 0.0, -0.02, 0.03, 0.0, 0.005, -0.01, 0.02, 0.0, 0.0, 0.001]
-        )
+        returns = np.array([0.01, 0.0, -0.02, 0.03, 0.0, 0.005, -0.01, 0.02, 0.0, 0.0, 0.001])
         inp = ReturnsInput(returns, periods_per_year=daily_pp)
         expected = cagr(inp).value / exposure_time(inp, rounding="percent_ceil").value
         result = rar(inp, rounding="percent_ceil")
@@ -1181,8 +1167,6 @@ class TestRar:
 
     def test_percent_ceil_differs_from_raw(self, daily_pp):
         """Rounded exposure changes RAR when exposure is not a whole percent."""
-        returns = np.array(
-            [0.01, 0.0, -0.02, 0.03, 0.0, 0.005, -0.01, 0.02, 0.0, 0.0, 0.001]
-        )
+        returns = np.array([0.01, 0.0, -0.02, 0.03, 0.0, 0.005, -0.01, 0.02, 0.0, 0.0, 0.001])
         inp = ReturnsInput(returns, periods_per_year=daily_pp)
         assert rar(inp, rounding="percent_ceil").value != rar(inp).value

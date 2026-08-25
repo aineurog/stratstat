@@ -127,8 +127,7 @@ def set_default(metric: str, convention: str) -> None:
         )
     if not spec.validate(value):
         raise ConventionError(
-            f"Invalid value {value!r} for {metric!r}.{param} "
-            f"(expected {spec.description})."
+            f"Invalid value {value!r} for {metric!r}.{param} (expected {spec.description})."
         )
     _defaults[metric] = f"{param}={value}"
 

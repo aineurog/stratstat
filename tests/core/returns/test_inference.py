@@ -51,9 +51,7 @@ def daily_pp():
 @pytest.fixture
 def sample_returns():
     """10 daily returns."""
-    return np.array(
-        [0.01, -0.02, 0.015, 0.03, -0.01, 0.005, -0.015, 0.02, -0.005, 0.01]
-    )
+    return np.array([0.01, -0.02, 0.015, 0.03, -0.01, 0.005, -0.015, 0.02, -0.005, 0.01])
 
 
 @pytest.fixture
@@ -308,9 +306,7 @@ class TestPSR:
         b = 3.0 * (n - 1) ** 2 / ((n - 2) * (n - 3))
         excess_kurt = a * m4 - b
 
-        denom = math.sqrt(
-            1.0 + 0.5 * sr**2 - skew * sr + (excess_kurt - 3.0) / 4.0 * sr**2
-        )
+        denom = math.sqrt(1.0 + 0.5 * sr**2 - skew * sr + (excess_kurt - 3.0) / 4.0 * sr**2)
         z = (sr - 0.0) * math.sqrt(n - 1) / denom
         expected = 0.5 * (1.0 + math.erf(z / math.sqrt(2.0)))
 
@@ -590,18 +586,14 @@ class TestMinTrackRecord:
 class TestBlockBootstrapCI:
     def test_sharpe_ci(self, sample_input):
         """Block bootstrap CI for Sharpe ratio."""
-        result = block_bootstrap_ci(
-            sample_input, "sharpe_ratio", n_reps=200, random_seed=42
-        )
+        result = block_bootstrap_ci(sample_input, "sharpe_ratio", n_reps=200, random_seed=42)
         assert result.value[0] <= result.value[1]
         assert result.meta["output_index"] == ["lower", "upper"]
         assert result.meta["metric"] == "sharpe_ratio"
 
     def test_cagr_ci(self, sample_input):
         """Block bootstrap CI for CAGR."""
-        result = block_bootstrap_ci(
-            sample_input, "cagr", n_reps=200, random_seed=42
-        )
+        result = block_bootstrap_ci(sample_input, "cagr", n_reps=200, random_seed=42)
         assert result.value[0] <= result.value[1]
 
     def test_multi_strategy_raises(self, daily_pp):
@@ -676,8 +668,11 @@ class TestRegistryIntegration:
         from stratstat import compute
 
         result = compute(
-            sample_input, "block_bootstrap_ci",
-            target_metric="sharpe_ratio", n_reps=200, random_seed=42,
+            sample_input,
+            "block_bootstrap_ci",
+            target_metric="sharpe_ratio",
+            n_reps=200,
+            random_seed=42,
         )
         assert result.name == "sharpe_ratio_bootstrap_ci"
         assert result.value[0] <= result.value[1]
@@ -882,10 +877,9 @@ def _manual_prob_sortino(returns, rf, mar, sr_bench, adjusted, se_formula="blp")
     z = (r - mean) / std
 
     skew = n / ((n - 1.0) * (n - 2.0)) * np.sum(z**3)
-    excess_kurt = (
-        n * (n + 1.0) / ((n - 1.0) * (n - 2.0) * (n - 3.0)) * np.sum(z**4)
-        - 3.0 * (n - 1.0) ** 2 / ((n - 2.0) * (n - 3.0))
-    )
+    excess_kurt = n * (n + 1.0) / ((n - 1.0) * (n - 2.0) * (n - 3.0)) * np.sum(z**4) - 3.0 * (
+        n - 1.0
+    ) ** 2 / ((n - 2.0) * (n - 3.0))
 
     below = np.minimum(r - mar, 0.0)
     dd = np.sqrt(np.mean(below**2))
@@ -894,9 +888,7 @@ def _manual_prob_sortino(returns, rf, mar, sr_bench, adjusted, se_formula="blp")
         base = base / np.sqrt(2.0)
 
     if se_formula == "lo":
-        denom = np.sqrt(
-            1.0 + 0.5 * base**2 - skew * base + (excess_kurt - 3.0) / 4.0 * base**2
-        )
+        denom = np.sqrt(1.0 + 0.5 * base**2 - skew * base + (excess_kurt - 3.0) / 4.0 * base**2)
     else:
         kurt = excess_kurt + 3.0
         denom = np.sqrt(1.0 - skew * base + (kurt - 1.0) / 4.0 * base**2)
@@ -923,18 +915,14 @@ class TestProbabilisticSortinoRatio:
     def test_known_value_lo(self, sample_input):
         """se_formula='lo' matches the independent Lo (2002) reference."""
         r = sample_input.values[:, 0]
-        expected = _manual_prob_sortino(
-            r, 0.0, 0.0, 0.0, adjusted=False, se_formula="lo"
-        )
+        expected = _manual_prob_sortino(r, 0.0, 0.0, 0.0, adjusted=False, se_formula="lo")
         result = probabilistic_sortino_ratio(sample_input, se_formula="lo")
         assert result.value == pytest.approx(expected, rel=1e-10)
 
     def test_known_value_lo_adjusted(self, sample_input):
         """Adjusted variant under 'lo' matches the reference with base / sqrt(2)."""
         r = sample_input.values[:, 0]
-        expected = _manual_prob_sortino(
-            r, 0.0, 0.0, 0.0, adjusted=True, se_formula="lo"
-        )
+        expected = _manual_prob_sortino(r, 0.0, 0.0, 0.0, adjusted=True, se_formula="lo")
         result = probabilistic_adjusted_sortino_ratio(sample_input, se_formula="lo")
         assert result.value == pytest.approx(expected, rel=1e-10)
 
@@ -968,7 +956,13 @@ class TestMonteCarloDistribution:
         result = monte_carlo_distribution(sample_input, seed=0)
         assert result.value.shape == (7,)
         assert result.meta["output_index"] == [
-            "min", "p05", "median", "mean", "p95", "max", "std",
+            "min",
+            "p05",
+            "median",
+            "mean",
+            "p95",
+            "max",
+            "std",
         ]
         assert result.meta["target"] == "equity"
 
@@ -1017,9 +1011,7 @@ class TestMonteCarloProbabilities:
 
     def test_probabilities_in_unit_interval(self, sample_input):
         """Bust and goal probabilities are valid probabilities."""
-        result = monte_carlo_probabilities(
-            sample_input, bust=-0.05, goal=0.10, seed=0
-        )
+        result = monte_carlo_probabilities(sample_input, bust=-0.05, goal=0.10, seed=0)
         p_bust, p_goal = result.value
         assert 0.0 <= p_bust <= 1.0
         assert 0.0 <= p_goal <= 1.0

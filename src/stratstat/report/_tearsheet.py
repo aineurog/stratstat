@@ -80,7 +80,8 @@ def tear_sheet(
 
     # Build figure with 2x2 subplots
     fig = make_subplots(
-        rows=2, cols=2,
+        rows=2,
+        cols=2,
         subplot_titles=(
             "Equity Curve",
             "Drawdown",
@@ -99,46 +100,69 @@ def tear_sheet(
 
     # -- Panel 1: Equity Curve --------------------------------------------
     x = np.arange(len(cum))
-    fig.add_trace(go.Scatter(
-        x=x, y=cum, mode="lines", name="Strategy",
-        line={"color": "steelblue"},
-        hovertemplate="%{y:.3f}<extra></extra>",
-    ), row=1, col=1)
+    fig.add_trace(
+        go.Scatter(
+            x=x,
+            y=cum,
+            mode="lines",
+            name="Strategy",
+            line={"color": "steelblue"},
+            hovertemplate="%{y:.3f}<extra></extra>",
+        ),
+        row=1,
+        col=1,
+    )
 
     if benchmark is not None:
         bench_arr = np.asarray(benchmark, dtype=np.float64).ravel()
         n_b = min(len(bench_arr), len(strat))
-        bench_cum = np.cumprod(1.0 + np.where(np.isfinite(bench_arr[:n_b]),
-                                              bench_arr[:n_b], 0.0))
-        fig.add_trace(go.Scatter(
-            x=np.arange(len(bench_cum)), y=bench_cum,
-            mode="lines", name="Benchmark",
-            line={"dash": "dash", "color": "gray"},
-            hovertemplate="%{y:.3f}<extra></extra>",
-        ), row=1, col=1)
+        bench_cum = np.cumprod(1.0 + np.where(np.isfinite(bench_arr[:n_b]), bench_arr[:n_b], 0.0))
+        fig.add_trace(
+            go.Scatter(
+                x=np.arange(len(bench_cum)),
+                y=bench_cum,
+                mode="lines",
+                name="Benchmark",
+                line={"dash": "dash", "color": "gray"},
+                hovertemplate="%{y:.3f}<extra></extra>",
+            ),
+            row=1,
+            col=1,
+        )
 
     # -- Panel 2: Drawdown ------------------------------------------------
-    fig.add_trace(go.Scatter(
-        x=x, y=dd, mode="lines", name="Drawdown",
-        fill="tozeroy",
-        fillcolor="rgba(220, 50, 50, 0.3)",
-        line={"color": "crimson"},
-        hovertemplate="%{y:.1%}<extra></extra>",
-    ), row=1, col=2)
+    fig.add_trace(
+        go.Scatter(
+            x=x,
+            y=dd,
+            mode="lines",
+            name="Drawdown",
+            fill="tozeroy",
+            fillcolor="rgba(220, 50, 50, 0.3)",
+            line={"color": "crimson"},
+            hovertemplate="%{y:.1%}<extra></extra>",
+        ),
+        row=1,
+        col=2,
+    )
 
     # -- Panel 3: Monthly Heatmap -----------------------------------------
     if grid.size > 0:
-        fig.add_trace(go.Heatmap(
-            z=grid,
-            x=months[:grid.shape[1]] if grid.shape[1] <= 12 else months,
-            y=[str(y) for y in years],
-            colorscale="RdYlGn",
-            zmid=0,
-            texttemplate="%{z:.1%}",
-            textfont={"size": 9},
-            hovertemplate="%{y} %{x}: %{z:.2%}<extra></extra>",
-            showscale=False,
-        ), row=2, col=1)
+        fig.add_trace(
+            go.Heatmap(
+                z=grid,
+                x=months[: grid.shape[1]] if grid.shape[1] <= 12 else months,
+                y=[str(y) for y in years],
+                colorscale="RdYlGn",
+                zmid=0,
+                texttemplate="%{z:.1%}",
+                textfont={"size": 9},
+                hovertemplate="%{y} %{x}: %{z:.2%}<extra></extra>",
+                showscale=False,
+            ),
+            row=2,
+            col=1,
+        )
 
     # -- Panel 4: Stats Table (dynamic, sectioned) ------------------------
     # Build a flat list with section-header rows
@@ -162,15 +186,19 @@ def tear_sheet(
             header_vals.append("  " + display_name)
             cell_vals[0].append(val_str)
 
-    fig.add_trace(go.Table(
-        header={"values": ["Metric", "Value"],
+    fig.add_trace(
+        go.Table(
+            header={"values": ["Metric", "Value"], "font": {"size": 10}, "align": "center"},
+            cells={
+                "values": [header_vals, cell_vals[0]],
                 "font": {"size": 10},
-                "align": "center"},
-        cells={"values": [header_vals, cell_vals[0]],
-               "font": {"size": 10},
-               "align": ["left", "center"],
-               "height": 25},
-    ), row=2, col=2)
+                "align": ["left", "center"],
+                "height": 25,
+            },
+        ),
+        row=2,
+        col=2,
+    )
 
     fig.update_layout(
         title=title or "Strategy Tear Sheet",

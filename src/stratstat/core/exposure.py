@@ -29,10 +29,7 @@ _REF_ANG_CH2 = (
     "Ang (2014), Asset Management: A Systematic Approach to Factor "
     "Investing, Oxford University Press, Ch. 2."
 )
-_BACON_BASE = (
-    "Bacon (2008), Practical Portfolio Performance Measurement and "
-    "Attribution, 2nd ed."
-)
+_BACON_BASE = "Bacon (2008), Practical Portfolio Performance Measurement and Attribution, 2nd ed."
 _REF_BACON_112 = f"{_BACON_BASE}, §11.2."
 _REF_BACON_113 = f"{_BACON_BASE}, §11.3."
 _REF_BACON_115 = f"{_BACON_BASE}, §11.5."
@@ -43,23 +40,15 @@ _REF_AFP2014 = (
     "Industry Bets,' Financial Analysts Journal, 70(4)."
 )
 _REF_HHI_HIRSCHMAN = (
-    "Hirschman (1964), 'The Paternity of an Index,' American Economic "
-    "Review, 54(5)."
+    "Hirschman (1964), 'The Paternity of an Index,' American Economic Review, 54(5)."
 )
 _REF_HHI_ADELMAN = (
-    "Adelman (1969), 'Comment on the \"H\" Concentration Measure as a "
+    'Adelman (1969), \'Comment on the "H" Concentration Measure as a '
     "Numbers-Equivalent,' Review of Economics and Statistics, 51(1)."
 )
-_REF_TURNOVER = (
-    "Morningstar (2020), Morningstar Portfolio Turnover Methodology."
-)
-_REF_PEARSON = (
-    "Pearson (1896); coefficient of variation. Standard descriptive "
-    "statistic."
-)
-_REF_HYNDMAN = (
-    "Hyndman & Fan (1996); standard order statistics for percentiles."
-)
+_REF_TURNOVER = "Morningstar (2020), Morningstar Portfolio Turnover Methodology."
+_REF_PEARSON = "Pearson (1896); coefficient of variation. Standard descriptive statistic."
+_REF_HYNDMAN = "Hyndman & Fan (1996); standard order statistics for percentiles."
 
 
 # ---------------------------------------------------------------------------
@@ -196,9 +185,7 @@ def net_exposure(inp: ExposureInput) -> MetricResult:
     ne_min = float(np.nanmin(ne)) if len(ne) > 0 else np.nan
     ne_mean = float(np.nanmean(ne)) if len(ne) > 0 else np.nan
     ne_range = ne_max - ne_min if len(ne) > 0 else np.nan
-    arr: NDArray[np.floating] = np.array(
-        [current, ne_max, ne_min, ne_mean, ne_range]
-    )
+    arr: NDArray[np.floating] = np.array([current, ne_max, ne_min, ne_mean, ne_range])
     return MetricResult(
         name="net_exposure",
         value=arr,
@@ -344,8 +331,7 @@ def long_book_return(inp: ExposureInput) -> MetricResult:
     """
     if not inp.has_returns:
         raise MetricNotApplicableError(
-            "long_book_return requires asset-level returns. "
-            "Provide returns= to ExposureInput."
+            "long_book_return requires asset-level returns. Provide returns= to ExposureInput."
         )
     ret = inp.returns
     assert ret is not None
@@ -387,8 +373,7 @@ def short_book_return(inp: ExposureInput) -> MetricResult:
     """
     if not inp.has_returns:
         raise MetricNotApplicableError(
-            "short_book_return requires asset-level returns. "
-            "Provide returns= to ExposureInput."
+            "short_book_return requires asset-level returns. Provide returns= to ExposureInput."
         )
     ret = inp.returns
     assert ret is not None
@@ -430,13 +415,11 @@ def long_beta(inp: ExposureInput) -> MetricResult:
     """
     if not inp.has_returns:
         raise MetricNotApplicableError(
-            "long_beta requires asset-level returns. "
-            "Provide returns= to ExposureInput."
+            "long_beta requires asset-level returns. Provide returns= to ExposureInput."
         )
     if not inp.has_benchmark:
         raise MetricNotApplicableError(
-            "long_beta requires benchmark returns. "
-            "Provide benchmark= to ExposureInput."
+            "long_beta requires benchmark returns. Provide benchmark= to ExposureInput."
         )
     ret = inp.returns
     bench = inp.benchmark
@@ -480,13 +463,11 @@ def short_beta(inp: ExposureInput) -> MetricResult:
     """
     if not inp.has_returns:
         raise MetricNotApplicableError(
-            "short_beta requires asset-level returns. "
-            "Provide returns= to ExposureInput."
+            "short_beta requires asset-level returns. Provide returns= to ExposureInput."
         )
     if not inp.has_benchmark:
         raise MetricNotApplicableError(
-            "short_beta requires benchmark returns. "
-            "Provide benchmark= to ExposureInput."
+            "short_beta requires benchmark returns. Provide benchmark= to ExposureInput."
         )
     ret = inp.returns
     bench = inp.benchmark
@@ -967,9 +948,7 @@ def exposure_percentiles(inp: ExposureInput) -> MetricResult:
     qs = np.array([25, 50, 75, 90, 95])
     ge_valid = ge[np.isfinite(ge)]
     values: NDArray[np.floating] = (
-        np.percentile(ge_valid, qs)
-        if len(ge_valid) > 0
-        else np.full(5, np.nan)
+        np.percentile(ge_valid, qs) if len(ge_valid) > 0 else np.full(5, np.nan)
     )
     return MetricResult(
         name="exposure_percentiles",

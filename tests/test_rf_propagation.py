@@ -61,9 +61,7 @@ def _same(a, b):
     if isinstance(a, dict):
         return a.keys() == b.keys() and all(_same(a[k], b[k]) for k in a)
     if isinstance(a, (list, tuple)):
-        return len(a) == len(b) and all(
-            _same(x, y) for x, y in zip(a, b, strict=True)
-        )
+        return len(a) == len(b) and all(_same(x, y) for x, y in zip(a, b, strict=True))
     if a is None or isinstance(a, str):
         return a == b
     x, y = np.asarray(a, dtype=float), np.asarray(b, dtype=float)
@@ -152,12 +150,8 @@ def test_compute_all_applies_rf_with_benchmark(returns, benchmark, daily_periods
     """Benchmark metrics read rf off their container; returns metrics take it as
     a kwarg. Both routes must work in the same call."""
     changed = _changed(
-        compute_all(
-            returns=returns, benchmark=benchmark, periods_per_year=daily_periods, rf=0.0
-        ),
-        compute_all(
-            returns=returns, benchmark=benchmark, periods_per_year=daily_periods, rf=RF
-        ),
+        compute_all(returns=returns, benchmark=benchmark, periods_per_year=daily_periods, rf=0.0),
+        compute_all(returns=returns, benchmark=benchmark, periods_per_year=daily_periods, rf=RF),
     )
     assert set(RETURNS_RF_METRICS) <= changed
     assert {"alpha", "treynor_ratio"} <= changed
@@ -167,9 +161,7 @@ def test_prebuilt_returns_input_still_applies_rf(returns, daily_periods):
     """A pre-built container carries no rf of its own, so the kwarg must still
     reach the metric."""
     inp = ReturnsInput(returns, periods_per_year=daily_periods)
-    assert compute(inp, "sharpe_ratio", rf=0.0).value != compute(
-        inp, "sharpe_ratio", rf=RF
-    ).value
+    assert compute(inp, "sharpe_ratio", rf=0.0).value != compute(inp, "sharpe_ratio", rf=RF).value
 
 
 def test_rolling_applies_rf(returns, daily_periods):
@@ -257,9 +249,7 @@ def test_tiers_without_an_rf_consumer_accept_it_harmlessly(
     assert _same(with_rf.value, without.value)
 
 
-def test_batch_tiers_without_an_rf_consumer_accept_it_harmlessly(
-    returns, daily_periods, rng
-):
+def test_batch_tiers_without_an_rf_consumer_accept_it_harmlessly(returns, daily_periods, rng):
     """Same guarantee as above, but through the batch entry points, which route
     through ``_compute_all`` rather than ``_compute_one``. Neither declares rf
     as a named parameter, so it arrives in **kwargs and is bound by
@@ -286,9 +276,7 @@ def test_misspelled_keyword_still_raises(entry, returns, daily_periods):
     inp = ReturnsInput(returns, periods_per_year=daily_periods)
     regimes = np.where(np.arange(len(returns)) < len(returns) // 2, "a", "b")
     calls = {
-        "compute": lambda: compute(
-            returns, "sharpe_ratio", periods_per_year=daily_periods, rff=RF
-        ),
+        "compute": lambda: compute(returns, "sharpe_ratio", periods_per_year=daily_periods, rff=RF),
         "rolling": lambda: rolling(inp, "sharpe_ratio", 60, rff=RF),
         "by_regime": lambda: by_regime(inp, "sharpe_ratio", regimes, rff=RF),
     }

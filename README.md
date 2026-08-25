@@ -80,7 +80,8 @@ regime_stats = ss.by_regime(returns, "cagr", labels, periods_per_year=252)
 
 # Bootstrap a confidence interval for any metric
 ci = ss.compute(
-    returns, "block_bootstrap_ci",
+    returns,
+    "block_bootstrap_ci",
     target_metric="sharpe_ratio",
     n_reps=5000,
     random_seed=42,
@@ -223,11 +224,11 @@ Every metric returns a `MetricResult`:
 ```python
 @dataclass
 class MetricResult:
-    name: str                  # "sharpe_ratio"
+    name: str  # "sharpe_ratio"
     value: float | np.ndarray  # 0.84 or array([0.84, 0.92, 0.76])
     category: tuple[str, ...]  # ("risk_adjusted", "returns")
-    periods_per_year: int      # 252
-    meta: dict                 # {"ref": "Sharpe (1966)...", "rf": 0.0, "ddof": 1}
+    periods_per_year: int  # 252
+    meta: dict  # {"ref": "Sharpe (1966)...", "rf": 0.0, "ddof": 1}
 ```
 
 Batch calls return a `MetricSet`, which is a collection of `MetricResult`
@@ -236,12 +237,12 @@ objects with serialization methods:
 ```python
 results = ss.compute_all(returns, category="risk")
 
-print(results)              # sectioned terminal display grouped by category
-results.to_frame()          # pandas DataFrame with category and meta columns
-results.to_csv("out.csv")   # write CSV
-results.to_markdown()       # markdown table string
-results.to_json()           # JSON string
-results.to_clipboard()      # copy to system clipboard
+print(results)  # sectioned terminal display grouped by category
+results.to_frame()  # pandas DataFrame with category and meta columns
+results.to_csv("out.csv")  # write CSV
+results.to_markdown()  # markdown table string
+results.to_json()  # JSON string
+results.to_clipboard()  # copy to system clipboard
 ```
 
 In Jupyter, `MetricSet` renders as styled HTML tables automatically.
@@ -295,6 +296,7 @@ from stratstat import register_metric
 from stratstat.results import MetricResult
 from stratstat.inputs import ReturnsInput
 
+
 @register_metric(
     name="my_ratio",
     requires="returns",
@@ -314,6 +316,7 @@ def my_ratio(input_data: ReturnsInput, rf: float = 0.0) -> MetricResult:
         periods_per_year=input_data.periods_per_year,
         meta={"ref": "My Paper (2024)", "rf": rf},
     )
+
 
 result = ss.compute(returns, "my_ratio")
 ```

@@ -64,9 +64,7 @@ def test_metric_set_to_dict():
 
 def test_metric_set_to_json():
     """MetricSet.to_json() should produce valid JSON."""
-    ms = MetricSet(
-        results=[MetricResult(name="a", value=1.0, meta={"ref": "Test (2024)"})]
-    )
+    ms = MetricSet(results=[MetricResult(name="a", value=1.0, meta={"ref": "Test (2024)"})])
     json_str = ms.to_json()
     assert '"name"' in json_str
     assert '"value"' in json_str
@@ -74,9 +72,7 @@ def test_metric_set_to_json():
 
 def test_metric_set_to_markdown():
     """MetricSet.to_markdown() should produce a markdown table."""
-    ms = MetricSet(
-        results=[MetricResult(name="sharpe", value=0.75)]
-    )
+    ms = MetricSet(results=[MetricResult(name="sharpe", value=0.75)])
     md = ms.to_markdown()
     assert "| Metric | Value |" in md
     assert "sharpe" in md
@@ -192,20 +188,24 @@ class TestMetricSetStr:
 
     def test_has_section_headers(self):
         """__str__ includes section headers."""
-        ms = MetricSet(results=[
-            MetricResult(name="cagr", value=0.12, category=("descriptive", "returns")),
-            MetricResult(name="max_drawdown", value=-0.25, category=("risk", "returns")),
-        ])
+        ms = MetricSet(
+            results=[
+                MetricResult(name="cagr", value=0.12, category=("descriptive", "returns")),
+                MetricResult(name="max_drawdown", value=-0.25, category=("risk", "returns")),
+            ]
+        )
         s = str(ms)
         assert "═══ Descriptive ═══" in s
         assert "═══ Risk ═══" in s
 
     def test_sorts_within_section(self):
         """Within a section, metrics are alphabetized."""
-        ms = MetricSet(results=[
-            MetricResult(name="c", value=3.0, category=("descriptive",)),
-            MetricResult(name="a", value=1.0, category=("descriptive",)),
-        ])
+        ms = MetricSet(
+            results=[
+                MetricResult(name="c", value=3.0, category=("descriptive",)),
+                MetricResult(name="a", value=1.0, category=("descriptive",)),
+            ]
+        )
         s = str(ms)
         # Find positions of the metric display lines (name + two spaces)
         pos_a = s.index("  a  ")
@@ -214,22 +214,25 @@ class TestMetricSetStr:
 
     def test_handles_arrays(self):
         """Array values are formatted correctly."""
-        ms = MetricSet(results=[
-            MetricResult(name="arr_metric", value=np.array([1.0, 2.0, 3.0]),
-                         category=("descriptive",)),
-            MetricResult(name="big_arr", value=np.arange(10),
-                         category=("descriptive",)),
-        ])
+        ms = MetricSet(
+            results=[
+                MetricResult(
+                    name="arr_metric", value=np.array([1.0, 2.0, 3.0]), category=("descriptive",)
+                ),
+                MetricResult(name="big_arr", value=np.arange(10), category=("descriptive",)),
+            ]
+        )
         s = str(ms)
         assert "[1, 2, 3]" in s
         assert "array(10,)" in s
 
     def test_handles_nan(self):
         """NaN → N/A."""
-        ms = MetricSet(results=[
-            MetricResult(name="broken", value=float("nan"),
-                         category=("risk",)),
-        ])
+        ms = MetricSet(
+            results=[
+                MetricResult(name="broken", value=float("nan"), category=("risk",)),
+            ]
+        )
         assert "N/A" in str(ms)
 
 
@@ -240,10 +243,16 @@ class TestMetricSetReprHtml:
         assert "empty" in html
 
     def test_has_table_elements(self):
-        ms = MetricSet(results=[
-            MetricResult(name="cagr", value=0.12, category=("descriptive", "returns"),
-                         meta={"ref": "Test (2024)"}),
-        ])
+        ms = MetricSet(
+            results=[
+                MetricResult(
+                    name="cagr",
+                    value=0.12,
+                    category=("descriptive", "returns"),
+                    meta={"ref": "Test (2024)"},
+                ),
+            ]
+        )
         html = ms._repr_html_()
         assert "<table>" in html
         assert "<h3>" in html
@@ -251,11 +260,16 @@ class TestMetricSetReprHtml:
         assert "0.12" in html
 
     def test_citation_included(self):
-        ms = MetricSet(results=[
-            MetricResult(name="sharpe", value=0.84,
-                         category=("risk_adjusted",),
-                         meta={"ref": "Sharpe (1966)"}),
-        ])
+        ms = MetricSet(
+            results=[
+                MetricResult(
+                    name="sharpe",
+                    value=0.84,
+                    category=("risk_adjusted",),
+                    meta={"ref": "Sharpe (1966)"},
+                ),
+            ]
+        )
         html = ms._repr_html_()
         assert "Sharpe (1966)" in html
 
@@ -267,11 +281,16 @@ class TestMetricSetReprHtml:
 
 class TestToFrame:
     def test_includes_category_column(self):
-        ms = MetricSet(results=[
-            MetricResult(name="cagr", value=0.12,
-                         category=("descriptive", "returns"),
-                         periods_per_year=252),
-        ])
+        ms = MetricSet(
+            results=[
+                MetricResult(
+                    name="cagr",
+                    value=0.12,
+                    category=("descriptive", "returns"),
+                    periods_per_year=252,
+                ),
+            ]
+        )
         df = ms.to_frame()
         assert "category" in df.columns
         assert df["category"].iloc[0] == ("descriptive", "returns")
@@ -279,10 +298,11 @@ class TestToFrame:
         assert df["periods_per_year"].iloc[0] == 252
 
     def test_meta_keys_expanded(self):
-        ms = MetricSet(results=[
-            MetricResult(name="sharpe", value=0.84,
-                         meta={"rf": 0.02, "ddof": 1}),
-        ])
+        ms = MetricSet(
+            results=[
+                MetricResult(name="sharpe", value=0.84, meta={"rf": 0.02, "ddof": 1}),
+            ]
+        )
         df = ms.to_frame()
         assert df["rf"].iloc[0] == 0.02
         assert df["ddof"].iloc[0] == 1
@@ -295,9 +315,11 @@ class TestToFrame:
 
 class TestToCsv:
     def test_writes_file(self):
-        ms = MetricSet(results=[
-            MetricResult(name="cagr", value=0.12, category=("descriptive",)),
-        ])
+        ms = MetricSet(
+            results=[
+                MetricResult(name="cagr", value=0.12, category=("descriptive",)),
+            ]
+        )
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "metrics.csv"
             ms.to_csv(path)
@@ -321,10 +343,12 @@ class TestToCsv:
 class TestToClipboard:
     def test_does_not_raise(self):
         """to_clipboard delegates to pandas — smoke test only."""
-        ms = MetricSet(results=[
-            MetricResult(name="a", value=1.0),
-            MetricResult(name="b", value=2.0),
-        ])
+        ms = MetricSet(
+            results=[
+                MetricResult(name="a", value=1.0),
+                MetricResult(name="b", value=2.0),
+            ]
+        )
         try:
             ms.to_clipboard()
         except Exception:

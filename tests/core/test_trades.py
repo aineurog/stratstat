@@ -35,8 +35,16 @@ def simple_trades_dict():
     return {
         "pnl": [0.02, -0.01, 0.03, -0.015, 0.01, -0.02, 0.04, -0.005, 0.015, -0.01],
         "side": [
-            "long", "short", "long", "short", "long",
-            "short", "long", "long", "short", "short",
+            "long",
+            "short",
+            "long",
+            "short",
+            "long",
+            "short",
+            "long",
+            "long",
+            "short",
+            "short",
         ],
         "duration": [5, 3, 8, 2, 4, 6, 10, 3, 7, 4],
     }
@@ -80,11 +88,11 @@ def trades_with_intratrade():
         "pnl": [0.02, -0.01, 0.03, -0.015, 0.01],
         "side": ["long", "short", "long", "short", "long"],
         "intratrade_prices": [
-            [100.0, 101.0, 102.5, 102.0],   # long: MFE=102.5-100=2.5
-            [100.0, 99.0, 98.0, 99.5],       # short: MFE=100-98=2.0
-            [100.0, 101.0, 103.0, 102.5],    # long: MFE=103-100=3.0
-            [100.0, 99.5, 98.5, 99.0],       # short: MFE=100-98.5=1.5
-            [100.0, 101.5, 100.5, 101.0],    # long: MFE=101.5-100=1.5
+            [100.0, 101.0, 102.5, 102.0],  # long: MFE=102.5-100=2.5
+            [100.0, 99.0, 98.0, 99.5],  # short: MFE=100-98=2.0
+            [100.0, 101.0, 103.0, 102.5],  # long: MFE=103-100=3.0
+            [100.0, 99.5, 98.5, 99.0],  # short: MFE=100-98.5=1.5
+            [100.0, 101.5, 100.5, 101.0],  # long: MFE=101.5-100=1.5
         ],
     }
 
@@ -498,8 +506,13 @@ class TestHoldingPeriodDistribution:
         result = _compute_one(inp_basic, "holding_period_distribution")
         dur = np.array([5, 3, 8, 2, 4, 6, 10, 3, 7, 4], dtype=np.float64)
         expected = np.array(
-            [np.min(dur), np.percentile(dur, 25), np.percentile(dur, 50),
-             np.percentile(dur, 75), np.max(dur)]
+            [
+                np.min(dur),
+                np.percentile(dur, 25),
+                np.percentile(dur, 50),
+                np.percentile(dur, 75),
+                np.max(dur),
+            ]
         )
         np.testing.assert_array_equal(result.value, expected)
         assert result.meta["output_index"] == ["min", "p25", "p50", "p75", "max"]
@@ -520,9 +533,7 @@ class TestMaxConsecutiveWins:
         assert result.value == 1
 
     def test_longer_run(self):
-        inp = TradeInput(
-            trades={"pnl": [0.02, 0.03, 0.01, -0.01, 0.04, 0.05, 0.02]}
-        )
+        inp = TradeInput(trades={"pnl": [0.02, 0.03, 0.01, -0.01, 0.04, 0.05, 0.02]})
         from stratstat.registry import _compute_one
 
         result = _compute_one(inp, "max_consecutive_wins")
@@ -572,9 +583,7 @@ class TestMaxConsecutiveLosses:
         assert result.value == 1
 
     def test_longer_run(self):
-        inp = TradeInput(
-            trades={"pnl": [0.02, -0.03, -0.01, 0.01, -0.04, -0.05, -0.02]}
-        )
+        inp = TradeInput(trades={"pnl": [0.02, -0.03, -0.01, 0.01, -0.04, -0.05, -0.02]})
         from stratstat.registry import _compute_one
 
         result = _compute_one(inp, "max_consecutive_losses")
@@ -604,7 +613,12 @@ class TestPnlDistribution:
         assert result.value[1] == pytest.approx(np.median(pnl))  # median
         assert result.value[2] == pytest.approx(np.std(pnl, ddof=1))  # std
         assert result.meta["output_index"] == [
-            "mean", "median", "std", "skewness", "p5", "p95",
+            "mean",
+            "median",
+            "std",
+            "skewness",
+            "p5",
+            "p95",
         ]
 
     def test_empty(self, inp_empty):
@@ -1022,9 +1036,7 @@ class TestMfe:
             _compute_one(inp_basic, "mfe")
 
     def test_empty(self, inp_empty):
-        inp = TradeInput(
-            trades={"pnl": [], "side": [], "intratrade_prices": []}
-        )
+        inp = TradeInput(trades={"pnl": [], "side": [], "intratrade_prices": []})
         from stratstat.registry import _compute_one
 
         result = _compute_one(inp, "mfe")
@@ -1159,9 +1171,7 @@ class TestLongShortTradePct:
         assert is_long is not None
         expected_long = np.mean(is_long)
         expected_short = np.mean(~is_long)
-        np.testing.assert_array_almost_equal(
-            result.value, [expected_long, expected_short]
-        )
+        np.testing.assert_array_almost_equal(result.value, [expected_long, expected_short])
 
     def test_empty(self):
         inp = TradeInput(trades={"pnl": [], "side": []})
@@ -1197,7 +1207,10 @@ class TestLongShortWinningLosing:
 
         result = _compute_one(inp_basic, "long_short_winning_losing")
         assert result.meta["output_index"] == [
-            "long_win", "long_loss", "short_win", "short_loss",
+            "long_win",
+            "long_loss",
+            "short_win",
+            "short_loss",
         ]
 
 
@@ -1242,9 +1255,7 @@ class TestLongShortTotalPnl:
         assert is_long is not None
         long_total = np.sum(pnl[is_long])
         short_total = np.sum(pnl[~is_long])
-        np.testing.assert_array_almost_equal(
-            result.value, [long_total, short_total]
-        )
+        np.testing.assert_array_almost_equal(result.value, [long_total, short_total])
 
 
 # ===================================================================
@@ -1262,9 +1273,7 @@ class TestLongShortAvgPnl:
         assert is_long is not None
         avg_long = np.mean(pnl[is_long])
         avg_short = np.mean(pnl[~is_long])
-        np.testing.assert_array_almost_equal(
-            result.value, [avg_long, avg_short]
-        )
+        np.testing.assert_array_almost_equal(result.value, [avg_long, avg_short])
 
     def test_no_long_returns_nan(self):
         inp = TradeInput(
@@ -1296,8 +1305,10 @@ class TestLongShortBestWorst:
         long_pnl = pnl[is_long]
         short_pnl = pnl[~is_long]
         expected = [
-            np.max(long_pnl), np.min(long_pnl),
-            np.max(short_pnl), np.min(short_pnl),
+            np.max(long_pnl),
+            np.min(long_pnl),
+            np.max(short_pnl),
+            np.min(short_pnl),
         ]
         np.testing.assert_array_equal(result.value, expected)
 
@@ -1306,7 +1317,10 @@ class TestLongShortBestWorst:
 
         result = _compute_one(inp_basic, "long_short_best_worst")
         assert result.meta["output_index"] == [
-            "best_long", "worst_long", "best_short", "worst_short",
+            "best_long",
+            "worst_long",
+            "best_short",
+            "worst_short",
         ]
 
     def test_no_long_returns_nan(self):
@@ -1358,12 +1372,8 @@ class TestTradeInputFeatures:
 
     def test_intratrade_2d_rows_per_trade(self):
         # A 2D array should be split so each row is one trade's price path.
-        itp_2d = np.array(
-            [[100.0, 101.0, 102.0], [100.0, 99.0, 98.0], [100.0, 101.0, 103.0]]
-        )
-        inp = TradeInput(
-            trades={"pnl": [0.01, -0.01, 0.02], "intratrade_prices": itp_2d}
-        )
+        itp_2d = np.array([[100.0, 101.0, 102.0], [100.0, 99.0, 98.0], [100.0, 101.0, 103.0]])
+        inp = TradeInput(trades={"pnl": [0.01, -0.01, 0.02], "intratrade_prices": itp_2d})
         paths = inp.intratrade_prices
         assert paths is not None
         assert len(paths) == 3
@@ -1372,9 +1382,7 @@ class TestTradeInputFeatures:
     def test_intratrade_1d_single_path(self):
         # A 1D array should become a single price path.
         itp_1d = np.array([100.0, 101.0, 102.0, 101.5])
-        inp = TradeInput(
-            trades={"pnl": [0.01], "intratrade_prices": itp_1d}
-        )
+        inp = TradeInput(trades={"pnl": [0.01], "intratrade_prices": itp_1d})
         paths = inp.intratrade_prices
         assert paths is not None
         assert len(paths) == 1
@@ -1389,23 +1397,17 @@ class TestTradeInputFeatures:
         inp = TradeInput(trades=simple_trades_dict)
         is_long = inp.is_long
         assert is_long is not None
-        expected = np.array(
-            [True, False, True, False, True, False, True, True, False, False]
-        )
+        expected = np.array([True, False, True, False, True, False, True, True, False, False])
         np.testing.assert_array_equal(is_long, expected)
 
     def test_side_normalize_ints(self):
-        inp = TradeInput(
-            trades={"pnl": [0.02, -0.01, 0.03], "side": [+1, -1, +1]}
-        )
+        inp = TradeInput(trades={"pnl": [0.02, -0.01, 0.03], "side": [+1, -1, +1]})
         is_long = inp.is_long
         assert is_long is not None
         np.testing.assert_array_equal(is_long, [True, False, True])
 
     def test_side_normalize_bools(self):
-        inp = TradeInput(
-            trades={"pnl": [0.02, -0.01, 0.03], "side": [True, False, True]}
-        )
+        inp = TradeInput(trades={"pnl": [0.02, -0.01, 0.03], "side": [True, False, True]})
         is_long = inp.is_long
         assert is_long is not None
         np.testing.assert_array_equal(is_long, [True, False, True])
@@ -1430,18 +1432,14 @@ class TestTradeInputFeatures:
             TradeInput(trades=[1, 2, 3])
 
     def test_pandas_input_with_side(self):
-        df = pd.DataFrame(
-            {"pnl": [0.02, -0.01, 0.03], "side": ["long", "short", "long"]}
-        )
+        df = pd.DataFrame({"pnl": [0.02, -0.01, 0.03], "side": ["long", "short", "long"]})
         inp = TradeInput(trades=df)
         assert inp.n_trades == 3
         assert inp.has_side is True
 
     def test_polars_input_with_side(self):
         pl = pytest.importorskip("polars")
-        df = pl.from_dict(
-            {"pnl": [0.02, -0.01, 0.03], "side": ["long", "short", "long"]}
-        )
+        df = pl.from_dict({"pnl": [0.02, -0.01, 0.03], "side": ["long", "short", "long"]})
         inp = TradeInput(trades=df)
         assert inp.n_trades == 3
         assert inp.has_side is True

@@ -136,9 +136,7 @@ def _requires_of(name: str) -> str | None:
 # Union of every value shape a metric may return. Kept as an alias so the
 # dataclass field reads clearly while still being honest about the full range
 # of scalar, array, and dict results.
-MetricValue: TypeAlias = (
-    float | int | bool | str | np.ndarray[Any, Any] | dict[str, Any] | None
-)
+MetricValue: TypeAlias = float | int | bool | str | np.ndarray[Any, Any] | dict[str, Any] | None
 
 
 @dataclass
@@ -167,10 +165,7 @@ class MetricResult:
             val = f"array{val.shape}"
         elif isinstance(val, float):
             val = f"{val:.6g}"
-        return (
-            f"MetricResult(name={self.name!r}, value={val}, "
-            f"category={self.category})"
-        )
+        return f"MetricResult(name={self.name!r}, value={val}, category={self.category})"
 
     def __str__(self) -> str:
         """User-friendly single-line display."""
@@ -246,10 +241,7 @@ class MetricSet:
         for r in self.results:
             tier = _requires_of(r.name) or "unknown"
             groups.setdefault(tier, []).append(r)
-        return {
-            tier: MetricSet(results=grp, meta=dict(self.meta))
-            for tier, grp in groups.items()
-        }
+        return {tier: MetricSet(results=grp, meta=dict(self.meta)) for tier, grp in groups.items()}
 
     def by_category(self) -> dict[str, MetricSet]:
         """Group results by primary statistical category tag.
@@ -263,10 +255,7 @@ class MetricSet:
         for r in self.results:
             primary = r.category[0] if r.category else "other"
             groups.setdefault(primary, []).append(r)
-        return {
-            cat: MetricSet(results=grp, meta=dict(self.meta))
-            for cat, grp in groups.items()
-        }
+        return {cat: MetricSet(results=grp, meta=dict(self.meta)) for cat, grp in groups.items()}
 
     # -- Display ----------------------------------------------------------
 
@@ -299,11 +288,7 @@ class MetricSet:
             label = _CATEGORY_LABELS.get(primary, primary.title())
             parts.append(f"<h3>{label}</h3>")
             parts.append("<table>")
-            parts.append(
-                "<thead><tr>"
-                "<th>Metric</th><th>Value</th><th>Citation</th>"
-                "</tr></thead>"
-            )
+            parts.append("<thead><tr><th>Metric</th><th>Value</th><th>Citation</th></tr></thead>")
             parts.append("<tbody>")
             for i, m in enumerate(metrics):
                 bg = ' style="background:#f8fafc"' if i % 2 == 0 else ""
@@ -316,7 +301,7 @@ class MetricSet:
                     f"<td><code>{m.name}</code></td>"
                     f"<td><code>{_format_value(m.value)}</code></td>"
                     f'<td style="color:#a0aec0;font-size:11px;'
-                    f'max-width:400px;overflow:hidden;'
+                    f"max-width:400px;overflow:hidden;"
                     f'text-overflow:ellipsis;white-space:nowrap"'
                     f' title="{ref_title}">{ref_short}</td>'
                     f"</tr>"

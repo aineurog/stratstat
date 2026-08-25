@@ -54,11 +54,23 @@ def returns_input(daily_returns):
 @pytest.fixture
 def trade_input():
     """10-trade log with P&L and side."""
-    return TradeInput(trades={
-        "pnl": [0.02, -0.01, 0.03, -0.015, 0.01, -0.02, 0.04, -0.005, 0.015, -0.01],
-        "side": ["long", "short", "long", "short", "long",
-                  "short", "long", "long", "short", "short"],
-    })
+    return TradeInput(
+        trades={
+            "pnl": [0.02, -0.01, 0.03, -0.015, 0.01, -0.02, 0.04, -0.005, 0.015, -0.01],
+            "side": [
+                "long",
+                "short",
+                "long",
+                "short",
+                "long",
+                "short",
+                "long",
+                "long",
+                "short",
+                "short",
+            ],
+        }
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -171,14 +183,12 @@ class TestMonthlyHeatmap:
 
 class TestRollingMetricChart:
     def test_returns_figure(self, daily_returns):
-        fig = rolling_metric_chart(daily_returns, "sharpe_ratio", window=60,
-                                    periods_per_year=252)
+        fig = rolling_metric_chart(daily_returns, "sharpe_ratio", window=60, periods_per_year=252)
         assert hasattr(fig, "data")
         assert len(fig.data) >= 1
 
     def test_accepts_returns_input(self, returns_input):
-        fig = rolling_metric_chart(returns_input, "annualized_volatility",
-                                    window=60)
+        fig = rolling_metric_chart(returns_input, "annualized_volatility", window=60)
         assert len(fig.data) >= 1
 
     def test_unknown_metric_produces_nan(self, daily_returns):
@@ -186,14 +196,12 @@ class TestRollingMetricChart:
         from stratstat.exceptions import UnknownMetricError
 
         with pytest.raises(UnknownMetricError):
-            rolling_metric_chart(daily_returns, "nonexistent_metric",
-                                 window=10)
+            rolling_metric_chart(daily_returns, "nonexistent_metric", window=10)
 
     def test_window_larger_than_data(self):
         """Window > n_periods should produce all NaN values."""
         r = np.random.randn(20)
-        fig = rolling_metric_chart(r, "sharpe_ratio", window=100,
-                                    periods_per_year=252)
+        fig = rolling_metric_chart(r, "sharpe_ratio", window=100, periods_per_year=252)
         assert len(fig.data) >= 1
 
 
@@ -233,8 +241,7 @@ class TestBenchmarkOverlayChart:
 
     def test_custom_title(self, daily_returns):
         bench = np.random.default_rng(42).normal(0.0005, 0.015, size=252)
-        fig = benchmark_overlay_chart(daily_returns, bench,
-                                       title="Bench Comp")
+        fig = benchmark_overlay_chart(daily_returns, bench, title="Bench Comp")
         assert "Bench Comp" in fig.layout.title.text
 
 
@@ -249,10 +256,12 @@ class TestTradeMarkersChart:
         assert hasattr(fig, "data")
 
     def test_accepts_dict(self):
-        fig = trade_markers_chart({
-            "pnl": [0.01, -0.02, 0.03],
-            "side": ["long", "short", "long"],
-        })
+        fig = trade_markers_chart(
+            {
+                "pnl": [0.01, -0.02, 0.03],
+                "side": ["long", "short", "long"],
+            }
+        )
         assert hasattr(fig, "data")
 
     def test_custom_title(self, trade_input):
@@ -271,14 +280,16 @@ class TestTradeMarkersChart:
         assert "Cumulative P&L" in names
 
     def test_mfe_mae_overlay_when_intratrade(self):
-        inp = TradeInput(trades={
-            "pnl": [0.02, -0.01],
-            "side": ["long", "short"],
-            "intratrade_prices": [
-                [100.0, 101.0, 102.5, 102.0],
-                [100.0, 99.0, 98.0, 99.5],
-            ],
-        })
+        inp = TradeInput(
+            trades={
+                "pnl": [0.02, -0.01],
+                "side": ["long", "short"],
+                "intratrade_prices": [
+                    [100.0, 101.0, 102.5, 102.0],
+                    [100.0, 99.0, 98.0, 99.5],
+                ],
+            }
+        )
         fig = trade_markers_chart(inp)
         names = [t.name for t in fig.data]
         assert "MFE" in names

@@ -41,9 +41,7 @@ class _DrawdownEpisode(TypedDict):
 # ---------------------------------------------------------------------------
 
 
-def _equity_curve(
-    r: NDArray[np.floating], return_type: str = "simple"
-) -> NDArray[np.floating]:
+def _equity_curve(r: NDArray[np.floating], return_type: str = "simple") -> NDArray[np.floating]:
     """Build the cumulative return index (equity curve) from period returns.
 
     Args:
@@ -220,12 +218,10 @@ else:
         n = len(equity)
         underwater = equity < running_max
 
-        starts, ends, troughs, depths_arr, recovered = (
-            _drawdown_episodes_numba_impl(
-                underwater.astype(np.bool_),
-                dd,
-                n,
-            )
+        starts, ends, troughs, depths_arr, recovered = _drawdown_episodes_numba_impl(
+            underwater.astype(np.bool_),
+            dd,
+            n,
         )
 
         episodes: list[_DrawdownEpisode] = []
@@ -268,9 +264,7 @@ def _analyse_drawdowns(
 
     all_episodes: list[list[_DrawdownEpisode]] = []
     for col in range(r.shape[1]):
-        episodes = _drawdown_episodes_numba(
-            equity[:, col], running_max[:, col], dd[:, col]
-        )
+        episodes = _drawdown_episodes_numba(equity[:, col], running_max[:, col], dd[:, col])
         all_episodes.append(episodes)
 
     return equity, running_max, dd, all_episodes
@@ -344,28 +338,26 @@ def _norm_ppf(p: float) -> float:
     if _ACKLAM_P_LOW <= p <= _ACKLAM_P_HIGH:
         q = p - 0.5
         r = q * q
-        num = ((((_ACKLAM_A1 * r + _ACKLAM_A2) * r + _ACKLAM_A3) * r
-                + _ACKLAM_A4) * r + _ACKLAM_A5) * r + _ACKLAM_A6
-        den = ((((_ACKLAM_B1 * r + _ACKLAM_B2) * r + _ACKLAM_B3) * r
-                 + _ACKLAM_B4) * r + _ACKLAM_B5) * r + 1.0
+        num = (
+            (((_ACKLAM_A1 * r + _ACKLAM_A2) * r + _ACKLAM_A3) * r + _ACKLAM_A4) * r + _ACKLAM_A5
+        ) * r + _ACKLAM_A6
+        den = (
+            (((_ACKLAM_B1 * r + _ACKLAM_B2) * r + _ACKLAM_B3) * r + _ACKLAM_B4) * r + _ACKLAM_B5
+        ) * r + 1.0
         return float(q * num / den)
 
     # Tail regions
     if p < _ACKLAM_P_LOW:
         # Left tail: p < 0.02425
         r = np.sqrt(-2.0 * np.log(p))
-        num = (((_ACKLAM_C1 * r + _ACKLAM_C2) * r + _ACKLAM_C3) * r
-               + _ACKLAM_C4) * r + _ACKLAM_C5
-        den = (((_ACKLAM_D1 * r + _ACKLAM_D2) * r + _ACKLAM_D3) * r
-               + _ACKLAM_D4) * r + 1.0
+        num = (((_ACKLAM_C1 * r + _ACKLAM_C2) * r + _ACKLAM_C3) * r + _ACKLAM_C4) * r + _ACKLAM_C5
+        den = (((_ACKLAM_D1 * r + _ACKLAM_D2) * r + _ACKLAM_D3) * r + _ACKLAM_D4) * r + 1.0
         return float(num / den)
 
     # Right tail: p > 0.97575
     r = np.sqrt(-2.0 * np.log(1.0 - p))
-    num = (((_ACKLAM_C1 * r + _ACKLAM_C2) * r + _ACKLAM_C3) * r
-           + _ACKLAM_C4) * r + _ACKLAM_C5
-    den = (((_ACKLAM_D1 * r + _ACKLAM_D2) * r + _ACKLAM_D3) * r
-           + _ACKLAM_D4) * r + 1.0
+    num = (((_ACKLAM_C1 * r + _ACKLAM_C2) * r + _ACKLAM_C3) * r + _ACKLAM_C4) * r + _ACKLAM_C5
+    den = (((_ACKLAM_D1 * r + _ACKLAM_D2) * r + _ACKLAM_D3) * r + _ACKLAM_D4) * r + 1.0
     return float(-num / den)
 
 
@@ -374,9 +366,7 @@ def _norm_ppf(p: float) -> float:
 # ---------------------------------------------------------------------------
 
 
-def _cornish_fisher_z(
-    z_alpha: float, gamma1: float, gamma2: float
-) -> float:
+def _cornish_fisher_z(z_alpha: float, gamma1: float, gamma2: float) -> float:
     """Cornish-Fisher expansion for a modified z-score.
 
     z_CF = z + gamma1/6*(z^2 - 1) + gamma2/24*(z^3 - 3z)
@@ -416,9 +406,7 @@ _MAX_DD_REF = (
     backend="sequential",
     ref=_MAX_DD_REF,
 )
-def max_drawdown(
-    input_data: ReturnsInput, return_type: str | None = None
-) -> MetricResult:
+def max_drawdown(input_data: ReturnsInput, return_type: str | None = None) -> MetricResult:
     """Maximum drawdown — largest peak-to-trough decline.
 
     Formula (simple returns, default):
@@ -437,9 +425,7 @@ def max_drawdown(
     return_type = resolve_convention(return_type, "max_drawdown", "return_type", "simple")
 
     if return_type not in ("simple", "log"):
-        raise ValueError(
-            f"return_type must be 'simple' or 'log', got {return_type!r}"
-        )
+        raise ValueError(f"return_type must be 'simple' or 'log', got {return_type!r}")
 
     r = input_data.values
     equity = _equity_curve(r, return_type)
@@ -477,9 +463,7 @@ _LONGEST_DD_REF = "van Hemert et al. (2020, Tactical Asset Allocation, Ch. 5)"
     backend="sequential",
     ref=_LONGEST_DD_REF,
 )
-def longest_drawdown_duration(
-    input_data: ReturnsInput, units: str | None = None
-) -> MetricResult:
+def longest_drawdown_duration(input_data: ReturnsInput, units: str | None = None) -> MetricResult:
     """Longest contiguous underwater period.
 
     Args:
@@ -495,9 +479,7 @@ def longest_drawdown_duration(
     units = resolve_convention(units, "longest_drawdown_duration", "units", "periods")
 
     if units not in ("periods", "years"):
-        raise ValueError(
-            f"units must be 'periods' or 'years', got {units!r}"
-        )
+        raise ValueError(f"units must be 'periods' or 'years', got {units!r}")
 
     r = input_data.values
     _, _, _, all_episodes = _analyse_drawdowns(r)
@@ -573,11 +555,7 @@ def time_to_recovery(input_data: ReturnsInput) -> MetricResult:
     maxes = np.zeros(r.shape[1], dtype=np.float64)
 
     for col in range(r.shape[1]):
-        durations = [
-            ep["duration"]
-            for ep in all_episodes[col]
-            if ep["recovered"]
-        ]
+        durations = [ep["duration"] for ep in all_episodes[col] if ep["recovered"]]
         if durations:
             means[col] = float(np.mean(durations))
             medians[col] = float(np.median(durations))
@@ -717,9 +695,7 @@ def average_drawdown_duration(input_data: ReturnsInput) -> MetricResult:
 # Reference: Martin & McCann (1989); Martin (1993)
 # ---------------------------------------------------------------------------
 
-_ULCER_REF = (
-    "Martin & McCann (1989, The Investor's Guide to Fidelity Funds); Martin (1993)"
-)
+_ULCER_REF = "Martin & McCann (1989, The Investor's Guide to Fidelity Funds); Martin (1993)"
 
 
 @register_metric(
@@ -778,9 +754,7 @@ _DOWNSIDE_DEV_REF = "Sortino & van der Meer (1991); Sortino & Price (1994)"
     backend="vectorized",
     ref=_DOWNSIDE_DEV_REF,
 )
-def downside_deviation(
-    input_data: ReturnsInput, mar: float = 0.0
-) -> MetricResult:
+def downside_deviation(input_data: ReturnsInput, mar: float = 0.0) -> MetricResult:
     """Downside deviation (semi-deviation below a minimum acceptable return).
 
     Formula:
@@ -826,9 +800,7 @@ _DOWNSIDE_SEMIVAR_REF = "Markowitz (1959); Sortino & van der Meer (1991)"
     backend="vectorized",
     ref=_DOWNSIDE_SEMIVAR_REF,
 )
-def downside_semivariance(
-    input_data: ReturnsInput, mar: float = 0.0
-) -> MetricResult:
+def downside_semivariance(input_data: ReturnsInput, mar: float = 0.0) -> MetricResult:
     """Downside semi-variance — raw second moment below MAR (no square root).
 
     Formula:
@@ -846,7 +818,7 @@ def downside_semivariance(
     """
     r = input_data.values
     below = np.minimum(r - mar, 0.0)
-    arr = np.nanmean(below ** 2, axis=0)
+    arr = np.nanmean(below**2, axis=0)
 
     value: float | NDArray[np.floating]
     value = float(arr[0]) if input_data.is_single else arr
@@ -875,9 +847,7 @@ _UPSIDE_DEV_REF = "Bacon (2008, Practical Portfolio Performance Measurement, 2nd
     backend="vectorized",
     ref=_UPSIDE_DEV_REF,
 )
-def upside_deviation(
-    input_data: ReturnsInput, mar: float = 0.0
-) -> MetricResult:
+def upside_deviation(input_data: ReturnsInput, mar: float = 0.0) -> MetricResult:
     """Upside deviation — mirror of downside deviation for positive dispersion.
 
     Formula:
@@ -911,15 +881,10 @@ def upside_deviation(
 # Reference: Litterman (1996); Zangari (1996); Jorion (2006)
 # ---------------------------------------------------------------------------
 
-_VAR_REF = (
-    "Litterman (1996); Zangari (1996); "
-    "Jorion (2006, Value at Risk, 3rd ed., Sec. 5.2)"
-)
+_VAR_REF = "Litterman (1996); Zangari (1996); Jorion (2006, Value at Risk, 3rd ed., Sec. 5.2)"
 
 
-def _var_historical(
-    r: NDArray[np.floating], confidence: float
-) -> NDArray[np.floating]:
+def _var_historical(r: NDArray[np.floating], confidence: float) -> NDArray[np.floating]:
     """Historical VaR: negative of the alpha-quantile of returns."""
     alpha = 1.0 - confidence
     # Along axis 0: for each strategy column
@@ -927,9 +892,7 @@ def _var_historical(
     return np.asarray(raw, dtype=np.float64)
 
 
-def _var_parametric(
-    r: NDArray[np.floating], confidence: float
-) -> NDArray[np.floating]:
+def _var_parametric(r: NDArray[np.floating], confidence: float) -> NDArray[np.floating]:
     """Parametric VaR: -(mean + z_alpha * std)."""
     alpha = 1.0 - confidence
     z_alpha = _norm_ppf(alpha)
@@ -938,9 +901,7 @@ def _var_parametric(
     return np.asarray(-(mean + z_alpha * std), dtype=np.float64)
 
 
-def _var_cornish_fisher(
-    r: NDArray[np.floating], confidence: float
-) -> NDArray[np.floating]:
+def _var_cornish_fisher(r: NDArray[np.floating], confidence: float) -> NDArray[np.floating]:
     """Cornish-Fisher VaR: parametric with CF-adjusted z-score."""
     alpha = 1.0 - confidence
     z_alpha = _norm_ppf(alpha)
@@ -1014,13 +975,10 @@ def var(
 
     if method not in ("historical", "parametric", "cornish_fisher"):
         raise ValueError(
-            f"method must be 'historical', 'parametric', or 'cornish_fisher', "
-            f"got {method!r}"
+            f"method must be 'historical', 'parametric', or 'cornish_fisher', got {method!r}"
         )
     if not 0.0 < confidence < 1.0:
-        raise ValueError(
-            f"confidence must be in (0, 1), got {confidence}"
-        )
+        raise ValueError(f"confidence must be in (0, 1), got {confidence}")
 
     r = input_data.values
 
@@ -1090,9 +1048,7 @@ def modified_var(
         MetricResult with Modified VaR (positive float = loss magnitude).
     """
     if not 0.0 < confidence < 1.0:
-        raise ValueError(
-            f"confidence must be in (0, 1), got {confidence}"
-        )
+        raise ValueError(f"confidence must be in (0, 1), got {confidence}")
 
     r = input_data.values
     arr = _var_cornish_fisher(r, confidence)
@@ -1117,14 +1073,10 @@ def modified_var(
 # Reference: Rockafellar & Uryasev (2000); Acerbi & Tasche (2002)
 # ---------------------------------------------------------------------------
 
-_CVAR_REF = (
-    "Rockafellar & Uryasev (2000), Journal of Risk, 2(3); Acerbi & Tasche (2002)"
-)
+_CVAR_REF = "Rockafellar & Uryasev (2000), Journal of Risk, 2(3); Acerbi & Tasche (2002)"
 
 
-def _cvar_historical(
-    r: NDArray[np.floating], confidence: float
-) -> NDArray[np.floating]:
+def _cvar_historical(r: NDArray[np.floating], confidence: float) -> NDArray[np.floating]:
     """Historical CVaR: mean of returns below the VaR threshold."""
     alpha = 1.0 - confidence
     n_strat = r.shape[1]
@@ -1144,9 +1096,7 @@ def _cvar_historical(
     return cvar_arr
 
 
-def _cvar_parametric(
-    r: NDArray[np.floating], confidence: float
-) -> NDArray[np.floating]:
+def _cvar_parametric(r: NDArray[np.floating], confidence: float) -> NDArray[np.floating]:
     """Parametric CVaR (ES) under normality: -(mean - std * phi(z)/alpha)."""
     alpha = 1.0 - confidence
     z_alpha = _norm_ppf(alpha)
@@ -1191,9 +1141,7 @@ def cvar(
     confidence = resolve_convention(confidence, "cvar", "confidence", 0.95)
 
     if method not in ("historical", "parametric"):
-        raise ValueError(
-            f"method must be 'historical' or 'parametric', got {method!r}"
-        )
+        raise ValueError(f"method must be 'historical' or 'parametric', got {method!r}")
     if not 0.0 < confidence < 1.0:
         raise ValueError(f"confidence must be in (0, 1), got {confidence}")
 
@@ -1225,10 +1173,7 @@ def cvar(
 # Reference: Connor, Goldberg & Korajczyk (2010, Portfolio Risk Analysis, Ch. 9)
 # ---------------------------------------------------------------------------
 
-_TAIL_RATIO_REF = (
-    "Connor, Goldberg & Korajczyk "
-    "(2010, Portfolio Risk Analysis, Ch. 9)"
-)
+_TAIL_RATIO_REF = "Connor, Goldberg & Korajczyk (2010, Portfolio Risk Analysis, Ch. 9)"
 
 
 @register_metric(
@@ -1238,9 +1183,7 @@ _TAIL_RATIO_REF = (
     backend="vectorized",
     ref=_TAIL_RATIO_REF,
 )
-def tail_ratio(
-    input_data: ReturnsInput, tail_cutoff: float | None = None
-) -> MetricResult:
+def tail_ratio(input_data: ReturnsInput, tail_cutoff: float | None = None) -> MetricResult:
     """Tail ratio — upper-tail mean divided by absolute lower-tail mean.
 
     Formula:
@@ -1260,9 +1203,7 @@ def tail_ratio(
     tail_cutoff = resolve_convention(tail_cutoff, "tail_ratio", "tail_cutoff", 0.05)
 
     if not 0.0 < tail_cutoff < 0.5:
-        raise ValueError(
-            f"tail_cutoff must be in (0, 0.5), got {tail_cutoff}"
-        )
+        raise ValueError(f"tail_cutoff must be in (0, 0.5), got {tail_cutoff}")
 
     r = input_data.values
     n_strat = r.shape[1]
@@ -1323,9 +1264,7 @@ _CSR_REF = "Bacon (2008, Practical Portfolio Performance Measurement, 2nd ed., S
     backend="vectorized",
     ref=_CSR_REF,
 )
-def common_sense_ratio(
-    input_data: ReturnsInput, tail_cutoff: float = 0.05
-) -> MetricResult:
+def common_sense_ratio(input_data: ReturnsInput, tail_cutoff: float = 0.05) -> MetricResult:
     """Common-Sense Ratio — tail ratio multiplied by gain-to-pain ratio.
 
     Formula:
@@ -1408,9 +1347,7 @@ _HILL_REF = (
     backend="vectorized",
     ref=_HILL_REF,
 )
-def hill_tail_index(
-    input_data: ReturnsInput, tail_fraction: float | None = None
-) -> MetricResult:
+def hill_tail_index(input_data: ReturnsInput, tail_fraction: float | None = None) -> MetricResult:
     """Hill estimator for the tail index of the return distribution.
 
     Fits the upper tail (largest positive returns) of the distribution.
@@ -1442,14 +1379,10 @@ def hill_tail_index(
            because the tail threshold is <= 0, the ``meta`` field includes a
            ``note`` key explaining the cause.
     """
-    tail_fraction = resolve_convention(
-        tail_fraction, "hill_tail_index", "tail_fraction", 0.10
-    )
+    tail_fraction = resolve_convention(tail_fraction, "hill_tail_index", "tail_fraction", 0.10)
 
     if not 0.0 < tail_fraction <= 0.5:
-        raise ValueError(
-            f"tail_fraction must be in (0, 0.5], got {tail_fraction}"
-        )
+        raise ValueError(f"tail_fraction must be in (0, 0.5], got {tail_fraction}")
 
     r = input_data.values
     n_strat = r.shape[1]
@@ -1753,9 +1686,7 @@ def drawdown_periods_count(input_data: ReturnsInput) -> MetricResult:
     r = input_data.values
     _, _, _, all_episodes = _analyse_drawdowns(r)
 
-    arr = np.array(
-        [len(episodes) for episodes in all_episodes], dtype=np.float64
-    )
+    arr = np.array([len(episodes) for episodes in all_episodes], dtype=np.float64)
 
     value: float | NDArray[np.floating]
     value = float(arr[0]) if input_data.is_single else arr
@@ -1988,9 +1919,7 @@ _PROSPECT_RATIO_REF = "Watanabe (2005)"
     backend="vectorized",
     ref=_PROSPECT_RATIO_REF,
 )
-def prospect_ratio(
-    input_data: ReturnsInput, mar: float = 0.0
-) -> MetricResult:
+def prospect_ratio(input_data: ReturnsInput, mar: float = 0.0) -> MetricResult:
     """Prospect Ratio — upside semivariance divided by downside semivariance.
 
     Formula:

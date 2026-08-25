@@ -384,10 +384,12 @@ class TestSkewness:
 
     def test_multi_strategy(self):
         """Multi-strategy skewness."""
-        multi = np.column_stack([
-            [0.01, -0.02, 0.015, 0.03, -0.01],
-            [-0.01, 0.02, -0.015, -0.03, 0.01],
-        ])
+        multi = np.column_stack(
+            [
+                [0.01, -0.02, 0.015, 0.03, -0.01],
+                [-0.01, 0.02, -0.015, -0.03, 0.01],
+            ]
+        )
         inp = ReturnsInput(multi)
         result = skewness(inp)
         assert isinstance(result.value, np.ndarray)
@@ -630,10 +632,12 @@ class TestAutocorrelation:
 
     def test_multi_strategy(self):
         """Multi-strategy autocorrelation."""
-        multi = np.column_stack([
-            [0.01, 0.02, -0.01, 0.005, -0.015],
-            [-0.01, -0.02, 0.01, -0.005, 0.015],
-        ])
+        multi = np.column_stack(
+            [
+                [0.01, 0.02, -0.01, 0.005, -0.015],
+                [-0.01, -0.02, 0.01, -0.005, 0.015],
+            ]
+        )
         inp = ReturnsInput(multi)
         result = autocorrelation(inp)
         assert isinstance(result.value, np.ndarray)
@@ -739,10 +743,12 @@ class TestPercentiles:
 
     def test_multi_strategy(self):
         """Multi-strategy returns 2-D array."""
-        multi = np.column_stack([
-            [0.01, -0.02, 0.03, -0.01, 0.005],
-            [0.02, -0.01, 0.01, -0.03, 0.015],
-        ])
+        multi = np.column_stack(
+            [
+                [0.01, -0.02, 0.03, -0.01, 0.005],
+                [0.02, -0.01, 0.01, -0.03, 0.015],
+            ]
+        )
         inp = ReturnsInput(multi)
         result = percentiles(inp)
         assert isinstance(result.value, np.ndarray)
@@ -841,10 +847,12 @@ class TestOutlierIQR:
 
     def test_multi_strategy(self):
         """Multi-strategy outlier detection."""
-        multi = np.column_stack([
-            [0.01, -0.02, 0.03, -0.01, 0.005],
-            [0.02, -0.01, 0.01, -0.03, 0.015],
-        ])
+        multi = np.column_stack(
+            [
+                [0.01, -0.02, 0.03, -0.01, 0.005],
+                [0.02, -0.01, 0.01, -0.03, 0.015],
+            ]
+        )
         inp = ReturnsInput(multi)
         result = outlier_iqr(inp)
         assert isinstance(result.value, np.ndarray)
@@ -890,10 +898,12 @@ class TestInputTypes:
 
     @pytest.fixture
     def data_2d(self):
-        return np.column_stack([
-            [0.01, -0.02, 0.015, 0.03, -0.01],
-            [0.02, -0.01, 0.01, -0.03, 0.005],
-        ])
+        return np.column_stack(
+            [
+                [0.01, -0.02, 0.015, 0.03, -0.01],
+                [0.02, -0.01, 0.01, -0.03, 0.005],
+            ]
+        )
 
     def test_ndarray_1d(self, data_1d, daily_pp):
         """numpy 1-D array works."""
@@ -1224,12 +1234,20 @@ class TestConsecutiveWinsLosses:
     def test_known_sequence(self):
         """Verify streak counts for a known sequence."""
         # 3 wins, 2 losses, 4 wins, 1 loss
-        returns = np.array([
-            0.01, 0.02, 0.01,   # 3-win streak
-            -0.01, -0.02,        # 2-loss streak
-            0.03, 0.01, 0.02, 0.01,  # 4-win streak
-            -0.03,               # 1-loss streak (current)
-        ])
+        returns = np.array(
+            [
+                0.01,
+                0.02,
+                0.01,  # 3-win streak
+                -0.01,
+                -0.02,  # 2-loss streak
+                0.03,
+                0.01,
+                0.02,
+                0.01,  # 4-win streak
+                -0.03,  # 1-loss streak (current)
+            ]
+        )
         inp = ReturnsInput(returns)
         result = consecutive_wins_losses(inp)
         val = result.value
@@ -1275,8 +1293,10 @@ class TestConsecutiveWinsLosses:
         result = consecutive_wins_losses(inp)
         val = result.value
         streak_keys = [
-            "max_win_streak", "max_loss_streak",
-            "current_win_streak", "current_loss_streak",
+            "max_win_streak",
+            "max_loss_streak",
+            "current_win_streak",
+            "current_loss_streak",
         ]
         for key in streak_keys:
             assert key in val
@@ -1382,18 +1402,14 @@ class TestExposureTime:
 
     def test_percent_ceil_rounding(self):
         """percent_ceil rounds exposure up to the nearest whole percent."""
-        returns = np.array(
-            [0.01, 0.0, -0.02, 0.03, 0.0, 0.005, -0.01, 0.02, 0.0, 0.0, 0.001]
-        )
+        returns = np.array([0.01, 0.0, -0.02, 0.03, 0.0, 0.005, -0.01, 0.02, 0.0, 0.0, 0.001])
         # 7 nonzero out of 11 -> 7/11 = 0.6363... -> ceil(63.63)/100 = 0.64
         result = exposure_time(ReturnsInput(returns), rounding="percent_ceil")
         assert result.value == pytest.approx(0.64, rel=1e-12)
 
     def test_default_rounding_is_raw(self):
         """Default rounding returns the exact (unrounded) exposure share."""
-        returns = np.array(
-            [0.01, 0.0, -0.02, 0.03, 0.0, 0.005, -0.01, 0.02, 0.0, 0.0, 0.001]
-        )
+        returns = np.array([0.01, 0.0, -0.02, 0.03, 0.0, 0.005, -0.01, 0.02, 0.0, 0.0, 0.001])
         result = exposure_time(ReturnsInput(returns))
         assert result.value == pytest.approx(7.0 / 11.0, rel=1e-12)
 

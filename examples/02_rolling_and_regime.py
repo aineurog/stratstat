@@ -19,10 +19,12 @@ rng = np.random.default_rng(42)
 n = 504  # ~2 years
 
 # Year 1: calm, Year 2: volatile
-returns = np.concatenate([
-    rng.normal(0.0006, 0.008, size=252),
-    rng.normal(0.0002, 0.022, size=252),
-])
+returns = np.concatenate(
+    [
+        rng.normal(0.0006, 0.008, size=252),
+        rng.normal(0.0002, 0.022, size=252),
+    ]
+)
 
 print("=" * 60)
 print("ROLLING METRICS")

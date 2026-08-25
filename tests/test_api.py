@@ -76,7 +76,8 @@ class TestDomainFunctions:
         ms = compute_compare(multi, benchmark=benchmark, periods_per_year=252)
         assert set(ms.by_tier()) == {"compare"}
         assert set(ms.meta.get("excluded_resampling", [])) == {
-            "whites_reality_check", "pbo",
+            "whites_reality_check",
+            "pbo",
         }
 
 
@@ -88,7 +89,9 @@ class TestDomainFunctions:
 class TestComputeAll:
     def test_fan_out_across_tiers(self, returns, trades, benchmark):
         ms = compute_all(
-            returns=returns, trades=trades, benchmark=benchmark,
+            returns=returns,
+            trades=trades,
+            benchmark=benchmark,
             periods_per_year=252,
         )
         assert set(ms.by_tier()) == {"returns", "trades", "benchmark"}
@@ -137,7 +140,9 @@ class TestComputeAll:
 
     def test_deduplicate_false_keeps_both(self, returns, trades):
         ms = compute_all(
-            returns=returns, trades=trades, periods_per_year=252,
+            returns=returns,
+            trades=trades,
+            periods_per_year=252,
             deduplicate=False,
         )
         names = {r.name for r in ms}
@@ -181,10 +186,12 @@ class TestComputeAll:
 
 class TestMetricSetAccessors:
     def _set(self):
-        return MetricSet(results=[
-            MetricResult(name="a", value=1.0, category=("descriptive", "returns")),
-            MetricResult(name="b", value=2.0, category=("risk", "returns")),
-        ])
+        return MetricSet(
+            results=[
+                MetricResult(name="a", value=1.0, category=("descriptive", "returns")),
+                MetricResult(name="b", value=2.0, category=("risk", "returns")),
+            ]
+        )
 
     def test_getitem_by_name(self):
         ms = self._set()
@@ -246,9 +253,7 @@ class TestRegistryAliasOf:
 
         try:
             assert requires_of("__api_test_metric") == "returns"
-            entry = next(
-                m for m in list_metrics() if m["name"] == "__api_test_metric"
-            )
+            entry = next(m for m in list_metrics() if m["name"] == "__api_test_metric")
             assert entry["alias_of"] == "__api_test_canonical"
         finally:
             from stratstat.registry import _registry

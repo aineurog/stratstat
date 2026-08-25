@@ -24,9 +24,9 @@ strategy_returns = rng.normal(0.0008, 0.018, size=n)
 bench_returns = rng.normal(0.0003, 0.012, size=n)
 
 # Multi-strategy: 3 strategies with different risk/return profiles
-strat1 = rng.normal(0.0010, 0.020, size=n)   # higher return, higher vol
-strat2 = rng.normal(0.0004, 0.012, size=n)   # lower return, lower vol
-strat3 = rng.normal(0.0006, 0.016, size=n)   # middle of the road
+strat1 = rng.normal(0.0010, 0.020, size=n)  # higher return, higher vol
+strat2 = rng.normal(0.0004, 0.012, size=n)  # lower return, lower vol
+strat3 = rng.normal(0.0006, 0.016, size=n)  # middle of the road
 multi_returns = np.column_stack([strat1, strat2, strat3])
 
 # ---------------------------------------------------------------------------

@@ -68,28 +68,62 @@ print()
 # ---------------------------------------------------------------------------
 # (label, ss callable, qs callable, repeats)
 bench = [
-    ("sharpe_ratio", lambda: ss.compute(inp, "sharpe_ratio"),
-     lambda: qs.stats.sharpe(series), 1000),
-    ("sortino_ratio", lambda: ss.compute(inp, "sortino_ratio"),
-     lambda: qs.stats.sortino(series), 1000),
-    ("annualized_volatility", lambda: ss.compute(inp, "annualized_volatility"),
-     lambda: qs.stats.volatility(series), 1000),
+    (
+        "sharpe_ratio",
+        lambda: ss.compute(inp, "sharpe_ratio"),
+        lambda: qs.stats.sharpe(series),
+        1000,
+    ),
+    (
+        "sortino_ratio",
+        lambda: ss.compute(inp, "sortino_ratio"),
+        lambda: qs.stats.sortino(series),
+        1000,
+    ),
+    (
+        "annualized_volatility",
+        lambda: ss.compute(inp, "annualized_volatility"),
+        lambda: qs.stats.volatility(series),
+        1000,
+    ),
     ("cagr", lambda: ss.compute(inp, "cagr"), lambda: qs.stats.cagr(series), 1000),
-    ("skewness", lambda: ss.compute(inp, "skewness"),
-     lambda: qs.stats.skew(series), 1000),
-    ("excess_kurtosis", lambda: ss.compute(inp, "excess_kurtosis"),
-     lambda: qs.stats.kurtosis(series), 1000),
-    ("max_drawdown", lambda: ss.compute(inp, "max_drawdown"),
-     lambda: qs.stats.max_drawdown(series), 500),
-    ("ulcer_index", lambda: ss.compute(inp, "ulcer_index"),
-     lambda: qs.stats.ulcer_index(series), 500),
-    ("consecutive_wins_losses", lambda: ss.compute(inp, "consecutive_wins_losses"),
-     lambda: qs.stats.consecutive_wins(series), 500),
-    ("psr", lambda: ss.compute(inp, "psr"),
-     lambda: qs.stats.probabilistic_sharpe_ratio(series), 500),
-    ("monte_carlo sharpe (1000 sims)", lambda: ss.compute(
-        inp, "monte_carlo_distribution", target="sharpe", sims=1000, seed=42),
-     lambda: qs.stats.montecarlo_sharpe(series, sims=1000, seed=42), 3),
+    ("skewness", lambda: ss.compute(inp, "skewness"), lambda: qs.stats.skew(series), 1000),
+    (
+        "excess_kurtosis",
+        lambda: ss.compute(inp, "excess_kurtosis"),
+        lambda: qs.stats.kurtosis(series),
+        1000,
+    ),
+    (
+        "max_drawdown",
+        lambda: ss.compute(inp, "max_drawdown"),
+        lambda: qs.stats.max_drawdown(series),
+        500,
+    ),
+    (
+        "ulcer_index",
+        lambda: ss.compute(inp, "ulcer_index"),
+        lambda: qs.stats.ulcer_index(series),
+        500,
+    ),
+    (
+        "consecutive_wins_losses",
+        lambda: ss.compute(inp, "consecutive_wins_losses"),
+        lambda: qs.stats.consecutive_wins(series),
+        500,
+    ),
+    (
+        "psr",
+        lambda: ss.compute(inp, "psr"),
+        lambda: qs.stats.probabilistic_sharpe_ratio(series),
+        500,
+    ),
+    (
+        "monte_carlo sharpe (1000 sims)",
+        lambda: ss.compute(inp, "monte_carlo_distribution", target="sharpe", sims=1000, seed=42),
+        lambda: qs.stats.montecarlo_sharpe(series, sims=1000, seed=42),
+        3,
+    ),
 ]
 
 print("Per-metric (us/call)")

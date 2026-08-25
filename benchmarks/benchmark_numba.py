@@ -76,27 +76,29 @@ def _cases() -> list[tuple[str, object, object, tuple]]:
     n_blocks = int(np.ceil(n / block_len))
     rng = np.random.default_rng(1)
     block_starts = rng.integers(0, n - block_len + 1, size=(n_reps, n_blocks))
-    cases.append((
-        f"block indices ({n_reps}x{n})",
-        _numba_fn(inference_mod, "_assemble_block_indices_numba"),
-        inference_mod._assemble_block_indices,
-        (block_starts, n, block_len),
-    ))
+    cases.append(
+        (
+            f"block indices ({n_reps}x{n})",
+            _numba_fn(inference_mod, "_assemble_block_indices_numba"),
+            inference_mod._assemble_block_indices,
+            (block_starts, n, block_len),
+        )
+    )
 
     # 2. Sharpe bootstrap.  Build indices with the numpy assembler so this
     # setup does not trigger the numba compile that case 1 is meant to measure.
     rng = np.random.default_rng(2)
     r = rng.normal(0.0004, 0.01, size=n)
-    idx_starts = np.random.default_rng(3).integers(
-        0, n - block_len + 1, size=(n_reps, n_blocks)
-    )
+    idx_starts = np.random.default_rng(3).integers(0, n - block_len + 1, size=(n_reps, n_blocks))
     indices = inference_mod._assemble_block_indices(idx_starts, n, block_len)
-    cases.append((
-        f"sharpe bootstrap ({n_reps}x{n})",
-        _numba_fn(inference_mod, "_sharpe_bootstrap_numba"),
-        inference_mod._sharpe_bootstrap_fallback,
-        (r, indices, 1),
-    ))
+    cases.append(
+        (
+            f"sharpe bootstrap ({n_reps}x{n})",
+            _numba_fn(inference_mod, "_sharpe_bootstrap_numba"),
+            inference_mod._sharpe_bootstrap_fallback,
+            (r, indices, 1),
+        )
+    )
 
     # 3. Stationary bootstrap (as used by White's Reality Check).
     rng = np.random.default_rng(4)
@@ -106,35 +108,41 @@ def _cases() -> list[tuple[str, object, object, tuple]]:
     drng = np.random.default_rng(5)
     starts = drng.integers(0, n_periods, size=(n_boot, n_periods))
     blens = drng.geometric(1.0, size=(n_boot, n_periods))
-    cases.append((
-        f"stationary bootstrap ({n_boot}x{n_periods}x3)",
-        _numba_fn(compare_mod, "_stationary_bootstrap_numba"),
-        compare_mod._stationary_bootstrap_fallback,
-        (data, starts, blens),
-    ))
+    cases.append(
+        (
+            f"stationary bootstrap ({n_boot}x{n_periods}x3)",
+            _numba_fn(compare_mod, "_stationary_bootstrap_numba"),
+            compare_mod._stationary_bootstrap_fallback,
+            (data, starts, blens),
+        )
+    )
 
     # 4. PBO overfit count.
     rng = np.random.default_rng(6)
     pdata = rng.normal(0.0002, 0.01, size=(252, 5))
     split_points = np.arange(80, 130, dtype=np.int64)
-    cases.append((
-        "pbo overfit (50 splits x 252 x 5)",
-        _numba_fn(compare_mod, "_pbo_overfit_numba"),
-        compare_mod._pbo_overfit_fallback,
-        (pdata, split_points, 3, 0, 0.0),
-    ))
+    cases.append(
+        (
+            "pbo overfit (50 splits x 252 x 5)",
+            _numba_fn(compare_mod, "_pbo_overfit_numba"),
+            compare_mod._pbo_overfit_fallback,
+            (pdata, split_points, 3, 0, 0.0),
+        )
+    )
 
     # 5. Drawdown episode walk (the original numba path in risk.py).
     rng = np.random.default_rng(7)
     dr = rng.normal(0.0004, 0.01, size=10000)
     eq = risk_mod._equity_curve(dr.reshape(-1, 1), "simple")
     rm, dd_ser = risk_mod._drawdown_series(eq)
-    cases.append((
-        "drawdown walk (10000 periods)",
-        _numba_fn(risk_mod, "_drawdown_episodes_numba"),
-        risk_mod._drawdown_episodes,
-        (eq[:, 0], rm[:, 0], dd_ser[:, 0]),
-    ))
+    cases.append(
+        (
+            "drawdown walk (10000 periods)",
+            _numba_fn(risk_mod, "_drawdown_episodes_numba"),
+            risk_mod._drawdown_episodes,
+            (eq[:, 0], rm[:, 0], dd_ser[:, 0]),
+        )
+    )
 
     return cases
 
@@ -146,8 +154,7 @@ def main() -> None:
         print("numba not installed: reporting fallback timing only.\n")
 
     header = (
-        f"{'kernel':<36} {'compile (ms)':>13} {'numba (ms)':>12} "
-        f"{'numpy (ms)':>12} {'speedup':>9}"
+        f"{'kernel':<36} {'compile (ms)':>13} {'numba (ms)':>12} {'numpy (ms)':>12} {'speedup':>9}"
     )
     print(header)
     print("-" * len(header))
@@ -162,8 +169,7 @@ def main() -> None:
         numba_ms = _measure(numba_fn, args) * 1e3
         speedup = numpy_ms / numba_ms if numba_ms > 0 else float("nan")
         print(
-            f"{name:<36} {compile_ms:>13.1f} {numba_ms:>12.2f} "
-            f"{numpy_ms:>12.2f} {speedup:>8.1f}x"
+            f"{name:<36} {compile_ms:>13.1f} {numba_ms:>12.2f} {numpy_ms:>12.2f} {speedup:>8.1f}x"
         )
 
     print("\nTimes are per call; speedup is numpy/numba (higher is better).")

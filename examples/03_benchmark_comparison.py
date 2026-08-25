@@ -32,8 +32,7 @@ print("BENCHMARK COMPARISON")
 print("=" * 60)
 
 # -- Create a BenchmarkInput -------------------------------------------------
-bm_inp = BenchmarkInput(returns=strategy_returns, benchmark=bench_returns,
-                        periods_per_year=252)
+bm_inp = BenchmarkInput(returns=strategy_returns, benchmark=bench_returns, periods_per_year=252)
 
 # -- Compute individual benchmark metrics ------------------------------------
 alpha = ss.compute(bm_inp, "alpha")
@@ -89,10 +88,11 @@ strat2 = true_alpha * 0.5 + 0.9 * bench_returns + rng.normal(0, 0.007, size=n)
 strat3 = true_alpha * 1.5 + 1.2 * bench_returns + rng.normal(0, 0.006, size=n)
 
 for i, strat in enumerate([strategy_returns, strat2, strat3], 1):
-    bm = BenchmarkInput(returns=strat, benchmark=bench_returns,
-                        periods_per_year=252)
+    bm = BenchmarkInput(returns=strat, benchmark=bench_returns, periods_per_year=252)
     alpha_val = ss.compute(bm, "alpha")
     beta_val = ss.compute(bm, "beta")
     ir_val = ss.compute(bm, "information_ratio")
-    print(f"\n  Strategy {i}: {alpha_val.value:.4f} alpha, "
-          f"{beta_val.value:.2f} beta, {ir_val.value:.4f} IR")
+    print(
+        f"\n  Strategy {i}: {alpha_val.value:.4f} alpha, "
+        f"{beta_val.value:.2f} beta, {ir_val.value:.4f} IR"
+    )

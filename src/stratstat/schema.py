@@ -194,8 +194,7 @@ def _coerce(
     """
     if schema is not None and columns is not None:
         raise TypeError(
-            "Pass either schema= or columns=, not both. "
-            "columns= is shorthand that builds a Schema."
+            "Pass either schema= or columns=, not both. columns= is shorthand that builds a Schema."
         )
     if columns is not None:
         schema = Schema(trades=dict(columns)) if tier == "trades" else Schema(**dict(columns))

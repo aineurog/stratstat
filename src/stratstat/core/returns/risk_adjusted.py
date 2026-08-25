@@ -66,9 +66,7 @@ def sharpe_ratio(
     ddof = resolve_convention(ddof, "sharpe_ratio", "ddof", 1)
 
     if input_data.periods_per_year is None:
-        raise MetricNotApplicableError(
-            "Sharpe ratio requires periods_per_year on the ReturnsInput"
-        )
+        raise MetricNotApplicableError("Sharpe ratio requires periods_per_year on the ReturnsInput")
 
     r = input_data.values  # (n_periods, n_strategies)
     p = float(input_data.periods_per_year)
@@ -142,14 +140,11 @@ def sortino_ratio(
     Returns:
         MetricResult with Sortino ratio (float or array).
     """
-    denominator = resolve_convention(
-        denominator, "sortino_ratio", "denominator", "full_downside"
-    )
+    denominator = resolve_convention(denominator, "sortino_ratio", "denominator", "full_downside")
 
     if denominator not in ("full_downside", "downside_only"):
         raise ValueError(
-            f"denominator must be 'full_downside' or 'downside_only', "
-            f"got {denominator!r}"
+            f"denominator must be 'full_downside' or 'downside_only', got {denominator!r}"
         )
 
     if input_data.periods_per_year is None:
@@ -232,9 +227,7 @@ def calmar_ratio(input_data: ReturnsInput) -> MetricResult:
         ValueError: If ``periods_per_year`` is None.
     """
     if input_data.periods_per_year is None:
-        raise MetricNotApplicableError(
-            "Calmar ratio requires periods_per_year on the ReturnsInput"
-        )
+        raise MetricNotApplicableError("Calmar ratio requires periods_per_year on the ReturnsInput")
 
     r = input_data.values
     p = float(input_data.periods_per_year)
@@ -276,9 +269,7 @@ _OMEGA_REF = "Keating & Shadwick (2002), 'A Universal Performance Measure,' JPM,
     backend="vectorized",
     ref=_OMEGA_REF,
 )
-def omega_ratio(
-    input_data: ReturnsInput, threshold: float = 0.0
-) -> MetricResult:
+def omega_ratio(input_data: ReturnsInput, threshold: float = 0.0) -> MetricResult:
     """Omega ratio — probability-weighted ratio of gains to losses.
 
     Formula:
@@ -340,9 +331,7 @@ _STERLING_REF = "Bacon (2008, Practical Portfolio Performance Measurement, 2nd e
     backend="vectorized",
     ref=_STERLING_REF,
 )
-def sterling_ratio(
-    input_data: ReturnsInput, floor: float = 0.10
-) -> MetricResult:
+def sterling_ratio(input_data: ReturnsInput, floor: float = 0.10) -> MetricResult:
     """Sterling ratio — CAGR divided by average drawdown depth plus a floor.
 
     Formula:
@@ -445,9 +434,7 @@ def burke_ratio(input_data: ReturnsInput) -> MetricResult:
         ValueError: If ``periods_per_year`` is None.
     """
     if input_data.periods_per_year is None:
-        raise MetricNotApplicableError(
-            "Burke ratio requires periods_per_year on the ReturnsInput"
-        )
+        raise MetricNotApplicableError("Burke ratio requires periods_per_year on the ReturnsInput")
 
     r = input_data.values
     p = float(input_data.periods_per_year)
@@ -492,9 +479,7 @@ _KAPPA3_REF = (
     backend="vectorized",
     ref=_KAPPA3_REF,
 )
-def kappa_3(
-    input_data: ReturnsInput, mar: float = 0.0
-) -> MetricResult:
+def kappa_3(input_data: ReturnsInput, mar: float = 0.0) -> MetricResult:
     """Kappa-3 — excess return over the cube root of the third lower partial moment.
 
     Formula:
@@ -544,8 +529,7 @@ def kappa_3(
 # ---------------------------------------------------------------------------
 
 _MARTIN_REF = (
-    "Martin & McCann (1989), 'The Investor's Guide to Fidelity Funds'; "
-    "Bacon (2008, Sec. 8.6)"
+    "Martin & McCann (1989), 'The Investor's Guide to Fidelity Funds'; Bacon (2008, Sec. 8.6)"
 )
 
 
@@ -575,9 +559,7 @@ def martin_ratio(input_data: ReturnsInput) -> MetricResult:
         ValueError: If ``periods_per_year`` is None.
     """
     if input_data.periods_per_year is None:
-        raise MetricNotApplicableError(
-            "Martin ratio requires periods_per_year on the ReturnsInput"
-        )
+        raise MetricNotApplicableError("Martin ratio requires periods_per_year on the ReturnsInput")
 
     r = input_data.values
     p = float(input_data.periods_per_year)
@@ -694,9 +676,7 @@ def pain_ratio(input_data: ReturnsInput) -> MetricResult:
         ValueError: If ``periods_per_year`` is None.
     """
     if input_data.periods_per_year is None:
-        raise MetricNotApplicableError(
-            "Pain ratio requires periods_per_year on the ReturnsInput"
-        )
+        raise MetricNotApplicableError("Pain ratio requires periods_per_year on the ReturnsInput")
 
     r = input_data.values
     p = float(input_data.periods_per_year)
@@ -908,9 +888,7 @@ _SERENITY_REF = "Industry metric; used by PortfolioMetrics"
     backend="vectorized",
     ref=_SERENITY_REF,
 )
-def serenity_ratio(
-    input_data: ReturnsInput, rf: float = 0.0
-) -> MetricResult:
+def serenity_ratio(input_data: ReturnsInput, rf: float = 0.0) -> MetricResult:
     """Serenity Ratio — excess return divided by the product of volatility and Ulcer Index.
 
     Formula:
@@ -985,9 +963,7 @@ _UPI_REF = "Martin & McCann (1989, 'The Investor's Guide to Fidelity Funds')"
     backend="vectorized",
     ref=_UPI_REF,
 )
-def upi(
-    input_data: ReturnsInput, rf: float = 0.0
-) -> MetricResult:
+def upi(input_data: ReturnsInput, rf: float = 0.0) -> MetricResult:
     """Ulcer Performance Index — excess return divided by the Ulcer Index.
 
     Formula:
@@ -1012,9 +988,7 @@ def upi(
         ValueError: If ``periods_per_year`` is None.
     """
     if input_data.periods_per_year is None:
-        raise MetricNotApplicableError(
-            "UPI requires periods_per_year on the ReturnsInput"
-        )
+        raise MetricNotApplicableError("UPI requires periods_per_year on the ReturnsInput")
 
     r = input_data.values
     p = float(input_data.periods_per_year)
@@ -1092,9 +1066,7 @@ def modified_sharpe_ratio(
             "Modified Sharpe ratio requires periods_per_year on the ReturnsInput"
         )
     if not 0.0 < confidence < 1.0:
-        raise ValueError(
-            f"confidence must be in (0, 1), got {confidence}"
-        )
+        raise ValueError(f"confidence must be in (0, 1), got {confidence}")
 
     r = input_data.values
     p = float(input_data.periods_per_year)
@@ -1142,9 +1114,7 @@ _UPR_REF = "Sortino, van der Meer & Plantinga (1999)"
     backend="vectorized",
     ref=_UPR_REF,
 )
-def upside_potential_ratio(
-    input_data: ReturnsInput, mar: float = 0.0
-) -> MetricResult:
+def upside_potential_ratio(input_data: ReturnsInput, mar: float = 0.0) -> MetricResult:
     """Upside Potential Ratio — upside potential divided by downside deviation.
 
     Formula:
@@ -1303,8 +1273,7 @@ def roys_safety_first(
     """
     if input_data.periods_per_year is None:
         raise MetricNotApplicableError(
-            "Roy's Safety-First ratio requires periods_per_year on the "
-            "ReturnsInput"
+            "Roy's Safety-First ratio requires periods_per_year on the ReturnsInput"
         )
 
     r = input_data.values
@@ -1342,10 +1311,7 @@ def roys_safety_first(
 # Reference: Lo (2002)
 # ---------------------------------------------------------------------------
 
-_LO_2002_REF = (
-    "Lo (2002), 'The Statistics of Sharpe Ratios,' "
-    "Financial Analysts Journal, 58(4)"
-)
+_LO_2002_REF = "Lo (2002), 'The Statistics of Sharpe Ratios,' Financial Analysts Journal, 58(4)"
 
 
 def _autocorr_penalty_col(col: NDArray[np.floating]) -> float:
@@ -1504,9 +1470,7 @@ def smart_sortino(
     Returns:
         MetricResult with the smart Sortino ratio (float or array).
     """
-    denominator = resolve_convention(
-        denominator, "sortino_ratio", "denominator", "full_downside"
-    )
+    denominator = resolve_convention(denominator, "sortino_ratio", "denominator", "full_downside")
 
     so = sortino_ratio(input_data, rf=rf, mar=mar, denominator=denominator)
     penalty = autocorr_penalty(input_data)
@@ -1571,9 +1535,7 @@ def adjusted_sortino_ratio(
     Returns:
         MetricResult with the adjusted Sortino ratio (float or array).
     """
-    denominator = resolve_convention(
-        denominator, "sortino_ratio", "denominator", "full_downside"
-    )
+    denominator = resolve_convention(denominator, "sortino_ratio", "denominator", "full_downside")
 
     so = sortino_ratio(input_data, rf=rf, mar=mar, denominator=denominator)
 
@@ -1600,9 +1562,7 @@ def adjusted_sortino_ratio(
 # 3.22 Risk-Adjusted Return (RAR)
 # ---------------------------------------------------------------------------
 
-_RAR_REF = (
-    "QuantStats-compatible convention; no independent academic source identified."
-)
+_RAR_REF = "QuantStats-compatible convention; no independent academic source identified."
 
 
 @register_metric(
@@ -1634,9 +1594,7 @@ def rar(input_data: ReturnsInput, rf: float = 0.0, rounding: str | None = None) 
         MetricResult with the risk-adjusted return (float or array).
     """
     if input_data.periods_per_year is None:
-        raise MetricNotApplicableError(
-            "rar requires periods_per_year on the ReturnsInput"
-        )
+        raise MetricNotApplicableError("rar requires periods_per_year on the ReturnsInput")
 
     rounding = resolve_convention(rounding, "rar", "rounding", "raw")
 

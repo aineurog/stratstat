@@ -72,15 +72,14 @@ def dashboard(
 
     r = _to_array(returns)
     n_strat = r.shape[1]
-    labels = [f"S{i+1}" for i in range(n_strat)]
+    labels = [f"S{i + 1}" for i in range(n_strat)]
 
     cum = _cumulative_returns(r)
     x = np.arange(cum.shape[0])
 
     # Compute rolling Sharpe for each strategy
     rolling_sharpes = [
-        _compute_rolling_metric(r[:, i:i+1], "sharpe_ratio", rolling_window,
-                                periods_per_year)
+        _compute_rolling_metric(r[:, i : i + 1], "sharpe_ratio", rolling_window, periods_per_year)
         for i in range(n_strat)
     ]
 
@@ -91,7 +90,8 @@ def dashboard(
     rankings = _compute_rankings(r, periods_per_year)
 
     fig = make_subplots(
-        rows=2, cols=2,
+        rows=2,
+        cols=2,
         subplot_titles=(
             "Equity Curves",
             f"Rolling Sharpe Ratio ({rolling_window}-period)",
@@ -111,30 +111,51 @@ def dashboard(
     # -- Panel 1: Equity Curves -------------------------------------------
     colors = ["steelblue", "crimson", "green", "orange", "purple", "brown"]
     for i in range(n_strat):
-        fig.add_trace(go.Scatter(
-            x=x, y=cum[:, i], mode="lines", name=labels[i],
-            line={"color": colors[i % len(colors)]},
-            hovertemplate="%{y:.3f}<extra>" + labels[i] + "</extra>",
-        ), row=1, col=1)
+        fig.add_trace(
+            go.Scatter(
+                x=x,
+                y=cum[:, i],
+                mode="lines",
+                name=labels[i],
+                line={"color": colors[i % len(colors)]},
+                hovertemplate="%{y:.3f}<extra>" + labels[i] + "</extra>",
+            ),
+            row=1,
+            col=1,
+        )
 
     # -- Panel 2: Rolling Sharpe ------------------------------------------
     for i in range(n_strat):
-        fig.add_trace(go.Scatter(
-            x=x, y=rolling_sharpes[i], mode="lines", name=labels[i],
-            line={"color": colors[i % len(colors)]},
-            hovertemplate="%{y:.3f}<extra>" + labels[i] + "</extra>",
-        ), row=1, col=2)
+        fig.add_trace(
+            go.Scatter(
+                x=x,
+                y=rolling_sharpes[i],
+                mode="lines",
+                name=labels[i],
+                line={"color": colors[i % len(colors)]},
+                hovertemplate="%{y:.3f}<extra>" + labels[i] + "</extra>",
+            ),
+            row=1,
+            col=2,
+        )
 
     # -- Panel 3: Correlation Heatmap -------------------------------------
-    fig.add_trace(go.Heatmap(
-        z=corr, x=labels, y=labels,
-        zmin=-1, zmax=1,
-        colorscale="RdBu_r",
-        texttemplate="%{z:.2f}",
-        textfont={"size": 11},
-        hovertemplate="Corr(%{x}, %{y}) = %{z:.3f}<extra></extra>",
-        showscale=False,
-    ), row=2, col=1)
+    fig.add_trace(
+        go.Heatmap(
+            z=corr,
+            x=labels,
+            y=labels,
+            zmin=-1,
+            zmax=1,
+            colorscale="RdBu_r",
+            texttemplate="%{z:.2f}",
+            textfont={"size": 11},
+            hovertemplate="Corr(%{x}, %{y}) = %{z:.3f}<extra></extra>",
+            showscale=False,
+        ),
+        row=2,
+        col=1,
+    )
 
     # -- Panel 4: Rankings Table ------------------------------------------
     # Build columns: Strategy | metric_1 | metric_2 | ...
@@ -147,16 +168,18 @@ def dashboard(
     ]
     for mname in metric_names_ordered:
         arr = rankings[mname]
-        cell_data.append([
-            f"{arr[i]:.4f}" if not np.isnan(arr[i]) else "N/A"
-            for i in range(n_strat)
-        ])
+        cell_data.append(
+            [f"{arr[i]:.4f}" if not np.isnan(arr[i]) else "N/A" for i in range(n_strat)]
+        )
 
-    fig.add_trace(go.Table(
-        header={"values": header_vals, "font": {"size": 10}, "align": "center"},
-        cells={"values": cell_data, "font": {"size": 10}, "align": "center",
-               "height": 25},
-    ), row=2, col=2)
+    fig.add_trace(
+        go.Table(
+            header={"values": header_vals, "font": {"size": 10}, "align": "center"},
+            cells={"values": cell_data, "font": {"size": 10}, "align": "center", "height": 25},
+        ),
+        row=2,
+        col=2,
+    )
 
     fig.update_layout(
         title=title or "Multi-Strategy Dashboard",

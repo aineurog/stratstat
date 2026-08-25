@@ -268,9 +268,7 @@ def _sample_excess_kurtosis(r: NDArray[np.floating]) -> NDArray[np.floating]:
     with np.errstate(invalid="ignore"):
         factor_a = n_eff * (n_eff + 1.0) / ((n_eff - 1.0) * (n_eff - 2.0) * (n_eff - 3.0))
         factor_b = 3.0 * (n_eff - 1.0) ** 2 / ((n_eff - 2.0) * (n_eff - 3.0))
-        arr: NDArray[np.floating] = np.where(
-            n_eff < 4, np.nan, factor_a * m4 - factor_b
-        )
+        arr: NDArray[np.floating] = np.where(n_eff < 4, np.nan, factor_a * m4 - factor_b)
         arr = np.where(zero_std, np.nan, arr)
 
     return arr
@@ -285,9 +283,7 @@ def _autocorr_lag1(r: NDArray[np.floating]) -> NDArray[np.floating]:
     valid = ~np.isnan(r)
     valid_pair = valid[:-1] & valid[1:]
 
-    num = np.sum(
-        centered[:-1] * centered[1:] * valid_pair.astype(np.float64), axis=0
-    )
+    num = np.sum(centered[:-1] * centered[1:] * valid_pair.astype(np.float64), axis=0)
     den = np.sum(centered**2 * valid.astype(np.float64), axis=0)
 
     with np.errstate(invalid="ignore"):
@@ -319,9 +315,7 @@ def _psr_z(
     period (non-annualized) base but material at an annualized base.
     """
     if se_formula == "lo":
-        denom = np.sqrt(
-            1.0 + 0.5 * sr**2 - skew * sr + (excess_kurt - 3.0) / 4.0 * sr**2
-        )
+        denom = np.sqrt(1.0 + 0.5 * sr**2 - skew * sr + (excess_kurt - 3.0) / 4.0 * sr**2)
     else:  # "blp"
         kurt = excess_kurt + 3.0  # raw kurtosis
         denom = np.sqrt(1.0 - skew * sr + (kurt - 1.0) / 4.0 * sr**2)
@@ -502,13 +496,9 @@ def _probabilistic_sortino(
     se_formula: str | None = None,
 ) -> MetricResult:
     """Shared body for the probabilistic Sortino metrics."""
-    denominator = resolve_convention(
-        denominator, "sortino_ratio", "denominator", "full_downside"
-    )
+    denominator = resolve_convention(denominator, "sortino_ratio", "denominator", "full_downside")
     metric_name = (
-        "probabilistic_adjusted_sortino_ratio"
-        if adjusted
-        else "probabilistic_sortino_ratio"
+        "probabilistic_adjusted_sortino_ratio" if adjusted else "probabilistic_sortino_ratio"
     )
     se_formula = resolve_convention(se_formula, metric_name, "se_formula", "blp")
 
@@ -523,9 +513,7 @@ def _probabilistic_sortino(
     excess_kurt = _sample_excess_kurtosis(r)
 
     z = _psr_z(base, sr_benchmark, skew, excess_kurt, n, se_formula=se_formula)
-    arr = np.array(
-        [float(_norm_cdf(float(zi))) for zi in np.atleast_1d(z)], dtype=np.float64
-    )
+    arr = np.array([float(_norm_cdf(float(zi))) for zi in np.atleast_1d(z)], dtype=np.float64)
 
     value: float | NDArray[np.floating]
     value = float(arr[0]) if input_data.is_single else arr
@@ -700,19 +688,14 @@ def dsr(
         # observed SR. proportion = count / M, deflation = 1 - proportion.
         m = len(sr_trials)
         deflation = np.array(
-            [
-                1.0 - float(np.sum(sr_trials < float(s))) / float(m)
-                for s in np.atleast_1d(sr)
-            ],
+            [1.0 - float(np.sum(sr_trials < float(s))) / float(m) for s in np.atleast_1d(sr)],
             dtype=np.float64,
         )
     else:
         deflation = np.ones_like(sr, dtype=np.float64)
 
     z_dsr: NDArray[np.floating] = z * deflation
-    arr = np.array(
-        [_norm_cdf(float(zi)) for zi in np.atleast_1d(z_dsr)], dtype=np.float64
-    )
+    arr = np.array([_norm_cdf(float(zi)) for zi in np.atleast_1d(z_dsr)], dtype=np.float64)
 
     value: float | NDArray[np.floating]
     value = float(arr[0]) if input_data.is_single else arr
@@ -795,9 +778,7 @@ def lo_sharpe_se(
         rho = _autocorr_lag1(r)
         # Clip rho to (-1, 1) to avoid invalid sqrt.
         rho_clipped = np.clip(rho, -0.9999, 0.9999)
-        adj_factor: NDArray[np.floating] = np.sqrt(
-            (1.0 + rho_clipped) / (1.0 - rho_clipped)
-        )
+        adj_factor: NDArray[np.floating] = np.sqrt((1.0 + rho_clipped) / (1.0 - rho_clipped))
         # If rho is NaN (insufficient data), adj_factor is NaN → SE becomes NaN.
         arr = se_iid * adj_factor
     else:
@@ -886,9 +867,7 @@ def sharpe_ci_analytic(
     # Matches the project convention: (k_outputs, n_strategies).
     n_strat = r.shape[1]
     if n_strat == 1 and input_data.is_single:
-        arr = np.array(
-            [float(lower.flat[0]), float(upper.flat[0])], dtype=np.float64
-        )
+        arr = np.array([float(lower.flat[0]), float(upper.flat[0])], dtype=np.float64)
         value: float | NDArray[np.floating] = arr
     else:
         value = np.stack([lower, upper], axis=0)  # shape (2, n_strategies)
@@ -934,10 +913,9 @@ def _assemble_block_indices(
     indices = np.empty((n_reps, n), dtype=np.int64)
 
     for b in range(n_reps):
-        rep = np.concatenate([
-            np.arange(block_starts[b, k], block_starts[b, k] + block_len)
-            for k in range(n_blocks)
-        ])
+        rep = np.concatenate(
+            [np.arange(block_starts[b, k], block_starts[b, k] + block_len) for k in range(n_blocks)]
+        )
         indices[b] = rep[:n]
 
     return indices
@@ -1142,9 +1120,7 @@ def min_track_record_length(
     denom = (sr - sr_benchmark) ** 2
 
     with np.errstate(invalid="ignore"):
-        arr: NDArray[np.floating] = np.where(
-            denom < 1e-15, np.inf, 1.0 + num / denom
-        )
+        arr: NDArray[np.floating] = np.where(denom < 1e-15, np.inf, 1.0 + num / denom)
 
     # If numerator is negative (which shouldn't happen for valid data),
     # return NaN.
@@ -1219,9 +1195,7 @@ def block_bootstrap_ci(
         ValueError: If multi-strategy input or unknown metric.
     """
     if not input_data.is_single:
-        raise MetricNotApplicableError(
-            "block_bootstrap_ci requires single-strategy input."
-        )
+        raise MetricNotApplicableError("block_bootstrap_ci requires single-strategy input.")
 
     rng = np.random.default_rng(random_seed)
     r = input_data.values[:, 0]  # 1-D
@@ -1302,9 +1276,7 @@ _BIAS_RATIO_REF = 'Abdulali (2006), "Detecting Smoothed Returns"'
     backend="vectorized",
     ref=_BIAS_RATIO_REF,
 )
-def bias_ratio(
-    input_data: ReturnsInput, bandwidth: float = 1.0
-) -> MetricResult:
+def bias_ratio(input_data: ReturnsInput, bandwidth: float = 1.0) -> MetricResult:
     """Bias Ratio — detects smoothed or manipulated returns.
 
     Measures the concentration of returns in a narrow band around zero
@@ -1331,9 +1303,7 @@ def bias_ratio(
         Higher values indicate more clustering around zero.
     """
     if bandwidth <= 0.0:
-        raise ValueError(
-            f"bandwidth must be positive, got {bandwidth}"
-        )
+        raise ValueError(f"bandwidth must be positive, got {bandwidth}")
 
     r = input_data.values  # (n_periods, n_strategies)
     n_strat = r.shape[1]
@@ -1420,9 +1390,7 @@ def skewness_adjusted_sharpe(
         observations or zero volatility.
     """
     if input_data.periods_per_year is None:
-        raise MetricNotApplicableError(
-            "ASR requires periods_per_year on the ReturnsInput"
-        )
+        raise MetricNotApplicableError("ASR requires periods_per_year on the ReturnsInput")
 
     r = input_data.values  # (n_periods, n_strategies)
     p = float(input_data.periods_per_year)
@@ -1482,9 +1450,7 @@ _TARGET_CODES: dict[str, int] = {
 _MC_SUMMARY_INDEX = ["min", "p05", "median", "mean", "p95", "max", "std"]
 
 
-def _mc_indices(
-    n: int, sims: int, seed: int | None
-) -> NDArray[np.int64]:
+def _mc_indices(n: int, sims: int, seed: int | None) -> NDArray[np.int64]:
     """Pre-generate bootstrap indices (sims resamples of length n).
 
     Draws are made in Python because numba does not support
@@ -1520,9 +1486,7 @@ def _bootstrap_stat_fallback(
         return sharpe
     if target_code == 2:  # maximum drawdown
         eq = np.cumprod(1.0 + sampled, axis=1)
-        eq0 = np.concatenate(
-            [np.ones((eq.shape[0], 1), dtype=np.float64), eq], axis=1
-        )
+        eq0 = np.concatenate([np.ones((eq.shape[0], 1), dtype=np.float64), eq], axis=1)
         running_max = np.maximum.accumulate(eq0, axis=1)[:, 1:]
         dd = eq / running_max - 1.0
         maxdd: NDArray[np.floating] = np.nanmin(dd, axis=1)
@@ -1587,17 +1551,14 @@ def _mc_inputs(
     if target in ("sharpe", "cagr"):
         if input_data.periods_per_year is None:
             raise MetricNotApplicableError(
-                f"Monte Carlo target {target!r} requires periods_per_year "
-                "on the ReturnsInput."
+                f"Monte Carlo target {target!r} requires periods_per_year on the ReturnsInput."
             )
         p = float(input_data.periods_per_year)
 
     r = input_data.values[:, 0]
     r_valid = r[~np.isnan(r)]
     if len(r_valid) < 2:
-        raise MetricNotApplicableError(
-            "Monte Carlo requires at least 2 non-NaN observations."
-        )
+        raise MetricNotApplicableError("Monte Carlo requires at least 2 non-NaN observations.")
 
     indices = _mc_indices(len(r_valid), sims, seed)
     return r_valid, indices, p
@@ -1638,9 +1599,7 @@ def monte_carlo_distribution(
         ``target``, ``sims``, ``method``, and ``seed``.
     """
     if target not in _TARGET_CODES:
-        raise ValueError(
-            f"target must be one of {sorted(_TARGET_CODES)}, got {target!r}"
-        )
+        raise ValueError(f"target must be one of {sorted(_TARGET_CODES)}, got {target!r}")
 
     r_valid, indices, p = _mc_inputs(input_data, method, target, sims, seed)
     stats = _mc_bootstrap(r_valid, indices, _TARGET_CODES[target], p)
@@ -1716,9 +1675,7 @@ def monte_carlo_probabilities(
             },
         )
 
-    r_valid, indices, _ = _mc_inputs(
-        input_data, method, "equity", sims, seed
-    )
+    r_valid, indices, _ = _mc_inputs(input_data, method, "equity", sims, seed)
 
     p_bust = np.nan
     p_goal = np.nan

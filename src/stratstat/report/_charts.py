@@ -128,9 +128,7 @@ def _monthly_heatmap_data(
     if dates is not None:
         index = pd.to_datetime(dates)
         if len(index) != n:
-            raise ValueError(
-                f"dates length ({len(index)}) must match returns length ({n})."
-            )
+            raise ValueError(f"dates length ({len(index)}) must match returns length ({n}).")
     else:
         # Generate a monthly date range — assume month-end frequency.
         # "ME" requires pandas >= 2.2; fall back to "M" on older versions.
@@ -142,8 +140,10 @@ def _monthly_heatmap_data(
 
     # Pivot to years × months
     df = monthly_returns.groupby(
-        [monthly_returns.index.year,  # type: ignore[attr-defined]
-         monthly_returns.index.month]  # type: ignore[attr-defined]
+        [
+            monthly_returns.index.year,  # type: ignore[attr-defined]
+            monthly_returns.index.month,
+        ]  # type: ignore[attr-defined]
     ).apply(
         lambda x: (1.0 + x).prod() - 1.0  # type: ignore[operator]  # compound monthly return
     )
@@ -152,8 +152,7 @@ def _monthly_heatmap_data(
 
     grid_df = df.unstack()
     years = list(grid_df.index)
-    months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
-              "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
     grid = grid_df.to_numpy(dtype=np.float64)
     return grid, years, months
 
@@ -217,12 +216,14 @@ def equity_curve(
         lbl = label or (f"Strategy {col + 1}" if cum.shape[1] > 1 else "Strategy")
         if cum.shape[1] > 1 and label is None:
             lbl = f"Strategy {col + 1}"
-        fig.add_trace(go.Scatter(
-            y=cum[:, col],
-            mode="lines",
-            name=lbl,
-            hovertemplate="%{y:.3f}<extra></extra>",
-        ))
+        fig.add_trace(
+            go.Scatter(
+                y=cum[:, col],
+                mode="lines",
+                name=lbl,
+                hovertemplate="%{y:.3f}<extra></extra>",
+            )
+        )
     fig.update_layout(
         title=title or "Equity Curve",
         yaxis_title="Cumulative Return",
@@ -256,31 +257,35 @@ def drawdown_chart(
     for col in range(dd.shape[1]):
         lbl = f"Strategy {col + 1}" if dd.shape[1] > 1 else "Drawdown"
         # Main drawdown trace
-        fig.add_trace(go.Scatter(
-            x=x,
-            y=dd[:, col],
-            mode="lines",
-            name=lbl,
-            fill="tozeroy",
-            fillcolor="rgba(220, 50, 50, 0.3)",
-            line={"color": "crimson"},
-            hovertemplate="%{y:.1%}<extra></extra>",
-        ))
+        fig.add_trace(
+            go.Scatter(
+                x=x,
+                y=dd[:, col],
+                mode="lines",
+                name=lbl,
+                fill="tozeroy",
+                fillcolor="rgba(220, 50, 50, 0.3)",
+                line={"color": "crimson"},
+                hovertemplate="%{y:.1%}<extra></extra>",
+            )
+        )
         # Recovery shading
         rec_mask = recovering[:, col]
         if np.any(rec_mask):
             # Find contiguous recovery segments
-            fig.add_trace(go.Scatter(
-                x=x[rec_mask],
-                y=dd[rec_mask, col],
-                mode="lines",
-                name=f"{lbl} (recovery)",
-                fill="tozeroy",
-                fillcolor="rgba(50, 180, 80, 0.25)",
-                line={"color": "green", "width": 1},
-                showlegend=False,
-                hovertemplate="%{y:.1%}<extra></extra>",
-            ))
+            fig.add_trace(
+                go.Scatter(
+                    x=x[rec_mask],
+                    y=dd[rec_mask, col],
+                    mode="lines",
+                    name=f"{lbl} (recovery)",
+                    fill="tozeroy",
+                    fillcolor="rgba(50, 180, 80, 0.25)",
+                    line={"color": "green", "width": 1},
+                    showlegend=False,
+                    hovertemplate="%{y:.1%}<extra></extra>",
+                )
+            )
     fig.update_layout(
         title=title or "Drawdown",
         yaxis_title="Drawdown",
@@ -322,24 +327,28 @@ def monthly_heatmap(
         for mi in range(12):
             val = grid[yi, mi] if mi < grid.shape[1] else np.nan
             if not np.isnan(val):
-                annots.append({
-                    "x": months[mi] if mi < len(months) else str(mi + 1),
-                    "y": str(year),
-                    "text": f"{val:.1%}",
-                    "showarrow": False,
-                    "font": {"color": "white" if abs(val) > 0.03 else "black", "size": 10},
-                })
+                annots.append(
+                    {
+                        "x": months[mi] if mi < len(months) else str(mi + 1),
+                        "y": str(year),
+                        "text": f"{val:.1%}",
+                        "showarrow": False,
+                        "font": {"color": "white" if abs(val) > 0.03 else "black", "size": 10},
+                    }
+                )
 
-    fig = go.Figure(data=go.Heatmap(
-        z=grid,
-        x=months[:grid.shape[1]] if grid.shape[1] <= 12 else months,
-        y=[str(y) for y in years],
-        colorscale="RdYlGn",
-        zmid=0,
-        texttemplate="%{z:.1%}",
-        textfont={"size": 10},
-        hovertemplate="%{y} %{x}: %{z:.2%}<extra></extra>",
-    ))
+    fig = go.Figure(
+        data=go.Heatmap(
+            z=grid,
+            x=months[: grid.shape[1]] if grid.shape[1] <= 12 else months,
+            y=[str(y) for y in years],
+            colorscale="RdYlGn",
+            zmid=0,
+            texttemplate="%{z:.1%}",
+            textfont={"size": 10},
+            hovertemplate="%{y} %{x}: %{z:.2%}<extra></extra>",
+        )
+    )
     fig.update_layout(
         title=title or "Monthly Returns Heatmap",
         xaxis_title="Month",
@@ -376,13 +385,15 @@ def rolling_metric_chart(
 
     fig = go.Figure()
     x = np.arange(len(rolling_vals))
-    fig.add_trace(go.Scatter(
-        x=x,
-        y=rolling_vals,
-        mode="lines",
-        name=metric_name.replace("_", " ").title(),
-        hovertemplate="%{y:.4f}<extra></extra>",
-    ))
+    fig.add_trace(
+        go.Scatter(
+            x=x,
+            y=rolling_vals,
+            mode="lines",
+            name=metric_name.replace("_", " ").title(),
+            hovertemplate="%{y:.4f}<extra></extra>",
+        )
+    )
     fig.update_layout(
         title=title or f"Rolling {metric_name.replace('_', ' ').title()} ({window}-period window)",
         yaxis_title=metric_name.replace("_", " ").title(),
@@ -415,21 +426,29 @@ def cumulative_return_chart(
     fig = go.Figure()
     for col in range(cum.shape[1]):
         lbl = f"Strategy {col + 1}" if cum.shape[1] > 1 else "Strategy"
-        fig.add_trace(go.Scatter(
-            x=x, y=cum[:, col],
-            mode="lines", name=lbl,
-            hovertemplate="%{y:.3f}<extra></extra>",
-        ))
+        fig.add_trace(
+            go.Scatter(
+                x=x,
+                y=cum[:, col],
+                mode="lines",
+                name=lbl,
+                hovertemplate="%{y:.3f}<extra></extra>",
+            )
+        )
 
     if benchmark is not None:
         bench_arr = np.asarray(benchmark, dtype=np.float64).ravel()
         bench_cum = np.cumprod(1.0 + np.where(np.isfinite(bench_arr), bench_arr, 0.0))
-        fig.add_trace(go.Scatter(
-            x=x, y=bench_cum,
-            mode="lines", name="Benchmark",
-            line={"dash": "dash", "color": "gray"},
-            hovertemplate="%{y:.3f}<extra></extra>",
-        ))
+        fig.add_trace(
+            go.Scatter(
+                x=x,
+                y=bench_cum,
+                mode="lines",
+                name="Benchmark",
+                line={"dash": "dash", "color": "gray"},
+                hovertemplate="%{y:.3f}<extra></extra>",
+            )
+        )
 
     fig.update_layout(
         title=title or "Cumulative Return",
@@ -473,24 +492,50 @@ def benchmark_overlay_chart(
     cum_active = np.cumsum(np.where(np.isfinite(active), active, 0.0))
 
     x = np.arange(n)
-    fig = make_subplots(rows=2, cols=1, shared_xaxes=True,
-                        row_heights=[0.6, 0.4],
-                        subplot_titles=("Cumulative Return", "Active Return"))
+    fig = make_subplots(
+        rows=2,
+        cols=1,
+        shared_xaxes=True,
+        row_heights=[0.6, 0.4],
+        subplot_titles=("Cumulative Return", "Active Return"),
+    )
 
-    fig.add_trace(go.Scatter(
-        x=x, y=cum_strat, mode="lines", name="Strategy",
-        hovertemplate="%{y:.3f}<extra></extra>",
-    ), row=1, col=1)
-    fig.add_trace(go.Scatter(
-        x=x, y=cum_bench, mode="lines", name="Benchmark",
-        line={"dash": "dash", "color": "gray"},
-        hovertemplate="%{y:.3f}<extra></extra>",
-    ), row=1, col=1)
-    fig.add_trace(go.Scatter(
-        x=x, y=cum_active, mode="lines", name="Cumulative Active Return",
-        fill="tozeroy", fillcolor="rgba(100, 100, 200, 0.2)",
-        hovertemplate="%{y:.3f}<extra></extra>",
-    ), row=2, col=1)
+    fig.add_trace(
+        go.Scatter(
+            x=x,
+            y=cum_strat,
+            mode="lines",
+            name="Strategy",
+            hovertemplate="%{y:.3f}<extra></extra>",
+        ),
+        row=1,
+        col=1,
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=x,
+            y=cum_bench,
+            mode="lines",
+            name="Benchmark",
+            line={"dash": "dash", "color": "gray"},
+            hovertemplate="%{y:.3f}<extra></extra>",
+        ),
+        row=1,
+        col=1,
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=x,
+            y=cum_active,
+            mode="lines",
+            name="Cumulative Active Return",
+            fill="tozeroy",
+            fillcolor="rgba(100, 100, 200, 0.2)",
+            hovertemplate="%{y:.3f}<extra></extra>",
+        ),
+        row=2,
+        col=1,
+    )
 
     fig.update_layout(
         title=title or "Benchmark Comparison",
@@ -581,7 +626,9 @@ def trade_markers_chart(
     has_equity = r_arr is not None and r_arr.size > 0
 
     fig = make_subplots(
-        rows=2, cols=1, shared_xaxes=False,
+        rows=2,
+        cols=1,
+        shared_xaxes=False,
         row_heights=[0.65, 0.35],
         subplot_titles=(
             "Equity Curve" if has_equity else "Cumulative P&L",
@@ -594,48 +641,81 @@ def trade_markers_chart(
         assert r_arr is not None
         equity = np.cumprod(1.0 + r_arr)
         x_equity = np.arange(equity.size)
-        fig.add_trace(go.Scatter(
-            x=x_equity, y=equity, mode="lines", name="Equity Curve",
-            line={"color": "steelblue"},
-            hovertemplate="Period %{x}<br>Equity: %{y:.3f}<extra></extra>",
-        ), row=1, col=1)
+        fig.add_trace(
+            go.Scatter(
+                x=x_equity,
+                y=equity,
+                mode="lines",
+                name="Equity Curve",
+                line={"color": "steelblue"},
+                hovertemplate="Period %{x}<br>Equity: %{y:.3f}<extra></extra>",
+            ),
+            row=1,
+            col=1,
+        )
         fig.update_xaxes(title_text="Time", row=1, col=1)
         fig.update_yaxes(title_text="Equity", tickformat=".3f", row=1, col=1)
     else:
-        fig.add_trace(go.Scatter(
-            x=x_trades, y=cum_pnl, mode="lines", name="Cumulative P&L",
-            line={"color": "steelblue"},
-            hovertemplate="Trade %{x}<br>Cum P&L: %{y:.3%}<extra></extra>",
-        ), row=1, col=1)
+        fig.add_trace(
+            go.Scatter(
+                x=x_trades,
+                y=cum_pnl,
+                mode="lines",
+                name="Cumulative P&L",
+                line={"color": "steelblue"},
+                hovertemplate="Trade %{x}<br>Cum P&L: %{y:.3%}<extra></extra>",
+            ),
+            row=1,
+            col=1,
+        )
         fig.update_xaxes(title_text="Trade Number", row=1, col=1)
         fig.update_yaxes(title_text="Cumulative P&L", tickformat=".0%", row=1, col=1)
 
     # Per-trade P&L bars
     colors = np.where(wins, "green", np.where(losses, "crimson", "gray"))
-    fig.add_trace(go.Bar(
-        x=x_trades, y=pnl_arr, name="P&L per Trade",
-        marker_color=colors,
-        hovertemplate="Trade %{x}: %{y:.2%}<extra></extra>",
-    ), row=2, col=1)
+    fig.add_trace(
+        go.Bar(
+            x=x_trades,
+            y=pnl_arr,
+            name="P&L per Trade",
+            marker_color=colors,
+            hovertemplate="Trade %{x}: %{y:.2%}<extra></extra>",
+        ),
+        row=2,
+        col=1,
+    )
 
     # MFE/MAE excursion markers
     if trd.has_intratrade and trd.has_side:
         mfe_vals, mae_vals = _trade_excursions(trd)
         x_exc = np.arange(1, mfe_vals.size + 1)
-        fig.add_trace(go.Scatter(
-            x=x_exc, y=mfe_vals, mode="markers", name="MFE",
-            marker={"symbol": "triangle-up", "color": "green", "size": 9},
-            hovertemplate="Trade %{x}<br>MFE: %{y:.2f}<extra></extra>",
-        ), row=2, col=1)
-        fig.add_trace(go.Scatter(
-            x=x_exc, y=-mae_vals, mode="markers", name="MAE",
-            marker={"symbol": "triangle-down", "color": "crimson", "size": 9},
-            hovertemplate="Trade %{x}<br>MAE: %{y:.2f}<extra></extra>",
-        ), row=2, col=1)
+        fig.add_trace(
+            go.Scatter(
+                x=x_exc,
+                y=mfe_vals,
+                mode="markers",
+                name="MFE",
+                marker={"symbol": "triangle-up", "color": "green", "size": 9},
+                hovertemplate="Trade %{x}<br>MFE: %{y:.2f}<extra></extra>",
+            ),
+            row=2,
+            col=1,
+        )
+        fig.add_trace(
+            go.Scatter(
+                x=x_exc,
+                y=-mae_vals,
+                mode="markers",
+                name="MAE",
+                marker={"symbol": "triangle-down", "color": "crimson", "size": 9},
+                hovertemplate="Trade %{x}<br>MAE: %{y:.2f}<extra></extra>",
+            ),
+            row=2,
+            col=1,
+        )
 
     # Add a zero line
-    fig.add_hline(y=0, line_dash="solid", line_color="black",
-                  opacity=0.3, row=2, col=1)
+    fig.add_hline(y=0, line_dash="solid", line_color="black", opacity=0.3, row=2, col=1)
 
     win_count = int(np.sum(wins))
     loss_count = int(np.sum(losses))
@@ -711,23 +791,27 @@ def trade_duration_histogram(
 
     fig = go.Figure()
     if len(win_dur) > 0:
-        fig.add_trace(go.Histogram(
-            x=win_dur,
-            xbins={"start": all_min, "end": all_max, "size": (all_max - all_min) / bins},
-            name=f"Wins ({len(win_dur)})",
-            marker_color="green",
-            marker_opacity=0.7,
-            hovertemplate="%{x:.1f} periods<br>%{y} trades<extra></extra>",
-        ))
+        fig.add_trace(
+            go.Histogram(
+                x=win_dur,
+                xbins={"start": all_min, "end": all_max, "size": (all_max - all_min) / bins},
+                name=f"Wins ({len(win_dur)})",
+                marker_color="green",
+                marker_opacity=0.7,
+                hovertemplate="%{x:.1f} periods<br>%{y} trades<extra></extra>",
+            )
+        )
     if len(loss_dur) > 0:
-        fig.add_trace(go.Histogram(
-            x=loss_dur,
-            xbins={"start": all_min, "end": all_max, "size": (all_max - all_min) / bins},
-            name=f"Losses ({len(loss_dur)})",
-            marker_color="crimson",
-            marker_opacity=0.7,
-            hovertemplate="%{x:.1f} periods<br>%{y} trades<extra></extra>",
-        ))
+        fig.add_trace(
+            go.Histogram(
+                x=loss_dur,
+                xbins={"start": all_min, "end": all_max, "size": (all_max - all_min) / bins},
+                name=f"Losses ({len(loss_dur)})",
+                marker_color="crimson",
+                marker_opacity=0.7,
+                hovertemplate="%{x:.1f} periods<br>%{y} trades<extra></extra>",
+            )
+        )
 
     fig.update_layout(
         title=title or "Trade Duration Distribution",
@@ -773,23 +857,27 @@ def returns_distribution(
     pdf = np.exp(-0.5 * ((x_range - mu) / sigma) ** 2) / (sigma * np.sqrt(2 * np.pi))
 
     fig = go.Figure()
-    fig.add_trace(go.Histogram(
-        x=strat,
-        nbinsx=bins,
-        name="Returns",
-        histnorm="probability density",
-        marker_color="steelblue",
-        marker_opacity=0.7,
-        hovertemplate="%{x:.2%}<br>Density: %{y:.3f}<extra></extra>",
-    ))
-    fig.add_trace(go.Scatter(
-        x=x_range,
-        y=pdf,
-        mode="lines",
-        name=f"Normal (μ={mu:.4f}, σ={sigma:.4f})",
-        line={"color": "crimson", "width": 2},
-        hovertemplate="%{x:.2%}<br>%{y:.3f}<extra></extra>",
-    ))
+    fig.add_trace(
+        go.Histogram(
+            x=strat,
+            nbinsx=bins,
+            name="Returns",
+            histnorm="probability density",
+            marker_color="steelblue",
+            marker_opacity=0.7,
+            hovertemplate="%{x:.2%}<br>Density: %{y:.3f}<extra></extra>",
+        )
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=x_range,
+            y=pdf,
+            mode="lines",
+            name=f"Normal (μ={mu:.4f}, σ={sigma:.4f})",
+            line={"color": "crimson", "width": 2},
+            hovertemplate="%{x:.2%}<br>%{y:.3f}<extra></extra>",
+        )
+    )
 
     fig.update_layout(
         title=title or "Returns Distribution",
@@ -835,19 +923,28 @@ def exposure_over_time(
     x = np.arange(len(gross))
 
     fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        x=x, y=gross, mode="lines", name="Gross Exposure",
-        line={"color": "steelblue"},
-        hovertemplate="%{y:.2f}<extra></extra>",
-    ))
-    fig.add_trace(go.Scatter(
-        x=x, y=net, mode="lines", name="Net Exposure",
-        line={"color": "darkorange"},
-        hovertemplate="%{y:.2f}<extra></extra>",
-    ))
+    fig.add_trace(
+        go.Scatter(
+            x=x,
+            y=gross,
+            mode="lines",
+            name="Gross Exposure",
+            line={"color": "steelblue"},
+            hovertemplate="%{y:.2f}<extra></extra>",
+        )
+    )
+    fig.add_trace(
+        go.Scatter(
+            x=x,
+            y=net,
+            mode="lines",
+            name="Net Exposure",
+            line={"color": "darkorange"},
+            hovertemplate="%{y:.2f}<extra></extra>",
+        )
+    )
     fig.add_hline(y=0, line_dash="solid", line_color="gray", opacity=0.3)
-    fig.add_hline(y=1, line_dash="dash", line_color="gray", opacity=0.3,
-                  annotation_text="100%")
+    fig.add_hline(y=1, line_dash="dash", line_color="gray", opacity=0.3, annotation_text="100%")
     fig.update_layout(
         title=title or "Exposure Over Time",
         yaxis_title="Exposure",
@@ -880,17 +977,23 @@ def effective_n_chart(
     if w.ndim != 2:
         raise ValueError(f"Expected 2-D positions array, got shape {w.shape}")
 
-    w2 = np.sum(w ** 2, axis=1)
+    w2 = np.sum(w**2, axis=1)
     eff_n = np.where(w2 > 0, 1.0 / w2, 0.0)
     x = np.arange(len(eff_n))
 
     fig = go.Figure()
-    fig.add_trace(go.Scatter(
-        x=x, y=eff_n, mode="lines", name="Effective N",
-        fill="tozeroy", fillcolor="rgba(100, 150, 220, 0.15)",
-        line={"color": "steelblue"},
-        hovertemplate="%{y:.1f}<extra></extra>",
-    ))
+    fig.add_trace(
+        go.Scatter(
+            x=x,
+            y=eff_n,
+            mode="lines",
+            name="Effective N",
+            fill="tozeroy",
+            fillcolor="rgba(100, 150, 220, 0.15)",
+            line={"color": "steelblue"},
+            hovertemplate="%{y:.1f}<extra></extra>",
+        )
+    )
     fig.update_layout(
         title=title or "Effective N (Concentration)",
         yaxis_title="Effective N",
@@ -934,14 +1037,16 @@ def exposure_heatmap(
         )
         return fig
 
-    fig = go.Figure(data=go.Heatmap(
-        z=w.T,
-        x=[str(i) for i in range(w.shape[0])],
-        y=[f"A{i + 1}" for i in range(n_assets)],
-        colorscale="RdBu",
-        zmid=0,
-        hovertemplate="Period %{x}<br>%{y}: %{z:.3f}<extra></extra>",
-    ))
+    fig = go.Figure(
+        data=go.Heatmap(
+            z=w.T,
+            x=[str(i) for i in range(w.shape[0])],
+            y=[f"A{i + 1}" for i in range(n_assets)],
+            colorscale="RdBu",
+            zmid=0,
+            hovertemplate="Period %{x}<br>%{y}: %{z:.3f}<extra></extra>",
+        )
+    )
     fig.update_layout(
         title=title or "Exposure Heatmap",
         xaxis_title="Period",

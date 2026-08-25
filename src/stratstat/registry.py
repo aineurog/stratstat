@@ -75,9 +75,7 @@ def list_metrics(
     for name, meta in _registry.items():
         if requires is not None and meta["requires"] != requires:
             continue
-        if category is not None and (
-            not meta["category"] or meta["category"][0] != category
-        ):
+        if category is not None and (not meta["category"] or meta["category"][0] != category):
             continue
         if backend is not None and meta["backend"] != backend:
             continue
@@ -135,9 +133,7 @@ def _take(kwargs: dict[str, Any], names: set[str]) -> dict[str, Any]:
     return {k: kwargs.pop(k) for k in list(kwargs) if k in names}
 
 
-def _build_input(
-    input_data: Any, requires: str, **kwargs: Any
-) -> tuple[Any, dict[str, Any]]:
+def _build_input(input_data: Any, requires: str, **kwargs: Any) -> tuple[Any, dict[str, Any]]:
     """Build the :class:`Input` container a metric tier needs.
 
     Extracts ``periods_per_year`` from *kwargs* and forwards it to the Input
@@ -192,9 +188,7 @@ def _build_input(
 
         if isinstance(input_data, TradeInput):
             return input_data, kwargs
-        extra = _take(
-            kwargs, _container_params(TradeInput, exclude={"trades", "periods_per_year"})
-        )
+        extra = _take(kwargs, _container_params(TradeInput, exclude={"trades", "periods_per_year"}))
         return TradeInput(trades=input_data, periods_per_year=ppy, **extra), kwargs
 
     if requires == "benchmark":
@@ -379,8 +373,11 @@ def _compute_all(
                 continue
             strategy = _raw_values(returns)
             inputs[tier] = BenchmarkInput(
-                strategy, benchmark=benchmark,
-                periods_per_year=periods_per_year, rf=rf, schema=schema,
+                strategy,
+                benchmark=benchmark,
+                periods_per_year=periods_per_year,
+                rf=rf,
+                schema=schema,
             )
 
         elif tier == "exposure":
@@ -425,9 +422,7 @@ def _compute_all(
             name = m["name"]
             func = _registry[name]["func"]
 
-            if category is not None and (
-                not m["category"] or m["category"][0] != category
-            ):
+            if category is not None and (not m["category"] or m["category"][0] != category):
                 continue
 
             if m["backend"] == "resampling":

@@ -18,6 +18,7 @@ from stratstat.report import dashboard, tear_sheet
 
 try:
     import weasyprint  # noqa: F401
+
     _HAS_WEASYPRINT = True
 except ImportError:
     _HAS_WEASYPRINT = False
@@ -58,8 +59,7 @@ class TestTearSheet:
         assert hasattr(fig, "data")
 
     def test_custom_title(self, daily_returns):
-        fig = tear_sheet(daily_returns, title="My Tear Sheet",
-                         periods_per_year=252)
+        fig = tear_sheet(daily_returns, title="My Tear Sheet", periods_per_year=252)
         assert "My Tear Sheet" in fig.layout.title.text
 
     def test_short_series(self):
@@ -71,6 +71,7 @@ class TestTearSheet:
 
         # Find the Table trace (should be present in a tear sheet)
         import plotly.graph_objects as go
+
         table_trace = None
         for trace in fig.data:
             if isinstance(trace, go.Table):
@@ -81,12 +82,8 @@ class TestTearSheet:
         # Metric names are in the first column of cells (auto-discovered)
         cell_texts = table_trace.cells.values[0]
         all_text = " ".join(str(t).lower() for t in cell_texts)
-        assert "cagr" in all_text, (
-            f"Stats table missing CAGR; cells: {cell_texts}"
-        )
-        assert "sharpe" in all_text, (
-            f"Stats table missing Sharpe; cells: {cell_texts}"
-        )
+        assert "cagr" in all_text, f"Stats table missing CAGR; cells: {cell_texts}"
+        assert "sharpe" in all_text, f"Stats table missing Sharpe; cells: {cell_texts}"
         assert "kurtosis" in all_text or "excess" in all_text, (
             f"Stats table missing kurtosis; cells: {cell_texts}"
         )
@@ -98,6 +95,7 @@ class TestTearSheet:
         fig = tear_sheet(returns, periods_per_year=252)
 
         import plotly.graph_objects as go
+
         table_trace = None
         for trace in fig.data:
             if isinstance(trace, go.Table):
@@ -107,10 +105,12 @@ class TestTearSheet:
         cell_texts = table_trace.cells.values[0]
         all_text = " ".join(str(t).lower() for t in cell_texts)
         # Newer metrics that were NOT in the old hardcoded list of 10
-        assert "stability" in all_text or "hurst" in all_text or \
-            "fractal" in all_text or "upside" in all_text, (
-            f"Dynamic metrics missing; cells: {cell_texts[:10]}..."
-        )
+        assert (
+            "stability" in all_text
+            or "hurst" in all_text
+            or "fractal" in all_text
+            or "upside" in all_text
+        ), f"Dynamic metrics missing; cells: {cell_texts[:10]}..."
 
 
 class TestDashboard:
@@ -125,13 +125,11 @@ class TestDashboard:
         assert hasattr(fig, "data")
 
     def test_custom_title(self, multi_returns):
-        fig = dashboard(multi_returns, title="My Dashboard",
-                        periods_per_year=252)
+        fig = dashboard(multi_returns, title="My Dashboard", periods_per_year=252)
         assert "My Dashboard" in fig.layout.title.text
 
     def test_rolling_window_param(self, multi_returns):
-        fig = dashboard(multi_returns, rolling_window=30,
-                        periods_per_year=252)
+        fig = dashboard(multi_returns, rolling_window=30, periods_per_year=252)
         assert hasattr(fig, "data")
 
     def test_dashboard_rankings_dynamic(self):
@@ -141,6 +139,7 @@ class TestDashboard:
         fig = dashboard(r, periods_per_year=252)
 
         import plotly.graph_objects as go
+
         table_trace = None
         for trace in fig.data:
             if isinstance(trace, go.Table):
@@ -184,8 +183,7 @@ class TestGenerateReport:
 
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "report.html"
-            generate_report(daily_returns, path, periods_per_year=252,
-                            title="My Custom Report")
+            generate_report(daily_returns, path, periods_per_year=252, title="My Custom Report")
             content = path.read_text()
             assert "My Custom Report" in content
 
@@ -227,8 +225,7 @@ class TestGenerateReport:
         bench = np.random.default_rng(99).normal(0.0005, 0.015, size=252)
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "report.html"
-            generate_report(daily_returns, path, benchmark=bench,
-                            periods_per_year=252)
+            generate_report(daily_returns, path, benchmark=bench, periods_per_year=252)
             content = path.read_text()
             assert "Benchmark" in content
 
@@ -275,9 +272,7 @@ class TestGenerateReport:
             path = Path(tmp) / "report.pdf"
             generate_report(daily_returns, path, periods_per_year=252)
             content = path.read_bytes()
-            assert content[:5] == b"%PDF-", (
-                f"Expected PDF header, got: {content[:20]!r}"
-            )
+            assert content[:5] == b"%PDF-", f"Expected PDF header, got: {content[:20]!r}"
 
     @pytest.mark.skipif(not _HAS_WEASYPRINT, reason="weasyprint not installed")
     def test_generate_report_pdf_custom_title(self, daily_returns):
@@ -286,8 +281,7 @@ class TestGenerateReport:
 
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "report.pdf"
-            generate_report(daily_returns, path, periods_per_year=252,
-                            title="My Custom PDF Report")
+            generate_report(daily_returns, path, periods_per_year=252, title="My Custom PDF Report")
             assert path.exists()
             content = path.read_bytes()
             assert content[:5] == b"%PDF-"
@@ -305,17 +299,14 @@ class TestGenerateReport:
 
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "report.html"
-            generate_report(daily_returns, path, positions=positions,
-                            periods_per_year=252)
+            generate_report(daily_returns, path, positions=positions, periods_per_year=252)
             content = path.read_text()
             assert "<!DOCTYPE html>" in content
             assert "Exposure" in content
             assert "exposure" in content.lower()
             assert "gross_exposure" in content or "net_exposure" in content
-        # PDF should have meaningful content (not just an empty page)
-            assert len(content) > 5000, (
-                f"Expected >5KB PDF, got {len(content)} bytes"
-            )
+            # PDF should have meaningful content (not just an empty page)
+            assert len(content) > 5000, f"Expected >5KB PDF, got {len(content)} bytes"
 
     @pytest.mark.skipif(not _HAS_WEASYPRINT, reason="weasyprint not installed")
     def test_generate_report_pdf_with_benchmark(self, daily_returns):
@@ -325,8 +316,7 @@ class TestGenerateReport:
         bench = np.random.default_rng(99).normal(0.0005, 0.015, size=252)
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "report.pdf"
-            generate_report(daily_returns, path, benchmark=bench,
-                            periods_per_year=252)
+            generate_report(daily_returns, path, benchmark=bench, periods_per_year=252)
             assert path.exists()
             content = path.read_bytes()
             assert content[:5] == b"%PDF-"
@@ -346,8 +336,7 @@ class TestGenerateReport:
 
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "report.html"
-            generate_report(daily_returns, path, trades=trade_log,
-                            periods_per_year=252)
+            generate_report(daily_returns, path, trades=trade_log, periods_per_year=252)
             content = path.read_text()
             assert "<!DOCTYPE html>" in content
             assert "Trades" in content
@@ -368,8 +357,7 @@ class TestGenerateReport:
 
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "report.html"
-            generate_report(daily_returns, path, trades=trade_log,
-                            periods_per_year=252)
+            generate_report(daily_returns, path, trades=trade_log, periods_per_year=252)
             content = path.read_text()
             assert "Duration" in content
             assert "avg_holding_period" in content
@@ -388,8 +376,7 @@ class TestGenerateReport:
 
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "report.html"
-            generate_report(daily_returns, path, metrics=ms,
-                            periods_per_year=252)
+            generate_report(daily_returns, path, metrics=ms, periods_per_year=252)
             content = path.read_text()
             assert "<!DOCTYPE html>" in content
             # Stats should still be present (sourced from the MetricSet)
@@ -407,8 +394,7 @@ class TestGenerateReport:
 
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "report.html"
-            generate_report(daily_returns, path, benchmark=bench,
-                            metrics=ms, periods_per_year=252)
+            generate_report(daily_returns, path, benchmark=bench, metrics=ms, periods_per_year=252)
             content = path.read_text()
             assert "<!DOCTYPE html>" in content
             assert "Benchmark" in content
@@ -467,8 +453,7 @@ class TestComputeRawData:
 
         rng = np.random.default_rng(42)
         returns = rng.normal(0.001, 0.02, size=252)
-        results = compute_all(returns=returns, category="descriptive",
-                              periods_per_year=252)
+        results = compute_all(returns=returns, category="descriptive", periods_per_year=252)
 
         names = {r.name for r in results}
         assert "mean_return" in names or "cagr" in names
@@ -481,7 +466,6 @@ class TestComputeRawData:
 
         rng = np.random.default_rng(42)
         returns = rng.normal(0.001, 0.02, size=252)
-        result = compute(returns, "max_drawdown",
-                         periods_per_year=252, return_type="log")
+        result = compute(returns, "max_drawdown", periods_per_year=252, return_type="log")
         assert result.name == "max_drawdown"
         assert result.meta.get("return_type") == "log"

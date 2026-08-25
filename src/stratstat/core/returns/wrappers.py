@@ -23,13 +23,10 @@ from stratstat.inputs import ReturnsInput
 from stratstat.registry import _compute_one, get_metric
 from stratstat.results import MetricResult
 
-_ROLLING_REF = (
-    "Zivot & Wang (2006, Modeling Financial Time Series with S-PLUS, Ch. 3)"
-)
+_ROLLING_REF = "Zivot & Wang (2006, Modeling Financial Time Series with S-PLUS, Ch. 3)"
 
 _REGIME_REF = (
-    "Ang & Bekaert (2004), 'How Regimes Affect Asset Allocation,' "
-    "Financial Analysts Journal, 60(2)"
+    "Ang & Bekaert (2004), 'How Regimes Affect Asset Allocation,' Financial Analysts Journal, 60(2)"
 )
 
 
@@ -69,9 +66,7 @@ def rolling(
     if window < 2:
         raise ValueError("window must be at least 2.")
     if window > n:
-        raise ValueError(
-            f"window ({window}) exceeds number of periods ({n})."
-        )
+        raise ValueError(f"window ({window}) exceeds number of periods ({n}).")
 
     values = np.full(n, np.nan, dtype=np.float64)
     ppy = ret.periods_per_year
@@ -141,8 +136,7 @@ def by_regime(
 
     if labels.shape[0] != n:
         raise ValueError(
-            f"regime_labels length ({labels.shape[0]}) must match "
-            f"number of periods ({n})."
+            f"regime_labels length ({labels.shape[0]}) must match number of periods ({n})."
         )
 
     unique_labels = np.unique(labels)
@@ -186,9 +180,7 @@ def by_regime(
 # ---------------------------------------------------------------------------
 
 
-def _to_returns_input(
-    data: Any, periods_per_year: int | None = None
-) -> ReturnsInput:
+def _to_returns_input(data: Any, periods_per_year: int | None = None) -> ReturnsInput:
     """Normalise *data* to a single-strategy ``ReturnsInput``.
 
     Raises:
@@ -200,7 +192,5 @@ def _to_returns_input(
         inp = ReturnsInput(data, periods_per_year=periods_per_year)
 
     if not inp.is_single:
-        raise ValueError(
-            "rolling() and by_regime() require single-strategy input."
-        )
+        raise ValueError("rolling() and by_regime() require single-strategy input.")
     return inp

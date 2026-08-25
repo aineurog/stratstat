@@ -15,14 +15,15 @@ from stratstat.results import MetricResult, MetricSet
 class TestMetricSetExports:
     @pytest.fixture
     def metric_set(self):
-        return MetricSet(results=[
-            MetricResult(name="sharpe_ratio", value=1.5,
-                         category=("risk_adjusted",)),
-            MetricResult(name="cagr", value=0.12,
-                         category=("descriptive",)),
-            MetricResult(name="max_drawdown", value=np.array([-0.25, -0.30]),
-                         category=("risk",)),
-        ])
+        return MetricSet(
+            results=[
+                MetricResult(name="sharpe_ratio", value=1.5, category=("risk_adjusted",)),
+                MetricResult(name="cagr", value=0.12, category=("descriptive",)),
+                MetricResult(
+                    name="max_drawdown", value=np.array([-0.25, -0.30]), category=("risk",)
+                ),
+            ]
+        )
 
     def test_to_markdown_writes_file(self, metric_set):
         from stratstat.report import to_markdown

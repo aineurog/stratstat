@@ -34,30 +34,19 @@ _REF_SHARPE = (
     'Equilibrium Under Conditions of Risk," Journal of Finance, 19(3).'
 )
 _REF_GREENE = "Greene (2018, Econometric Analysis, 8th ed., §3.5)."
-_REF_ROLL = (
-    'Roll (1992), "A Mean/Variance Analysis of Tracking Error," '
-    "JPM, 18(4)."
-)
-_REF_GOODWIN = (
-    'Goodwin (1998), "The Information Ratio," Financial Analysts '
-    "Journal, 54(4)."
-)
+_REF_ROLL = 'Roll (1992), "A Mean/Variance Analysis of Tracking Error," JPM, 18(4).'
+_REF_GOODWIN = 'Goodwin (1998), "The Information Ratio," Financial Analysts Journal, 54(4).'
 _REF_CAPTURE = (
-    "Morningstar (2020), Morningstar Performance Reporting Methodology; "
-    "Bacon (2008, §9.4)."
+    "Morningstar (2020), Morningstar Performance Reporting Methodology; Bacon (2008, §9.4)."
 )
 _REF_BACON_94 = "Bacon (2008), §9.4."
 _REF_PEARSON = "Pearson (1895); standard statistic."
-_BACON_BASE = (
-    "Bacon (2008), Practical Portfolio Performance Measurement and "
-    "Attribution, 2nd ed."
-)
+_BACON_BASE = "Bacon (2008), Practical Portfolio Performance Measurement and Attribution, 2nd ed."
 _REF_BACON_92 = f"{_BACON_BASE}, §9.2."
 _REF_BACON_95 = f"{_BACON_BASE}, §9.5."
 _REF_CFA = "CFA Institute, Performance Attribution."
 _REF_TREYNOR = (
-    'Treynor (1965), "How to Rate Management of Investment Funds," '
-    "Harvard Business Review, 43(1)."
+    'Treynor (1965), "How to Rate Management of Investment Funds," Harvard Business Review, 43(1).'
 )
 _REF_BACON_93 = f"{_BACON_BASE}, §9.3."
 _REF_CFA_QM = "CFA Institute, Quantitative Methods."
@@ -81,8 +70,7 @@ def _require_single_strategy(inp: BenchmarkInput, metric_name: str) -> None:
     """Raise ``MetricNotApplicableError`` if input contains more than one strategy."""
     if inp.n_strategies > 1:
         raise MetricNotApplicableError(
-            f"{metric_name} requires a single strategy. "
-            f"Got {inp.n_strategies} strategy columns."
+            f"{metric_name} requires a single strategy. Got {inp.n_strategies} strategy columns."
         )
 
 
@@ -566,8 +554,8 @@ def treynor_ratio(inp: BenchmarkInput) -> MetricResult:
     mean_excess_ann = float(np.nanmean(excess) * p)
     beta_val = ols_beta(r, bench)
     if beta_val == 0.0 or np.isnan(beta_val):
-        value: float = np.inf if mean_excess_ann > 0.0 else (
-            -np.inf if mean_excess_ann < 0.0 else np.nan
+        value: float = (
+            np.inf if mean_excess_ann > 0.0 else (-np.inf if mean_excess_ann < 0.0 else np.nan)
         )
     else:
         value = mean_excess_ann / beta_val
@@ -799,9 +787,7 @@ def benchmark_volatility(inp: BenchmarkInput) -> MetricResult:
 # §8.19  Information Coefficient (Rank IC)
 # ===================================================================
 
-_REF_RANK_IC = (
-    "Spearman (1904); standard rank-based information coefficient."
-)
+_REF_RANK_IC = "Spearman (1904); standard rank-based information coefficient."
 
 
 @register_metric(
@@ -863,7 +849,7 @@ def information_coefficient(inp: BenchmarkInput) -> MetricResult:
     rank_b = _avg_rank(bc)
 
     d = rank_r - rank_b
-    rho = 1.0 - (6.0 * np.sum(d ** 2)) / (n * (n ** 2 - 1.0))
+    rho = 1.0 - (6.0 * np.sum(d**2)) / (n * (n**2 - 1.0))
     value = float(rho)
 
     return MetricResult(
