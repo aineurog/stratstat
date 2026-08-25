@@ -7,7 +7,7 @@ of metrics are computable given what was actually provided.
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 from numpy.typing import NDArray
@@ -67,9 +67,9 @@ def _to_numpy(data: Any) -> NDArray[np.floating]:
         pass
     else:
         if isinstance(data, pl.Series):
-            return data.to_numpy()
+            return cast("NDArray[np.floating]", data.to_numpy())
         if isinstance(data, pl.DataFrame):
-            return data.to_numpy()
+            return cast("NDArray[np.floating]", data.to_numpy())
 
     raise TypeError(
         f"Unsupported input type: {type(data).__name__}. "

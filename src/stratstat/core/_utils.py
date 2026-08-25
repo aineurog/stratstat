@@ -10,6 +10,8 @@ and numba dispatch.
 
 from __future__ import annotations
 
+from typing import cast
+
 import numpy as np
 from numpy.typing import NDArray
 
@@ -72,14 +74,14 @@ def numba_worthwhile(work: int) -> bool:
 
 def nanmean(a: NDArray[np.floating], axis: int | None = None) -> NDArray[np.floating] | float:
     """Compute the mean ignoring NaN values. Drop-in for when numba is unavailable."""
-    return np.nanmean(a, axis=axis)  # type: ignore[no-any-return]
+    return cast("NDArray[np.floating] | float", np.nanmean(a, axis=axis))
 
 
 def nanstd(
     a: NDArray[np.floating], axis: int | None = None, ddof: int = 1
 ) -> NDArray[np.floating] | float:
     """Compute the standard deviation ignoring NaN values."""
-    return np.nanstd(a, axis=axis, ddof=ddof)  # type: ignore[no-any-return]
+    return cast("NDArray[np.floating] | float", np.nanstd(a, axis=axis, ddof=ddof))
 
 
 def sample_skewness(a: NDArray[np.floating]) -> float:
