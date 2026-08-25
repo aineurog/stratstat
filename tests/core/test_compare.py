@@ -614,7 +614,8 @@ class TestRegistryIntegration:
         assert result.value.shape == (2, 2)
 
     def test_compute_all_compare(self):
-        """compute_all with a 2-strategy input + benchmark runs all 7 metrics."""
+        """compute_all with a 2-strategy input + benchmark runs the vectorized
+        compare metrics; resampling metrics are excluded."""
         from stratstat import compute_all
 
         rng = np.random.default_rng(42)
@@ -627,9 +628,12 @@ class TestRegistryIntegration:
             benchmark=bench,
             periods_per_year=252,
         )
-        result_set = compute_all(inp, category="relative")
-        # All 7 compare metrics should be present
-        assert len(result_set) == 7
+        result_set = compute_all(compare=inp)
+        # 5 vectorized compare metrics; the 2 resampling metrics are excluded.
+        assert len(result_set) == 5
+        assert set(result_set.meta.get("excluded_resampling", [])) == {
+            "whites_reality_check", "pbo",
+        }
 
     def test_compute_top_level(self, inp_basic):
         from stratstat import compute

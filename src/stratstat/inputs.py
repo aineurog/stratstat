@@ -13,6 +13,35 @@ import numpy as np
 from numpy.typing import NDArray
 
 
+def _select_column(data: Any, name: str | None) -> Any:
+    """Select column *name* from a DataFrame, exactly.
+
+    Returns *data* unchanged when no name is given or the input is not a
+    DataFrame, so callers can apply a schema unconditionally.
+
+    Raises:
+        KeyError: If the column is absent.  Selecting silently from the wrong
+            column, or falling back to the whole frame, would produce a
+            confident wrong number.
+    """
+    if name is None:
+        return data
+
+    for module, frame_attr in (("pandas", "DataFrame"), ("polars", "DataFrame")):
+        try:
+            mod = __import__(module)
+        except ImportError:
+            continue
+        if isinstance(data, getattr(mod, frame_attr)):
+            if name not in data.columns:
+                raise KeyError(
+                    f"Schema names column {name!r}, which is not in the data. "
+                    f"Available columns: {list(data.columns)}."
+                )
+            return data[name]
+    return data
+
+
 def _to_numpy(data: Any) -> NDArray[np.floating]:
     """Normalize any accepted input type to a numpy array.
 
@@ -55,7 +84,18 @@ class ReturnsInput:
     All inputs are normalized to numpy arrays.
     """
 
-    def __init__(self, data: Any, periods_per_year: int | None = None):
+    def __init__(
+        self,
+        data: Any,
+        periods_per_year: int | None = None,
+        schema: Any = None,
+        columns: Any = None,
+    ):
+        from stratstat.schema import _coerce
+
+        self.schema = _coerce(schema, columns, tier=None)
+        if self.schema is not None:
+            data = _select_column(data, self.schema.returns)
         self._raw = data
         arr = _to_numpy(data)
 
@@ -134,7 +174,17 @@ class ExposureInput:
         benchmark_weights: Any | None = None,
         equity: Any | None = None,
         periods_per_year: int | None = None,
+        schema: Any = None,
+        columns: Any = None,
     ) -> None:
+        from stratstat.schema import _coerce
+
+        self.schema = _coerce(schema, columns, tier=None)
+        if self.schema is not None:
+            positions = _select_column(positions, self.schema.positions)
+            returns = _select_column(returns, self.schema.asset_returns)
+            benchmark = _select_column(benchmark, self.schema.benchmark)
+            equity = _select_column(equity, self.schema.equity)
         # -- positions (always required) ---------------------------------
         pos = _to_numpy(positions)
         if pos.ndim == 0:
@@ -312,7 +362,12 @@ class TradeInput:
         trades: Any = None,
         positions: Any | None = None,
         periods_per_year: int | None = None,
+        schema: Any = None,
+        columns: Any = None,
     ) -> None:
+        from stratstat.schema import _coerce
+
+        resolved = _coerce(schema, columns, tier="trades")
         # -- returns (optional) -----------------------------------------
         if returns is not None:
             ret = _to_numpy(returns)
@@ -331,7 +386,8 @@ class TradeInput:
             self.n_periods = 0
 
         # -- trades log -------------------------------------------------
-        self._trades = self._normalize_trades(trades)
+        self._trades = self._normalize_trades(trades, schema=resolved)
+        self.schema = resolved
 
         # -- positions (optional) ---------------------------------------
         if positions is not None:
@@ -349,7 +405,7 @@ class TradeInput:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _normalize_trades(trades: Any) -> dict[str, Any]:
+    def _normalize_trades(trades: Any, schema: Any = None) -> dict[str, Any]:
         """Normalize trade log to a dict of numpy arrays.
 
         Accepts dict, pandas.DataFrame, or polars.DataFrame.
@@ -357,6 +413,10 @@ class TradeInput:
         Normalises ``side`` to a boolean ``is_long`` array.
         Computes ``duration`` from ``entry_time``/``exit_time`` if
         not provided directly.
+
+        When *schema* is given, columns are rekeyed to their canonical names
+        first, so validation downstream only ever sees canonical names.  This
+        is the single boundary at which mapping happens for this tier.
         """
         # -- convert to dict of lists/arrays ---------------------------
         if isinstance(trades, dict):
@@ -373,7 +433,9 @@ class TradeInput:
                         col: trades[col].to_numpy()
                         for col in trades.columns
                     }
-                    return TradeInput._validate_and_augment(raw)
+                    return TradeInput._validate_and_augment(
+                        TradeInput._apply_schema(raw, schema)
+                    )
 
             # Try polars
             try:
@@ -386,14 +448,25 @@ class TradeInput:
                         col: trades[col].to_numpy()
                         for col in trades.columns
                     }
-                    return TradeInput._validate_and_augment(raw)
+                    return TradeInput._validate_and_augment(
+                        TradeInput._apply_schema(raw, schema)
+                    )
 
             raise TypeError(
                 f"Unsupported trades type: {type(trades).__name__}. "
                 f"Expected dict, pandas.DataFrame, or polars.DataFrame."
             )
 
-        return TradeInput._validate_and_augment(raw)
+        return TradeInput._validate_and_augment(
+            TradeInput._apply_schema(raw, schema)
+        )
+
+    @staticmethod
+    def _apply_schema(raw: dict[str, Any], schema: Any) -> dict[str, Any]:
+        """Rekey *raw* to canonical column names, if a schema was supplied."""
+        if schema is None:
+            return raw
+        return dict(schema.apply_to_trades(raw))
 
     @staticmethod
     def _validate_and_augment(
@@ -593,7 +666,12 @@ class BenchmarkInput:
         benchmark: Any | None = None,
         periods_per_year: int | None = None,
         rf: float = 0.0,
+        schema: Any = None,
+        columns: Any = None,
     ) -> None:
+        from stratstat.schema import _coerce
+
+        self.schema = _coerce(schema, columns, tier=None)
         # Support tuple shortcut: BenchmarkInput((returns, benchmark))
         if benchmark is None and isinstance(returns, (tuple, list)):
             if len(returns) == 2:
@@ -610,6 +688,11 @@ class BenchmarkInput:
                 "Provide benchmark= to BenchmarkInput, or pass a "
                 "(returns, benchmark) tuple."
             )
+
+        # Applied after the tuple shortcut, so both forms map identically.
+        if self.schema is not None:
+            returns = _select_column(returns, self.schema.returns)
+            benchmark = _select_column(benchmark, self.schema.benchmark)
 
         # -- strategy returns ---------------------------------------------
         ret = _to_numpy(returns)
@@ -686,7 +769,14 @@ class CompareInput:
         benchmark: Any | None = None,
         periods_per_year: int | None = None,
         rf: float = 0.0,
+        schema: Any = None,
+        columns: Any = None,
     ) -> None:
+        from stratstat.schema import _coerce
+
+        self.schema = _coerce(schema, columns, tier=None)
+        if self.schema is not None:
+            benchmark = _select_column(benchmark, self.schema.benchmark)
         # -- strategy returns -----------------------------------------------
         ret = _to_numpy(returns)
         if ret.ndim == 0:

@@ -384,7 +384,7 @@ class TestGenerateReport:
         from stratstat.report import generate_report
 
         # Compute metrics ahead of time
-        ms = compute_all(daily_returns, periods_per_year=252)
+        ms = compute_all(returns=daily_returns, periods_per_year=252)
 
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "report.html"
@@ -403,7 +403,7 @@ class TestGenerateReport:
         from stratstat.report import generate_report
 
         bench = np.random.default_rng(99).normal(0.0005, 0.015, size=252)
-        ms = compute_all(daily_returns, periods_per_year=252)
+        ms = compute_all(returns=daily_returns, periods_per_year=252)
 
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "report.html"
@@ -451,7 +451,7 @@ class TestComputeRawData:
 
         rng = np.random.default_rng(42)
         returns = rng.normal(0.001, 0.02, size=252)
-        results = compute_all(returns, periods_per_year=252)
+        results = compute_all(returns=returns, periods_per_year=252)
 
         names = {r.name for r in results}
         assert "sharpe_ratio" in names
@@ -467,7 +467,7 @@ class TestComputeRawData:
 
         rng = np.random.default_rng(42)
         returns = rng.normal(0.001, 0.02, size=252)
-        results = compute_all(returns, category="descriptive",
+        results = compute_all(returns=returns, category="descriptive",
                               periods_per_year=252)
 
         names = {r.name for r in results}

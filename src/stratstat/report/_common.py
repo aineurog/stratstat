@@ -18,8 +18,8 @@ def collect_metrics(
 ) -> dict[str, MetricSet]:
     """Compute all registered metrics for each specified category.
 
-    For each primary category in *categories*, calls
-    ``compute_all(input_data, category=category, **kwargs)``.
+    For each primary category in *categories*, routes the input container to
+    the matching ``compute_all`` tier and calls it with ``category=category``.
 
     Returns a dict mapping ``category_name -> MetricSet``, ordered
     by ``_CATEGORY_ORDER``.  Categories with no registered metrics
@@ -32,10 +32,35 @@ def collect_metrics(
     **kwargs: Passed through to each metric's computation.
     """
     from stratstat import compute_all
+    from stratstat.inputs import (
+        BenchmarkInput,
+        CompareInput,
+        ExposureInput,
+        ReturnsInput,
+        TradeInput,
+    )
 
     result: dict[str, MetricSet] = {}
     for cat in categories:
-        ms = compute_all(input_data, category=cat, **kwargs)
+        if isinstance(input_data, BenchmarkInput):
+            ms = compute_all(
+                returns=input_data.returns,
+                benchmark=input_data.benchmark,
+                periods_per_year=input_data.periods_per_year,
+                rf=input_data.rf,
+                category=cat,
+                **kwargs,
+            )
+        elif isinstance(input_data, ReturnsInput):
+            ms = compute_all(returns=input_data, category=cat, **kwargs)
+        elif isinstance(input_data, ExposureInput):
+            ms = compute_all(exposure=input_data, category=cat, **kwargs)
+        elif isinstance(input_data, TradeInput):
+            ms = compute_all(trades=input_data, category=cat, **kwargs)
+        elif isinstance(input_data, CompareInput):
+            ms = compute_all(compare=input_data, category=cat, **kwargs)
+        else:
+            ms = compute_all(returns=input_data, category=cat, **kwargs)
         if len(ms) > 0:
             result[cat] = ms
     return result

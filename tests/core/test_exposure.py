@@ -1386,21 +1386,21 @@ class TestRegistry:
     def test_compute_all_exposure_category(self, inp_with_ret):
         from stratstat import compute_all
 
-        results = compute_all(inp_with_ret, category="exposure")
+        results = compute_all(exposure=inp_with_ret)
         # Primary "exposure" category metrics (12 of them)
         assert len(results) >= 12
 
     def test_compute_all_concentration(self, inp_no_ret):
         from stratstat import compute_all
 
-        results = compute_all(inp_no_ret, category="exposure")
+        results = compute_all(exposure=inp_no_ret)
         names = {r.name for r in results}
         assert {"position_concentration", "effective_n_positions"} <= names
 
     def test_compute_all_turnover(self, inp_no_ret):
         from stratstat import compute_all
 
-        results = compute_all(inp_no_ret, category="exposure")
+        results = compute_all(exposure=inp_no_ret)
         names = {r.name for r in results}
         assert "turnover" in names
 

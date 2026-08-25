@@ -684,12 +684,11 @@ class TestRegistryIntegration:
     def test_compute_all_benchmark_category(self, simple_returns, simple_benchmark):
         from stratstat import compute_all
 
-        inp = BenchmarkInput(
+        results = compute_all(
             returns=simple_returns,
             benchmark=simple_benchmark,
             periods_per_year=252,
         )
-        results = compute_all(inp, category="benchmark")
         names = {r.name for r in results}
         assert "beta" in names
         assert "alpha" in names
@@ -698,8 +697,10 @@ class TestRegistryIntegration:
     def test_compute_all_capture_category(self, simple_returns, simple_benchmark):
         from stratstat import compute_all
 
-        inp = BenchmarkInput((simple_returns, simple_benchmark))
-        results = compute_all(inp, category="benchmark")
+        results = compute_all(
+            returns=simple_returns,
+            benchmark=simple_benchmark,
+        )
         names = {r.name for r in results}
         assert "up_capture" in names
         assert "down_capture" in names

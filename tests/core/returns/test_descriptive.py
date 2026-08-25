@@ -1072,7 +1072,7 @@ class TestRegistryIntegration:
         """compute_all with category='descriptive' returns all 27 metrics."""
         from stratstat import compute_all
 
-        result_set = compute_all(sample_input, category="descriptive")
+        result_set = compute_all(returns=sample_input, category="descriptive")
         assert len(result_set) == 27
         names = {r.name for r in result_set}
         assert "cagr" in names

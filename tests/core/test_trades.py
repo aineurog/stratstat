@@ -1488,7 +1488,7 @@ class TestRegistryIntegration:
     def test_compute_all_pnl_category(self, simple_trades_dict):
         from stratstat import compute_all
 
-        results = compute_all(simple_trades_dict, category="trades")
+        results = compute_all(trades=simple_trades_dict)
         names = {r.name for r in results}
         assert "avg_win" in names
         assert "avg_loss" in names
@@ -1496,10 +1496,10 @@ class TestRegistryIntegration:
         assert "expectancy" in names
 
     def test_compute_all_breakdown_category(self, simple_trades_dict):
-        """compute_all(category='trades') includes long/short breakdown metrics."""
+        """compute_all(trades=...) includes long/short breakdown metrics."""
         from stratstat import compute_all
 
-        results = compute_all(simple_trades_dict, category="trades")
+        results = compute_all(trades=simple_trades_dict)
         names = {r.name for r in results}
         assert "long_short_trade_count" in names
         assert "long_short_trade_pct" in names

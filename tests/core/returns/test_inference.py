@@ -692,7 +692,7 @@ class TestRegistryIntegration:
         """
         from stratstat import compute_all
 
-        results = compute_all(sample_input, category="inference")
+        results = compute_all(returns=sample_input, category="inference")
         names = {r.name for r in results}
         assert "jarque_bera" in names
         assert "psr" in names

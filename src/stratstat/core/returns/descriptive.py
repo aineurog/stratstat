@@ -1543,6 +1543,7 @@ _AVG_UP_REF = "Industry convention; mean of the positive period returns."
     category=("descriptive", "returns"),
     backend="vectorized",
     ref=_AVG_UP_REF,
+    alias_of="avg_win",
 )
 def avg_up_period(input_data: ReturnsInput) -> MetricResult:
     """Mean of the strictly positive period returns.
@@ -1594,6 +1595,7 @@ _AVG_DOWN_REF = (
     category=("descriptive", "returns"),
     backend="vectorized",
     ref=_AVG_DOWN_REF,
+    alias_of="avg_loss",
 )
 def avg_down_period(input_data: ReturnsInput) -> MetricResult:
     """Mean of the strictly negative period returns.
@@ -1645,6 +1647,7 @@ _PERIOD_PF_REF = (
     category=("descriptive", "returns"),
     backend="vectorized",
     ref=_PERIOD_PF_REF,
+    alias_of="profit_factor",
 )
 def period_profit_factor(input_data: ReturnsInput) -> MetricResult:
     """Gross positive return divided by gross negative return (absolute).
@@ -1702,6 +1705,7 @@ _PERIOD_PAYOFF_REF = (
     category=("descriptive", "returns"),
     backend="vectorized",
     ref=_PERIOD_PAYOFF_REF,
+    alias_of="payoff_ratio",
 )
 def period_payoff_ratio(input_data: ReturnsInput) -> MetricResult:
     """Average up period divided by the absolute average down period.
@@ -1799,6 +1803,7 @@ def _period_kelly_col(col: NDArray[np.floating]) -> float:
     category=("descriptive", "returns"),
     backend="vectorized",
     ref=_PERIOD_KELLY_REF,
+    alias_of="kelly_criterion",
 )
 def period_kelly_criterion(input_data: ReturnsInput) -> MetricResult:
     """Estimated optimal Kelly fraction from period returns.

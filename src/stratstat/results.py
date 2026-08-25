@@ -116,6 +116,19 @@ def _group_by_category(
     return dict(sorted(groups.items(), key=_order_key))
 
 
+def _requires_of(name: str) -> str | None:
+    """Return the input tier a metric requires, or None if unregistered.
+
+    Lazily imports the registry to avoid an import cycle (``registry``
+    imports ``results`` only under ``TYPE_CHECKING`` and inside functions).
+    """
+    try:
+        from stratstat.registry import requires_of
+    except ImportError:  # pragma: no cover - registry is always present
+        return None
+    return requires_of(name)
+
+
 # ===================================================================
 # MetricResult
 # ===================================================================
@@ -194,8 +207,66 @@ class MetricSet:
     def __iter__(self) -> Iterator[MetricResult]:
         return iter(self.results)
 
-    def __getitem__(self, index: int) -> MetricResult:
-        return self.results[index]
+    def __getitem__(self, key: int | str) -> MetricResult:
+        """Access a result by integer position or by metric name.
+
+        ``ms[0]`` returns the first result; ``ms["sharpe_ratio"]`` returns
+        the result whose ``name`` matches.  A missing name raises
+        ``KeyError``.
+        """
+        if isinstance(key, str):
+            for r in self.results:
+                if r.name == key:
+                    return r
+            raise KeyError(key)
+        return self.results[key]
+
+    def __contains__(self, item: object) -> bool:
+        """True if *item* is a result name or a ``MetricResult`` present here."""
+        if isinstance(item, str):
+            return any(r.name == item for r in self.results)
+        return item in self.results
+
+    def get(self, name: str, default: Any = None) -> MetricResult | Any:
+        """Return the result with *name*, or *default* if absent."""
+        for r in self.results:
+            if r.name == name:
+                return r
+        return default
+
+    def by_tier(self) -> dict[str, MetricSet]:
+        """Group results by input tier (``requires``).
+
+        Returns a ``{tier: MetricSet}`` dict keyed by the registry input tier
+        (``"returns"``, ``"exposure"``, ``"trades"``, ``"benchmark"``,
+        ``"compare"``).  Only tiers that are actually present appear as keys.
+        Metrics not found in the registry are grouped under ``"unknown"``.
+        """
+        groups: dict[str, list[MetricResult]] = {}
+        for r in self.results:
+            tier = _requires_of(r.name) or "unknown"
+            groups.setdefault(tier, []).append(r)
+        return {
+            tier: MetricSet(results=grp, meta=dict(self.meta))
+            for tier, grp in groups.items()
+        }
+
+    def by_category(self) -> dict[str, MetricSet]:
+        """Group results by primary statistical category tag.
+
+        Returns a ``{category: MetricSet}`` dict keyed by the first element
+        of each result's ``category`` tuple (e.g. ``"risk"``,
+        ``"descriptive"``).  Results with an empty category are grouped under
+        ``"other"``.
+        """
+        groups: dict[str, list[MetricResult]] = {}
+        for r in self.results:
+            primary = r.category[0] if r.category else "other"
+            groups.setdefault(primary, []).append(r)
+        return {
+            cat: MetricSet(results=grp, meta=dict(self.meta))
+            for cat, grp in groups.items()
+        }
 
     # -- Display ----------------------------------------------------------
 
@@ -262,14 +333,17 @@ class MetricSet:
     def to_frame(self) -> pd.DataFrame:
         """Return results as a pandas DataFrame.
 
-        Columns: ``name``, ``value``, ``category``, ``periods_per_year``,
-        plus each key in ``meta`` expanded as its own column.
+        Columns: ``name``, ``value``, ``tier``, ``category``,
+        ``periods_per_year``, plus each key in ``meta`` expanded as its own
+        column.  ``tier`` is the registry input tier (``requires``); it is
+        ``None`` for metrics not present in the registry.
         """
         records = []
         for r in self.results:
             rec = {
                 "name": r.name,
                 "value": r.value,
+                "tier": _requires_of(r.name),
                 "category": r.category,
                 "periods_per_year": r.periods_per_year,
             }
