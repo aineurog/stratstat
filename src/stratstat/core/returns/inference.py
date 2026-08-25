@@ -1322,7 +1322,7 @@ def bias_ratio(input_data: ReturnsInput, bandwidth: float = 1.0) -> MetricResult
             continue
 
         threshold = bandwidth * sigma
-        in_band = np.count_nonzero(np.abs(valid_data) < threshold)
+        in_band = int(np.count_nonzero(np.abs(valid_data) < threshold))
         outside = max(len(valid_data) - in_band, 1)  # floor at 1
 
         bias_arr[col] = float(in_band) / float(outside)
