@@ -142,8 +142,8 @@ def _monthly_heatmap_data(
     df = monthly_returns.groupby(
         [
             monthly_returns.index.year,  # type: ignore[attr-defined]
-            monthly_returns.index.month,
-        ]  # type: ignore[attr-defined]
+            monthly_returns.index.month,  # type: ignore[attr-defined]
+        ]
     ).apply(
         lambda x: (1.0 + x).prod() - 1.0  # type: ignore[operator]  # compound monthly return
     )
