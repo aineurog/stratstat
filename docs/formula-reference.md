@@ -1445,24 +1445,29 @@ of the losing-trade P&L distribution.
 
 ### 7.28 MFE (Maximum Favorable Excursion)
 
-For each trade, the maximum dollar gain relative to entry price observed
-during the trade's lifetime.
+For each trade, the largest favorable move from entry, expressed as a
+fraction of the entry price. The fraction makes trades at different price
+levels comparable, where a price difference would not be.
 
-**Requires:** optional intra-trade price path field (`intratrade_prices`)
-on `TradeInput`. If this field is absent, raises `ValueError` with a
-message: `"MFE requires intratrade_prices; provide an intra-trade price
-path in TradeInput"`.
+The excursion is derived from the first source available, in this order:
+precomputed `mfe` and `mae` columns; `max_price` and `min_price` columns
+relative to `fill_price`; `prices` bars sliced between `entry_time` and
+`exit_time`; or a per trade `price_path`. The chosen route is recorded in
+`meta["excursion_source"]`.
+
+**Requires:** `side` to know which direction is favorable, plus one of the
+excursion sources above. Without one it raises `ValueError` naming the
+sources it accepts.
 
 **Citation:** Standard trade analytics; see Sweeney (1988), "The
 Maximum Favorable Excursion Methodology."
 
 ### 7.29 MAE (Maximum Adverse Excursion)
 
-For each trade, the maximum dollar loss relative to entry price observed
-during the trade's lifetime.
-
-**Requires:** same `intratrade_prices` field as MFE (§7.28). Same
-failure mode: raises `ValueError` if the field is absent.
+For each trade, the largest adverse move from entry, expressed as a
+fraction of the entry price. Derived from the same source precedence as MFE
+(§7.28) and recorded in `meta["excursion_source"]`. Same failure mode: raises
+`ValueError` when `side` or an excursion source is absent.
 
 **Citation:** As §7.28.
 

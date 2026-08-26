@@ -1556,6 +1556,21 @@ class TestDurationConventions:
         result = _compute_one(inp, "avg_holding_period")
         assert result.meta["duration_unit"] == "periods"
 
+    def test_datetime_entry_exit_not_cast_to_nanoseconds(self):
+        # A two day trade previously cast entry and exit to float and reported
+        # duration in nanoseconds (1.728e14). Datetime entry and exit must
+        # never produce a duration in nanoseconds.
+        entry = np.array(["2024-01-01", "2024-01-05"], dtype="datetime64[D]")
+        exit_ = np.array(["2024-01-03", "2024-01-07"], dtype="datetime64[D]")
+        inp = TradeInput(
+            trades={"pnl": [0.01, -0.01], "entry_time": entry, "exit_time": exit_}
+        )
+        assert inp.has_duration is False
+        assert inp.duration is None
+        # The timestamps are kept, for bar derived excursions, not cast to float.
+        assert inp.entry_time is not None
+        assert inp.exit_time is not None
+
 
 class TestPositionSize:
     def test_position_size_accessor(self):
