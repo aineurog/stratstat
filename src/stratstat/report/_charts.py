@@ -551,33 +551,15 @@ def benchmark_overlay_chart(
 def _trade_excursions(
     trd: Any,
 ) -> tuple[NDArray[np.floating], NDArray[np.floating]]:
-    """Compute per-trade dollar MFE and MAE excursions.
+    """Compute per-trade MFE and MAE excursions as fractions of entry.
 
     Mirrors the ``mfe`` and ``mae`` metrics in
     :mod:`stratstat.core.trades`: for each trade, MFE is the largest
-    favorable dollar move and MAE the largest adverse dollar move,
-    both relative to entry price.  Returns two arrays of length
-    ``n_trades`` (NaN where the path is missing or invalid).
+    favorable move and MAE the largest adverse move, both relative to entry
+    price.  Returns two arrays of length ``n_trades`` (NaN where the trade is
+    unresolvable).
     """
-    itp_list = trd.intratrade_prices
-    is_long = trd.is_long
-    assert itp_list is not None
-    assert is_long is not None
-
-    n = min(len(itp_list), len(is_long))
-    mfe_vals: NDArray[np.floating] = np.full(n, np.nan)
-    mae_vals: NDArray[np.floating] = np.full(n, np.nan)
-    for j in range(n):
-        path = itp_list[j]
-        if len(path) < 2 or not np.isfinite(path[0]):
-            continue
-        entry = path[0]
-        if is_long[j]:
-            mfe_vals[j] = np.nanmax(path) - entry
-            mae_vals[j] = entry - np.nanmin(path)
-        else:
-            mfe_vals[j] = entry - np.nanmin(path)
-            mae_vals[j] = np.nanmax(path) - entry
+    mfe_vals, mae_vals, _ = trd.excursions()
     return mfe_vals, mae_vals
 
 
@@ -592,13 +574,15 @@ def trade_markers_chart(
     ``returns`` when they are provided; otherwise it shows the
     cumulative P&L across trades.  The bottom panel shows per-trade
     P&L bars colored green (win), crimson (loss), or gray (tie).  When
-    the trade log carries ``intratrade_prices`` and ``side``, each
-    trade's MFE and MAE dollar excursions are overlaid as markers.
+    the trade log carries an excursion source (``mfe``/``mae``,
+    ``max_price``/``min_price``, ``price_path``, or a ``prices`` input)
+    and ``side``, each trade's MFE and MAE excursions are overlaid as
+    markers.
 
     Parameters
     ----------
     trades: TradeInput or dict with a ``pnl`` key and optional
-        ``side`` and ``intratrade_prices`` keys.
+        ``side`` and excursion keys.
     returns: Optional portfolio-level returns for the equity curve
         background.
     title: Optional chart title.
@@ -686,7 +670,7 @@ def trade_markers_chart(
     )
 
     # MFE/MAE excursion markers
-    if trd.has_intratrade and trd.has_side:
+    if trd.has_excursions and trd.has_side:
         mfe_vals, mae_vals = _trade_excursions(trd)
         x_exc = np.arange(1, mfe_vals.size + 1)
         fig.add_trace(
@@ -696,7 +680,7 @@ def trade_markers_chart(
                 mode="markers",
                 name="MFE",
                 marker={"symbol": "triangle-up", "color": "green", "size": 9},
-                hovertemplate="Trade %{x}<br>MFE: %{y:.2f}<extra></extra>",
+                hovertemplate="Trade %{x}<br>MFE: %{y:.2%}<extra></extra>",
             ),
             row=2,
             col=1,
@@ -708,7 +692,7 @@ def trade_markers_chart(
                 mode="markers",
                 name="MAE",
                 marker={"symbol": "triangle-down", "color": "crimson", "size": 9},
-                hovertemplate="Trade %{x}<br>MAE: %{y:.2f}<extra></extra>",
+                hovertemplate="Trade %{x}<br>MAE: %{y:.2%}<extra></extra>",
             ),
             row=2,
             col=1,

@@ -1018,21 +1018,22 @@ class TestMfe:
         from stratstat.registry import _compute_one
 
         result = _compute_one(inp, "mfe")
-        # Hand-computed dollar excursions:
-        # Trade 0 (long): entry=100, max=102.5 → 102.5-100 = 2.5
-        # Trade 1 (short): entry=100, min=98 → 100-98 = 2.0
-        # Trade 2 (long): entry=100, max=103 → 103-100 = 3.0
-        # Trade 3 (short): entry=100, min=98.5 → 100-98.5 = 1.5
-        # Trade 4 (long): entry=100, max=101.5 → 101.5-100 = 1.5
-        expected_mfes = np.array([2.5, 2.0, 3.0, 1.5, 1.5])
+        # Hand-computed excursion fractions (entry=100 everywhere):
+        # Trade 0 (long): max=102.5 → (102.5-100)/100 = 0.025
+        # Trade 1 (short): min=98 → (100-98)/100 = 0.02
+        # Trade 2 (long): max=103 → (103-100)/100 = 0.03
+        # Trade 3 (short): min=98.5 → (100-98.5)/100 = 0.015
+        # Trade 4 (long): max=101.5 → (101.5-100)/100 = 0.015
+        expected_mfes = np.array([0.025, 0.02, 0.03, 0.015, 0.015])
         assert result.value[0] == pytest.approx(np.mean(expected_mfes))  # mean
         assert result.value[1] == pytest.approx(np.max(expected_mfes))  # max
         assert result.value[2] == pytest.approx(np.min(expected_mfes))  # min
+        assert result.meta["excursion_source"] == "price_path"
 
     def test_requires_intratrade(self, inp_basic):
         from stratstat.registry import _compute_one
 
-        with pytest.raises(ValueError, match="requires intratrade_prices"):
+        with pytest.raises(ValueError, match="MFE/MAE require one of"):
             _compute_one(inp_basic, "mfe")
 
     def test_empty(self, inp_empty):
@@ -1083,13 +1084,14 @@ class TestMae:
         from stratstat.registry import _compute_one
 
         result = _compute_one(inp, "mae")
-        # Long: MAE = entry - min = 100 - 95 = 5.0
-        assert result.value[0] == pytest.approx(5.0)
+        # Long: MAE = (entry - min)/entry = (100 - 95)/100 = 0.05
+        assert result.value[0] == pytest.approx(0.05)
+        assert result.meta["excursion_source"] == "price_path"
 
     def test_requires_intratrade(self, inp_basic):
         from stratstat.registry import _compute_one
 
-        with pytest.raises(ValueError, match="requires intratrade_prices"):
+        with pytest.raises(ValueError, match="MFE/MAE require one of"):
             _compute_one(inp_basic, "mae")
 
 
@@ -1461,6 +1463,229 @@ class TestTradeInputFeatures:
         )
         assert inp.positions is not None
         assert inp.positions.shape == (10, 5)
+
+
+# ===================================================================
+# Package B: trade conventions and excursion derivation
+# ===================================================================
+
+
+class TestPnlBasis:
+    def test_default_is_trade(self, simple_trades_dict):
+        inp = TradeInput(trades=simple_trades_dict)
+        assert inp.pnl_basis == "trade"
+
+    def test_invalid_basis_raises(self, simple_trades_dict):
+        with pytest.raises(ValueError, match="pnl_basis"):
+            TradeInput(trades=simple_trades_dict, pnl_basis="portfolio")
+
+    def test_account_basis_returned_unchanged(self):
+        pnl = np.array([0.02, -0.01])
+        inp = TradeInput(
+            trades={"pnl": pnl, "position_size": [0.5, 1.0]},
+            pnl_basis="account",
+        )
+        out, converted = inp.pnl_account_basis()
+        np.testing.assert_array_equal(out, pnl)
+        assert converted is False
+
+    def test_trade_basis_converts_to_account(self):
+        pnl = np.array([0.02, -0.01])
+        inp = TradeInput(
+            trades={"pnl": pnl, "position_size": [0.5, 1.0]},
+            pnl_basis="trade",
+        )
+        out, converted = inp.pnl_account_basis()
+        np.testing.assert_array_equal(out, pnl * np.array([0.5, 1.0]))
+        assert converted is True
+
+    def test_account_basis_converts_to_trade(self):
+        pnl = np.array([0.02, -0.01])
+        inp = TradeInput(
+            trades={"pnl": pnl, "position_size": [0.5, 1.0]},
+            pnl_basis="account",
+        )
+        out, converted = inp.pnl_trade_basis()
+        np.testing.assert_array_equal(out, pnl / np.array([0.5, 1.0]))
+        assert converted is True
+
+    def test_without_size_bases_coincide(self):
+        inp = TradeInput(trades={"pnl": [0.02, -0.01]}, pnl_basis="trade")
+        out, converted = inp.pnl_account_basis()
+        assert converted is False
+        np.testing.assert_array_equal(out, [0.02, -0.01])
+
+
+class TestPnlUnit:
+    def test_default_is_fraction(self, simple_trades_dict):
+        inp = TradeInput(trades=simple_trades_dict)
+        assert inp.pnl_unit == "fraction"
+
+    def test_invalid_unit_raises(self, simple_trades_dict):
+        with pytest.raises(ValueError, match="pnl_unit"):
+            TradeInput(trades=simple_trades_dict, pnl_unit="pct")
+
+    def test_currency_gates_kelly(self):
+        from stratstat.registry import _compute_one
+
+        inp = TradeInput(
+            trades={"pnl": [20.0, -10.0, 30.0], "side": ["long", "short", "long"]},
+            pnl_unit="currency",
+        )
+        with pytest.raises(ValueError, match="kelly_criterion requires pnl as a fraction"):
+            _compute_one(inp, "kelly_criterion")
+
+    def test_currency_gates_geometric_mean(self):
+        from stratstat.registry import _compute_one
+
+        inp = TradeInput(trades={"pnl": [20.0, -10.0, 30.0]}, pnl_unit="currency")
+        with pytest.raises(ValueError, match="geometric_mean_return_per_trade requires pnl"):
+            _compute_one(inp, "geometric_mean_return_per_trade")
+
+
+class TestDurationConventions:
+    def test_datetime_duration_rejected(self):
+        times = pd.to_datetime(["2024-01-01", "2024-01-03", "2024-01-04"])
+        with pytest.raises(ValueError, match="numeric count of periods"):
+            TradeInput(trades={"pnl": [0.01, -0.01, 0.02], "duration": times})
+
+    def test_duration_unit_recorded_as_periods(self, simple_trades_dict):
+        from stratstat.registry import _compute_one
+
+        inp = TradeInput(trades=simple_trades_dict)
+        result = _compute_one(inp, "avg_holding_period")
+        assert result.meta["duration_unit"] == "periods"
+
+
+class TestPositionSize:
+    def test_position_size_accessor(self):
+        inp = TradeInput(
+            trades={"pnl": [0.02, -0.01], "position_size": [0.5, 1.0]}
+        )
+        assert inp.position_size is not None
+        np.testing.assert_array_equal(inp.position_size, [0.5, 1.0])
+
+    def test_position_size_absent_returns_none(self, simple_trades_dict):
+        inp = TradeInput(trades=simple_trades_dict)
+        assert inp.position_size is None
+
+
+class TestExcursionSources:
+    def test_precomputed_mfe_mae_highest_priority(self):
+        inp = TradeInput(
+            trades={
+                "pnl": [0.02],
+                "side": ["long"],
+                "mfe": [0.15],
+                "mae": [0.05],
+                "fill_price": [100.0],
+                "max_price": [110.0],
+                "min_price": [95.0],
+            }
+        )
+        mfe, mae, source = inp.excursions()
+        np.testing.assert_allclose(mfe, [0.15])
+        np.testing.assert_allclose(mae, [0.05])
+        assert source == "mfe_mae"
+
+    def test_max_min_price_source(self):
+        inp = TradeInput(
+            trades={
+                "pnl": [0.02, -0.01],
+                "side": ["long", "short"],
+                "fill_price": [100.0, 50.0],
+                "max_price": [110.0, 55.0],
+                "min_price": [95.0, 45.0],
+            }
+        )
+        mfe, mae, source = inp.excursions()
+        # long: MFE=(110-100)/100=0.10, MAE=(100-95)/100=0.05
+        # short: MFE=(50-45)/50=0.10, MAE=(55-50)/50=0.10
+        np.testing.assert_allclose(mfe, [0.10, 0.10])
+        np.testing.assert_allclose(mae, [0.05, 0.10])
+        assert source == "max_min_price"
+
+    def test_price_path_source(self, trades_with_intratrade):
+        inp = TradeInput(trades=trades_with_intratrade)
+        mfe, mae, source = inp.excursions()
+        assert source == "price_path"
+        # Trade 0 long: MFE=(102.5-100)/100=0.025
+        assert mfe[0] == pytest.approx(0.025)
+
+    def test_missing_source_raises(self, inp_basic):
+        with pytest.raises(ValueError, match="MFE/MAE require one of"):
+            inp_basic.excursions()
+
+
+class TestPricesBars:
+    def _bars(self, with_high_low=True):
+        time = np.array(
+            ["2024-01-01", "2024-01-02", "2024-01-03", "2024-01-04"],
+            dtype="datetime64[D]",
+        )
+        prices = {
+            "time": time,
+            "close": np.array([100.0, 102.0, 105.0, 103.0]),
+        }
+        if with_high_low:
+            prices["high"] = np.array([101.0, 103.0, 106.0, 104.0])
+            prices["low"] = np.array([99.0, 101.0, 104.0, 102.0])
+        return prices
+
+    def test_bar_derivation_with_high_low(self):
+        prices = self._bars(with_high_low=True)
+        inp = TradeInput(
+            trades={
+                "pnl": [0.02],
+                "side": ["long"],
+                "entry_time": np.array(["2024-01-01"], dtype="datetime64[D]"),
+                "exit_time": np.array(["2024-01-04"], dtype="datetime64[D]"),
+            },
+            prices=prices,
+        )
+        mfe, mae, source = inp.excursions()
+        # long: MFE=(106-100)/100=0.06, MAE=(100-99)/100=0.01
+        assert mfe[0] == pytest.approx(0.06)
+        assert mae[0] == pytest.approx(0.01)
+        assert source == "prices"
+
+    def test_bar_derivation_close_only(self):
+        prices = self._bars(with_high_low=False)
+        inp = TradeInput(
+            trades={
+                "pnl": [0.02],
+                "side": ["long"],
+                "entry_time": np.array(["2024-01-01"], dtype="datetime64[D]"),
+                "exit_time": np.array(["2024-01-04"], dtype="datetime64[D]"),
+            },
+            prices=prices,
+        )
+        with pytest.warns(UserWarning, match="close prices only"):
+            mfe, mae, source = inp.excursions()
+        # long, close only: MFE=(105-100)/100=0.05, MAE=(100-100)/100=0.0
+        assert mfe[0] == pytest.approx(0.05)
+        assert mae[0] == pytest.approx(0.0)
+        assert source == "prices_close_only"
+
+
+class TestPricePathRename:
+    def test_intratrade_alias_maps_to_price_path(self, trades_with_intratrade):
+        inp = TradeInput(trades=trades_with_intratrade)
+        assert inp.has_price_path is True
+        assert inp.has_intratrade is True
+        assert inp.price_path is not None
+        assert inp.intratrade_prices is inp.price_path
+
+    def test_canonical_price_path_key(self):
+        inp = TradeInput(
+            trades={
+                "pnl": [0.02],
+                "side": ["long"],
+                "price_path": [[100.0, 102.0, 101.0]],
+            }
+        )
+        assert inp.has_price_path is True
+        assert inp.has_intratrade is True
 
 
 # ===================================================================

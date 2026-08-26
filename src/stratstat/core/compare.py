@@ -10,6 +10,8 @@ All tagged: category=("relative", "compare"), requires="compare".
 
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 from numpy.typing import NDArray
 
@@ -215,6 +217,19 @@ def _require_periods_per_year(inp: CompareInput, metric_name: str) -> None:
         )
 
 
+def _output_labels(inp: CompareInput, n: int) -> list[str] | None:
+    """Strategy labels keyed to a ``(n,)`` output, or None when unnamed.
+
+    ``CompareInput.labels`` carries the column names from a pandas/polars
+    DataFrame; a numpy matrix has no names, so per-strategy outputs stay
+    anonymous.  Returns None when the labels do not line up with the output
+    length, so a mismatched input can never attach the wrong name to a value.
+    """
+    if inp.labels is not None and len(inp.labels) == n:
+        return list(inp.labels)
+    return None
+
+
 def _per_period_sharpe(r: NDArray[np.floating], rf: float) -> float:
     """Per-period (non-annualised) Sharpe ratio for a single series."""
     excess = r - rf
@@ -284,12 +299,16 @@ def correlation_matrix(inp: CompareInput) -> MetricResult:
                 c = np.corrcoef(r[mask, i], r[mask, j])[0, 1]
                 corr[i, j] = c
                 corr[j, i] = c
+    meta: dict[str, Any] = {"ref": _REF_PEARSON, "shape": (n_strat, n_strat)}
+    labels = _output_labels(inp, n_strat)
+    if labels is not None:
+        meta["labels"] = labels  # row and column axis, shared (symmetric matrix)
     return MetricResult(
         name="correlation_matrix",
         value=corr,
         category=("relative", "compare"),
         periods_per_year=inp.periods_per_year,
-        meta={"ref": _REF_PEARSON, "shape": (n_strat, n_strat)},
+        meta=meta,
     )
 
 
@@ -410,7 +429,7 @@ def sharpe_difference_test(inp: CompareInput) -> MetricResult:
     r = inp.returns
     r1 = r[:, 0]
     r2 = r[:, 1]
-    rf = inp.rf
+    rf = inp.rf_period
 
     # Per-period Sharpe ratios
     sr1 = _per_period_sharpe(r1, rf)
@@ -429,6 +448,8 @@ def sharpe_difference_test(inp: CompareInput) -> MetricResult:
             meta={
                 "ref": _REF_JK,
                 "output_index": ["z", "p_value", "sr_diff"],
+                "rf": inp.rf,
+                "rf_period": inp.rf_period,
             },
         )
 
@@ -476,6 +497,8 @@ def sharpe_difference_test(inp: CompareInput) -> MetricResult:
             "sr2": sr2,
             "rho": rho,
             "n_valid": n_valid,
+            "rf": inp.rf,
+            "rf_period": inp.rf_period,
         },
     )
 
@@ -752,7 +775,7 @@ def pbo(
     _require_min_strategies(inp, 2, "pbo")
     r = inp.returns
     n_periods = r.shape[0]
-    rf = inp.rf
+    rf = inp.rf_period
 
     rng = np.random.default_rng(seed)
     split_points, purge, embargo = _comb_purged_split_points(
@@ -770,6 +793,8 @@ def pbo(
                 "ref": _REF_PBO,
                 "output_index": ["pbo", "n_splits"],
                 "n_splits_requested": n_splits,
+                "rf": inp.rf,
+                "rf_period": inp.rf_period,
             },
         )
 
@@ -795,6 +820,8 @@ def pbo(
             "n_splits_requested": n_splits,
             "purge_pct": purge_pct,
             "embargo_pct": embargo_pct,
+            "rf": inp.rf,
+            "rf_period": inp.rf_period,
         },
     )
 
@@ -828,6 +855,10 @@ def marginal_contribution_to_risk(inp: CompareInput) -> MetricResult:
     w = inp.get_weights()
     cov = _cov_matrix(r)
     n_strat = r.shape[1]
+    label_meta: dict[str, Any] = {}
+    _labels = _output_labels(inp, n_strat)
+    if _labels is not None:
+        label_meta["output_index"] = _labels
 
     # Check for NaN in the covariance matrix — _cov_matrix returns NaN
     # for pairs with <3 overlapping observations.  We subset to
@@ -846,6 +877,7 @@ def marginal_contribution_to_risk(inp: CompareInput) -> MetricResult:
                     "ref": _REF_MCR,
                     "weights": w.tolist(),
                     "portfolio_vol": np.nan,
+                    **label_meta,
                 },
             )
         sub_cov = cov[valid][:, valid]
@@ -860,6 +892,7 @@ def marginal_contribution_to_risk(inp: CompareInput) -> MetricResult:
                     "ref": _REF_MCR,
                     "weights": w.tolist(),
                     "portfolio_vol": np.nan,
+                    **label_meta,
                 },
             )
         # Compute MCR on the valid subset, return NaN for excluded strategies
@@ -881,6 +914,7 @@ def marginal_contribution_to_risk(inp: CompareInput) -> MetricResult:
                 "ref": _REF_MCR,
                 "weights": w.tolist(),
                 "portfolio_vol": (float(np.sqrt(port_var)) if port_var > 0.0 else np.nan),
+                **label_meta,
             },
         )
 
@@ -901,6 +935,7 @@ def marginal_contribution_to_risk(inp: CompareInput) -> MetricResult:
             "ref": _REF_MCR,
             "weights": w.tolist(),
             "portfolio_vol": (float(np.sqrt(port_var)) if port_var > 0.0 else np.nan),
+            **label_meta,
         },
     )
 
@@ -951,6 +986,7 @@ def component_var(
     r = inp.returns
     w = inp.get_weights()
     n_strat = r.shape[1]
+    labels = _output_labels(inp, n_strat)
 
     # Portfolio return series
     port_ret = r @ w  # (n_periods,)
@@ -968,15 +1004,18 @@ def component_var(
         var_minus = float(-np.nanquantile(port_minus, 1.0 - confidence))
         cvar[i] = total_var - var_minus
 
+    meta: dict[str, Any] = {
+        "ref": _REF_CVAR,
+        "confidence": confidence,
+        "total_var": total_var,
+        "weights": w.tolist(),
+    }
+    if labels is not None:
+        meta["output_index"] = labels
     return MetricResult(
         name="component_var",
         value=cvar,
         category=("relative", "compare"),
         periods_per_year=inp.periods_per_year,
-        meta={
-            "ref": _REF_CVAR,
-            "confidence": confidence,
-            "total_var": total_var,
-            "weights": w.tolist(),
-        },
+        meta=meta,
     )

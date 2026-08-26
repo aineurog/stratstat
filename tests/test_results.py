@@ -353,3 +353,132 @@ class TestToClipboard:
             ms.to_clipboard()
         except Exception:
             pytest.skip("clipboard not available in this environment")
+
+
+class TestToFrameExplode:
+    def _set_with_array_metric(self):
+        return MetricSet(
+            results=[
+                MetricResult(
+                    name="component_var",
+                    value=np.array([0.1, 0.2, 0.3]),
+                    category=("relative", "compare"),
+                    meta={"output_index": ["a", "b", "c"], "confidence": 0.95},
+                ),
+                MetricResult(name="cagr", value=0.12, category=("descriptive",)),
+            ]
+        )
+
+    def test_explodes_array_with_matching_index(self):
+        df = self._set_with_array_metric().to_frame()
+        cv = df[df["name"] == "component_var"]
+        assert len(cv) == 3
+        assert list(cv["output_index"]) == ["a", "b", "c"]
+        assert list(cv["value"]) == [0.1, 0.2, 0.3]
+        assert list(cv["confidence"]) == [0.95, 0.95, 0.95]
+
+    def test_scalar_metric_stays_single_row(self):
+        df = self._set_with_array_metric().to_frame()
+        cagr = df[df["name"] == "cagr"]
+        assert len(cagr) == 1
+
+    def test_explode_false_keeps_array_in_cell(self):
+        df = self._set_with_array_metric().to_frame(explode=False)
+        cv = df[df["name"] == "component_var"]
+        assert len(cv) == 1
+        assert "output_index" in df.columns  # carried as meta, not exploded
+
+    def test_no_index_no_explode(self):
+        ms = MetricSet(
+            results=[MetricResult(name="x", value=np.array([1.0, 2.0, 3.0]), meta={})]
+        )
+        df = ms.to_frame()
+        assert len(df) == 1  # no output_index, stays single row
+
+    def test_matrix_stays_single_row(self):
+        ms = MetricSet(
+            results=[
+                MetricResult(
+                    name="correlation_matrix",
+                    value=np.eye(2),
+                    meta={"labels": ["a", "b"]},
+                )
+            ]
+        )
+        df = ms.to_frame()
+        assert len(df) == 1  # 2-D matrix never explodes
+
+    def test_mismatched_index_length_does_not_explode(self):
+        ms = MetricSet(
+            results=[
+                MetricResult(
+                    name="x",
+                    value=np.array([1.0, 2.0]),
+                    meta={"output_index": ["only-one-label"]},
+                )
+            ]
+        )
+        df = ms.to_frame()
+        assert len(df) == 1
+
+
+class TestOmissionReporting:
+    def _set(self):
+        return MetricSet(
+            results=[MetricResult(name="cagr", value=0.12)],
+            meta={
+                "skipped": ["kelly_criterion"],
+                "excluded_resampling": ["pbo", "white_reality_check"],
+                "deduplicated": ["avg_up_period"],
+                "excluded_tiers": ["benchmark"],
+            },
+        )
+
+    def test_skipped_property(self):
+        assert self._set().skipped == ["kelly_criterion"]
+
+    def test_excluded_union(self):
+        assert self._set().excluded == ["pbo", "white_reality_check", "avg_up_period"]
+
+    def test_excluded_tiers_property(self):
+        assert self._set().excluded_tiers == ["benchmark"]
+
+    def test_empty_meta_defaults(self):
+        ms = MetricSet(results=[MetricResult(name="a", value=1.0)])
+        assert ms.skipped == []
+        assert ms.excluded == []
+        assert ms.excluded_tiers == []
+
+    def test_summary_reports_counts(self):
+        s = self._set().summary()
+        assert "1 metrics computed" in s
+        assert "1 skipped" in s
+        assert "3 excluded" in s
+        assert "tiers not run: benchmark" in s
+
+    def test_summary_clean_when_nothing_omitted(self):
+        ms = MetricSet(results=[MetricResult(name="a", value=1.0)])
+        assert ms.summary() == "1 metrics computed"
+
+
+class TestDegenerateColumns:
+    def test_to_frame_always_has_degenerate_columns(self):
+        ms = MetricSet(
+            results=[
+                MetricResult(name="ok", value=0.1),
+                MetricResult(
+                    name="degenerate",
+                    value=1.0,
+                    meta={"degenerate": True, "degenerate_reason": "single-asset input"},
+                ),
+            ]
+        )
+        df = ms.to_frame()
+        assert "degenerate" in df.columns
+        assert "degenerate_reason" in df.columns
+        ok = df[df["name"] == "ok"].iloc[0]
+        assert bool(ok["degenerate"]) is False
+        assert ok["degenerate_reason"] is None
+        deg = df[df["name"] == "degenerate"].iloc[0]
+        assert bool(deg["degenerate"]) is True
+        assert deg["degenerate_reason"] == "single-asset input"

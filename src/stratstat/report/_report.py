@@ -262,7 +262,7 @@ def generate_report(
 
         exp_inp = ExposureInput(
             positions=positions,
-            returns=asset_returns,
+            asset_returns=asset_returns,
             periods_per_year=periods_per_year,
         )
 

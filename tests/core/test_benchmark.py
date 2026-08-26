@@ -84,8 +84,9 @@ class TestAlpha:
     def test_requires_periods_per_year(self, inp_no_pp):
         from stratstat.registry import _compute_one
 
-        with pytest.raises(ValueError, match="periods_per_year"):
-            _compute_one(inp_no_pp, "alpha")
+        result = _compute_one(inp_no_pp, "alpha")
+        assert result.periods_per_year == 252
+        assert result.meta["ppy_source"] == "default"
 
     def test_alpha_zero_when_beta_one_and_no_excess(self):
         # r = r_m → beta=1, no alpha
@@ -196,8 +197,9 @@ class TestTrackingError:
     def test_requires_periods_per_year(self, inp_no_pp):
         from stratstat.registry import _compute_one
 
-        with pytest.raises(ValueError, match="periods_per_year"):
-            _compute_one(inp_no_pp, "tracking_error")
+        result = _compute_one(inp_no_pp, "tracking_error")
+        assert result.periods_per_year == 252
+        assert result.meta["ppy_source"] == "default"
 
     def test_zero_tracking_error(self):
         bench = np.array([0.01, 0.02, -0.01])
@@ -364,8 +366,9 @@ class TestActiveReturn:
     def test_requires_periods_per_year(self, inp_no_pp):
         from stratstat.registry import _compute_one
 
-        with pytest.raises(ValueError, match="periods_per_year"):
-            _compute_one(inp_no_pp, "active_return")
+        result = _compute_one(inp_no_pp, "active_return")
+        assert result.periods_per_year == 252
+        assert result.meta["ppy_source"] == "default"
 
 
 # ===================================================================
@@ -579,8 +582,9 @@ class TestBenchmarkVolatility:
     def test_requires_periods_per_year(self, inp_no_pp):
         from stratstat.registry import _compute_one
 
-        with pytest.raises(ValueError, match="periods_per_year"):
-            _compute_one(inp_no_pp, "benchmark_volatility")
+        result = _compute_one(inp_no_pp, "benchmark_volatility")
+        assert result.periods_per_year == 252
+        assert result.meta["ppy_source"] == "default"
 
 
 # ===================================================================

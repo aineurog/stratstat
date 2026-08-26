@@ -18,12 +18,13 @@ import stratstat.core.returns.inference  # noqa: F401
 import stratstat.core.returns.risk  # noqa: F401
 import stratstat.core.returns.risk_adjusted  # noqa: F401
 import stratstat.core.trades  # noqa: F401
+from stratstat.container import Comparison, Strategy
 from stratstat.conventions import get_default, set_default
 from stratstat.core.returns.wrappers import by_regime, rolling
 from stratstat.inputs import BenchmarkInput, CompareInput, ExposureInput, ReturnsInput, TradeInput
 from stratstat.registry import get_metric, list_metrics, register_metric
 from stratstat.results import MetricResult, MetricSet
-from stratstat.schema import Schema, clear_schema, get_schema, set_schema
+from stratstat.schema import Schema, clear_schema, describe_columns, get_schema, set_schema
 
 __all__ = [
     "__version__",
@@ -44,12 +45,15 @@ __all__ = [
     "TradeInput",
     "BenchmarkInput",
     "CompareInput",
+    "Strategy",
+    "Comparison",
     "get_default",
     "set_default",
     "Schema",
     "set_schema",
     "get_schema",
     "clear_schema",
+    "describe_columns",
     "rolling",
     "by_regime",
 ]
@@ -80,8 +84,8 @@ def compute(
         Only needed when passing raw data; ignored if *input_data* is
         already an Input object.
     rf:
-        Risk-free rate per period (default 0.0).  Only used by
-        benchmark-tier and compare-tier metrics.
+        Annual risk-free rate (default 0.0).  Used by benchmark-tier,
+        compare-tier, and the risk-adjusted returns metrics.
     **kwargs:
         Forwarded to the metric function (e.g. ``return_type="log"``).
 
@@ -152,8 +156,8 @@ def compute_all(
     periods_per_year:
         Annualisation factor (252 for daily, 12 for monthly, etc.).
     rf:
-        Risk-free rate per period (default 0.0).  Used by benchmark-tier and
-        compare-tier metrics.
+        Annual risk-free rate (default 0.0).  Used by benchmark-tier,
+        compare-tier, and the risk-adjusted returns metrics.
     include_returns, include_trades, include_benchmark, include_exposure,
     include_compare:
         Per-tier switches (all default ``True``).
@@ -224,8 +228,8 @@ def compute_returns(
     periods_per_year:
         Annualisation factor (252 for daily, etc.).
     rf:
-        Risk-free rate per period (unused by returns-tier metrics; accepted
-        for signature uniformity).
+        Annual risk-free rate (default 0.0).  Used by the risk-adjusted
+        returns metrics.
     category:
         Primary statistical tag to filter by (e.g. ``"risk"``).
     schema:
@@ -266,6 +270,9 @@ def compute_trades(
     periods_per_year: int | None = None,
     category: str | None = None,
     columns: Any = None,
+    pnl_basis: str = "trade",
+    pnl_unit: str = "fraction",
+    prices: Any = None,
     **kwargs: Any,
 ) -> MetricSet:
     """Compute every trade-tier metric on a trade log.
@@ -285,6 +292,18 @@ def compute_trades(
         e.g. ``{"side": "direction"}``.  This entry point covers one tier, so
         the mapping is written flat rather than nested under ``trades``.
         Shorthand for ``schema=Schema(trades=...)``; pass one or the other.
+    pnl_basis:
+        Whether the ``pnl`` column is per trade (``"trade"``) or per account
+        (``"account"``).  Default ``"trade"``.
+    pnl_unit:
+        Whether pnl is a fraction of entry (``"fraction"``) or a currency
+        amount (``"currency"``).  Default ``"fraction"``.  Metrics that need a
+        fractional pnl (Kelly criterion, geometric mean) refuse to run when
+        ``"currency"``.
+    prices:
+        Price bars used to derive maximum favorable/adverse excursion when no
+        excursion column is present.  A mapping of ``time``, ``close``, and
+        optional ``high``/``low`` arrays, or a DataFrame with a datetime index.
     **kwargs:
         Forwarded to metric functions.
 
@@ -315,6 +334,9 @@ def compute_trades(
         category=category,
         tiers=["trades"],
         schema=schema_arg,
+        pnl_basis=pnl_basis,
+        pnl_unit=pnl_unit,
+        prices=prices,
         **kwargs,
     )
 
@@ -341,7 +363,7 @@ def compute_benchmark(
     periods_per_year:
         Annualisation factor.
     rf:
-        Risk-free rate per period (default 0.0).
+        Annual risk-free rate (default 0.0).
     category:
         Primary statistical tag to filter by (benchmark-tier metrics use
         ``"benchmark"``).
@@ -377,6 +399,7 @@ def compute_exposure(
     positions: Any,
     *,
     returns: Any = None,
+    asset_returns: Any = None,
     benchmark: Any = None,
     benchmark_weights: Any = None,
     equity: Any = None,
@@ -393,14 +416,17 @@ def compute_exposure(
     positions:
         Position weights of shape ``(n_periods, n_assets)``.
     returns:
+        Strategy-level returns of shape ``(n_periods,)`` (optional).  Used only
+        to derive the equity curve for leverage.
+    asset_returns:
         Asset-level returns of shape ``(n_periods, n_assets)`` (optional).
     benchmark:
         Benchmark returns (optional, for long/short beta metrics).
     benchmark_weights:
         Benchmark constituent weights (optional, for active share).
     equity:
-        Portfolio equity curve (optional; derived from positions + returns if
-        omitted).
+        Portfolio equity curve (optional; derived from strategy returns, or
+        from positions + asset_returns, if omitted).
     periods_per_year:
         Annualisation factor (required by turnover).
     category:
@@ -429,6 +455,7 @@ def compute_exposure(
         inp = ExposureInput(
             positions,
             returns=returns,
+            asset_returns=asset_returns,
             benchmark=benchmark,
             benchmark_weights=benchmark_weights,
             equity=equity,
@@ -470,7 +497,7 @@ def compute_compare(
     periods_per_year:
         Annualisation factor (required by JK test and PBO).
     rf:
-        Risk-free rate per period (default 0.0).
+        Annual risk-free rate (default 0.0).
     category:
         Primary statistical tag to filter by (compare-tier metrics use
         ``"relative"``).

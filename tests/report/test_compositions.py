@@ -421,15 +421,16 @@ class TestComputeRawData:
         assert result.periods_per_year == 252
 
     def test_compute_raw_returns_no_ppy(self):
-        """compute() with raw data and no periods_per_year still works."""
+        """compute() with raw data and no periods_per_year defaults to 252."""
         from stratstat import compute
 
         rng = np.random.default_rng(42)
         returns = rng.normal(0.001, 0.02, size=252)
         result = compute(returns, "skewness")
         assert result.name == "skewness"
-        # periods_per_year not provided → None in result
-        assert result.periods_per_year is None
+        # periods_per_year not provided → 252 default, recorded provenance
+        assert result.periods_per_year == 252
+        assert result.meta["ppy_source"] == "default"
 
     def test_compute_all_raw_returns(self):
         """compute_all() accepts raw data with periods_per_year."""

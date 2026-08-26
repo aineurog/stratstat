@@ -124,11 +124,24 @@ def test_missing_mapped_trade_column_warns_and_continues():
 def test_unmapped_non_canonical_column_fails_loudly():
     """A trade log whose pnl column is neither canonical nor mapped cannot
     compute anything, and failing loudly beats producing a confident wrong
-    number from zero trades. The A6 warning (name that would have mapped under
-    a different canonical name) is a later item."""
+    number from zero trades."""
     df = _trade_df()
     with pytest.raises(ValueError, match="pnl"):
         ss.compute_trades(df)  # 'profit', not 'pnl', and no schema
+
+
+def test_unmapped_alias_column_warns_with_hint():
+    """A column that would be recognised under a different canonical name
+    draws a hint naming the mapping to add, rather than dropping silently."""
+    df = pd.DataFrame({"pnl": [1.0, -1.0], "direction": [1, -1]})
+    with pytest.warns(UserWarning, match="columns=\\{'side': 'direction'\\}"):
+        ss.TradeInput(trades=df)
+
+
+def test_unmapped_close_match_column_warns():
+    df = pd.DataFrame({"pnl": [1.0, -1.0], "duraton": [2, 3]})
+    with pytest.warns(UserWarning, match="duraton"):
+        ss.TradeInput(trades=df)
 
 
 # ----------------------------------------------------------------------
@@ -224,3 +237,56 @@ def test_compute_routes_columns_through_build_input():
     frame = pd.DataFrame({"pct": rng.normal(size=504)})
     result = ss.compute(frame, "omega_ratio", columns={"returns": "pct"})
     assert np.isfinite(result.value)
+
+
+# ----------------------------------------------------------------------
+# describe_columns
+# ----------------------------------------------------------------------
+
+
+def test_describe_columns_reports_recognized_ignored_missing():
+    df = pd.DataFrame({"pnl": [1.0, -1.0], "extra": [1, 2], "direction": [1, -1]})
+    report = ss.describe_columns(df)
+    assert report["recognized"] == ["pnl"]
+    assert report["ignored"] == ["direction", "extra"]
+    assert "side" in report["missing"]
+
+
+def test_describe_columns_missing_side_lists_side_metrics():
+    report = ss.describe_columns({"pnl": [1.0, -1.0]})
+    metrics = report["missing"]["side"]
+    assert "win_rate_long" in metrics
+    assert "long_short_avg_duration" in metrics
+    assert len(metrics) == 12
+
+
+def test_describe_columns_missing_pnl_lists_all_trade_metrics():
+    report = ss.describe_columns({"side": [1, -1]})
+    assert "pnl" in report["missing"]
+    metrics = report["missing"]["pnl"]
+    assert "win_rate" in metrics
+    assert len(metrics) > 10  # the full trade tier, not a fixed few
+
+
+def test_describe_columns_schema_maps_aliases():
+    df = pd.DataFrame(
+        {"profit": [1.0, -1.0], "direction": [1, -1], "bars_held": [2, 3]}
+    )
+    report = ss.describe_columns(
+        df, schema={"pnl": "profit", "side": "direction", "duration": "bars_held"}
+    )
+    assert set(report["recognized"]) == {"pnl", "side", "duration"}
+    assert report["ignored"] == []
+    assert "side" not in report["missing"]
+    assert "duration" not in report["missing"]
+
+
+def test_describe_columns_duration_derived_from_entry_exit():
+    report = ss.describe_columns({"pnl": [1.0], "entry_time": [0.0], "exit_time": [2.0]})
+    assert "duration" in report["recognized"]
+    assert "duration" not in report["missing"]
+
+
+def test_describe_columns_rejects_unsupported_input():
+    with pytest.raises(TypeError, match="DataFrame"):
+        ss.describe_columns([1.0, -1.0])

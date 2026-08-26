@@ -792,12 +792,12 @@ class TestSkewnessAdjustedSharpe:
         assert asr_result.value > sharpe_result.value
 
     def test_requires_periods_per_year(self):
-        """Should raise ValueError without periods_per_year."""
+        """Defaults periods_per_year to 252 when not provided."""
         rng = np.random.default_rng(42)
         returns = rng.normal(0.0004, 0.01, size=200)
         inp = ReturnsInput(returns)
-        with pytest.raises(ValueError, match="periods_per_year"):
-            skewness_adjusted_sharpe(inp)
+        result = skewness_adjusted_sharpe(inp)
+        assert result.periods_per_year == 252
 
 
 # ---------------------------------------------------------------------------

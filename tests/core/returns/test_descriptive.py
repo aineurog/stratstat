@@ -102,10 +102,10 @@ class TestCAGR:
         assert result.value == pytest.approx(expected, rel=1e-12)
 
     def test_requires_periods_per_year(self):
-        """CAGR raises ValueError when periods_per_year is None."""
+        """CAGR defaults periods_per_year to 252 when not provided."""
         inp = ReturnsInput(np.array([0.01, 0.02, -0.01]))
-        with pytest.raises(ValueError, match="periods_per_year"):
-            cagr(inp)
+        result = cagr(inp)
+        assert result.periods_per_year == 252
 
     def test_all_positive_returns(self, daily_pp):
         """Positive-only returns produce positive CAGR."""
@@ -168,10 +168,10 @@ class TestAnnualizedVolatility:
         assert result.value == pytest.approx(expected, rel=1e-12)
 
     def test_requires_periods_per_year(self):
-        """Raises when periods_per_year is None."""
+        """Defaults periods_per_year to 252 when not provided."""
         inp = ReturnsInput(np.array([0.01, -0.02]))
-        with pytest.raises(ValueError, match="periods_per_year"):
-            annualized_volatility(inp)
+        result = annualized_volatility(inp)
+        assert result.periods_per_year == 252
 
     def test_constant_returns(self, daily_pp):
         """Constant returns have zero volatility."""
@@ -729,6 +729,22 @@ class TestPercentiles:
         result = percentiles(sample_input_no_pp)
         assert "levels" in result.meta
         assert result.meta["levels"] == [1, 5, 10, 25, 50, 75, 90, 95, 99]
+
+    def test_output_index_derived_from_levels(self, sample_input_no_pp):
+        """The output_index keys each element of the 1-D result (issue I12)."""
+        result = percentiles(sample_input_no_pp)
+        assert result.meta["output_index"] == [
+            "1%",
+            "5%",
+            "10%",
+            "25%",
+            "50%",
+            "75%",
+            "90%",
+            "95%",
+            "99%",
+        ]
+        assert len(result.meta["output_index"]) == result.value.shape[0]
 
     def test_median_is_50th(self, sample_input_no_pp):
         """The 50th percentile (index 4) is the median."""

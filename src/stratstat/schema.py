@@ -30,15 +30,9 @@ from typing import Any
 
 # Canonical trade log columns, per the data contract.
 #
-# ``intratrade_prices`` is the current internal name for what the contract
-# calls ``price_path``.  Both are accepted; ``price_path`` is translated to the
-# internal name on the way in, so callers can use the contract name before the
-# rename lands.
-#
-# ``position_size``, ``max_price``, ``min_price``, ``mfe``, ``mae`` and
-# ``asset`` are part of the contract but not yet consumed by any metric.  They
-# are accepted here so a schema written against the contract does not raise,
-# and they pass through untouched until the trade convention work reads them.
+# ``price_path`` is the contract name; ``intratrade_prices`` is the pre-rename
+# internal name and is accepted as an alias for one release so existing callers
+# do not break silently.
 CANONICAL_TRADE_COLUMNS: frozenset[str] = frozenset(
     {
         "pnl",
@@ -59,8 +53,50 @@ CANONICAL_TRADE_COLUMNS: frozenset[str] = frozenset(
     }
 )
 
-# Contract name -> current internal name.
-_TRADE_ALIASES: dict[str, str] = {"price_path": "intratrade_prices"}
+# Legacy name -> contract name.
+_TRADE_ALIASES: dict[str, str] = {"intratrade_prices": "price_path"}
+
+# Which trade metrics each canonical column unlocks.  Mirrors the
+# ``_require_field`` calls in ``core/trades.py``: when a column is absent the
+# metrics listed here become unavailable.  ``pnl`` is handled specially because
+# every trade metric needs it (described from the registry at call time, so the
+# list cannot drift).  ``entry_time``/``exit_time`` do not appear because they
+# unlock ``duration`` by derivation, handled separately.
+_TRADE_COLUMN_METRICS: dict[str, tuple[str, ...]] = {
+    "side": (
+        "win_rate_long",
+        "win_rate_short",
+        "implementation_shortfall",
+        "mfe",
+        "mae",
+        "long_short_trade_count",
+        "long_short_trade_pct",
+        "long_short_winning_losing",
+        "long_short_avg_duration",
+        "long_short_total_pnl",
+        "long_short_avg_pnl",
+        "long_short_best_worst",
+    ),
+    "duration": (
+        "avg_holding_period",
+        "holding_period_distribution",
+        "avg_winning_duration",
+        "avg_losing_duration",
+        "trade_duration_std",
+        "long_short_avg_duration",
+    ),
+    "fill_price": ("implementation_shortfall", "mfe", "mae"),
+    "decision_price": ("implementation_shortfall",),
+    "price_path": ("mfe", "mae"),
+    "intratrade_prices": ("mfe", "mae"),
+    "max_price": ("mfe", "mae"),
+    "min_price": ("mfe", "mae"),
+    "mfe": ("mfe",),
+    "mae": ("mae",),
+}
+
+# A canonical column derivable from another pair of canonical columns.
+_TRADE_DERIVED: dict[str, tuple[str, str]] = {"duration": ("entry_time", "exit_time")}
 
 
 @dataclass(frozen=True)
@@ -241,3 +277,80 @@ def clear_schema() -> None:
     """Remove the session wide column mapping."""
     global _session_schema
     _session_schema = None
+
+
+def describe_columns(data: Any, schema: Schema | Mapping[str, Any] | None = None) -> dict[str, Any]:
+    """Report how a trade log's columns map to the canonical contract.
+
+    Answers the two questions that matter before calling ``compute_trades``:
+    which of your columns are recognised, and which metrics you are giving up
+    by leaving a canonical column out.
+
+    Args:
+        data: A trade log.  Either a mapping of column name to values or a
+            pandas/polars DataFrame.
+        schema: Optional :class:`Schema` (or a ``trades`` mapping) to account
+            for, so a column you have mapped under a non canonical name is
+            reported as recognised rather than ignored.
+
+    Returns:
+        A dict with three keys:
+
+        * ``"recognized"``: canonical column names available in *data*, either
+          under their canonical name, via *schema*, or by derivation
+          (``duration`` from ``entry_time`` and ``exit_time``).
+        * ``"ignored"``: data columns that are neither canonical nor mapped, so
+          they are dropped from the input.
+        * ``"missing"``: canonical columns that are not recognised, each mapped
+          to the metric names that become unavailable as a result.  A missing
+          ``pnl`` lists every trade metric, since all of them need it.
+
+    ``recognized`` and ``missing`` use the canonical names from
+    :data:`CANONICAL_TRADE_COLUMNS`; the metric lists mirror the
+    ``_require_field`` calls in ``core/trades.py``.
+    """
+    if schema is not None and not isinstance(schema, Schema):
+        schema = Schema(trades=dict(schema))
+
+    if isinstance(data, dict):
+        data_cols = set(data)
+    elif hasattr(data, "columns"):
+        data_cols = {str(c) for c in data.columns}
+    else:
+        raise TypeError(
+            "describe_columns expects a mapping of columns or a pandas/polars "
+            f"DataFrame, got {type(data).__name__}."
+        )
+
+    mapped_values: set[str] = set(schema.trades.values()) if schema is not None else set()
+
+    recognized: set[str] = {c for c in data_cols if c in CANONICAL_TRADE_COLUMNS}
+    if schema is not None:
+        for canonical, source in schema.trades.items():
+            if source in data_cols:
+                recognized.add(canonical)
+
+    for derived, (left, right) in _TRADE_DERIVED.items():
+        if left in recognized and right in recognized:
+            recognized.add(derived)
+
+    ignored = sorted(
+        c for c in data_cols if c not in CANONICAL_TRADE_COLUMNS and c not in mapped_values
+    )
+
+    missing: dict[str, list[str]] = {}
+    for column in sorted(CANONICAL_TRADE_COLUMNS - recognized):
+        if column == "pnl":
+            from stratstat.registry import list_metrics
+
+            names = [m["name"] for m in list_metrics(requires="trades")]
+        else:
+            names = list(_TRADE_COLUMN_METRICS.get(column, ()))
+        if names:
+            missing[column] = names
+
+    return {
+        "recognized": sorted(recognized),
+        "ignored": ignored,
+        "missing": missing,
+    }

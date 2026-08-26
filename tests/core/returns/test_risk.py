@@ -137,10 +137,10 @@ class TestLongestDrawdownDuration:
         assert result_years.value == pytest.approx(result_periods.value / daily_pp)
 
     def test_units_years_requires_pp(self):
-        """units='years' without periods_per_year raises ValueError."""
+        """units='years' defaults periods_per_year to 252 when not provided."""
         inp = ReturnsInput(np.array([0.10, -0.05, 0.20]))
-        with pytest.raises(ValueError, match="periods_per_year"):
-            longest_drawdown_duration(inp, units="years")
+        result = longest_drawdown_duration(inp, units="years")
+        assert result.periods_per_year == 252
 
 
 # ---------------------------------------------------------------------------
@@ -468,10 +468,10 @@ class TestRiskOfRuin:
         assert 0.0 <= result.value <= 1.0
 
     def test_requires_periods_per_year(self):
-        """Raises when periods_per_year is None."""
+        """Defaults periods_per_year to 252 when not provided."""
         inp = ReturnsInput(np.array([0.01, -0.02]))
-        with pytest.raises(ValueError, match="periods_per_year"):
-            risk_of_ruin(inp)
+        result = risk_of_ruin(inp)
+        assert result.periods_per_year == 252
 
     def test_positive_mean_low_ruin(self, daily_pp):
         """Strong positive returns give low risk of ruin."""

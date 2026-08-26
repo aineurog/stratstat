@@ -20,7 +20,7 @@ from numpy.typing import NDArray
 from stratstat.conventions import resolve_convention
 from stratstat.core._utils import numba_worthwhile
 from stratstat.exceptions import MetricNotApplicableError
-from stratstat.inputs import ReturnsInput
+from stratstat.inputs import ReturnsInput, deannualize_rf
 from stratstat.registry import _compute_one, register_metric
 from stratstat.results import MetricResult
 
@@ -504,8 +504,9 @@ def _probabilistic_sortino(
 
     r = input_data.values
     n = r.shape[0]
+    rf_period = deannualize_rf(rf, input_data.periods_per_year)  # type: ignore[arg-type]
 
-    base = _period_sortino(r, rf=rf, mar=mar, denominator=denominator)
+    base = _period_sortino(r, rf=rf_period, mar=mar, denominator=denominator)
     if adjusted:
         base = base / np.sqrt(2.0)
 
@@ -526,6 +527,7 @@ def _probabilistic_sortino(
         meta={
             "ref": _PSR_SORTINO_REF,
             "rf": rf,
+            "rf_period": rf_period,
             "mar": mar,
             "sr_benchmark": sr_benchmark,
             "denominator": denominator,
@@ -557,7 +559,7 @@ def probabilistic_sortino_ratio(
 
     Args:
         input_data: A ``ReturnsInput``.
-        rf: Risk-free rate per period (default 0.0).
+        rf: Annual risk-free rate (default 0.0).
         mar: Minimum acceptable return for the downside deviation (default 0.0).
         sr_benchmark: Benchmark Sortino ratio at period frequency (default 0.0).
         denominator: Downside denominator convention; falls back to the
@@ -602,7 +604,7 @@ def probabilistic_adjusted_sortino_ratio(
 
     Args:
         input_data: A ``ReturnsInput``.
-        rf: Risk-free rate per period (default 0.0).
+        rf: Annual risk-free rate (default 0.0).
         mar: Minimum acceptable return for the downside deviation (default 0.0).
         sr_benchmark: Benchmark adjusted Sortino ratio at period frequency
             (default 0.0).
@@ -1381,7 +1383,7 @@ def skewness_adjusted_sharpe(
 
     Args:
         input_data: A ``ReturnsInput`` with ``periods_per_year`` set.
-        rf: Risk-free rate per period (default 0.0).
+        rf: Annual risk-free rate (default 0.0).
         ddof: Delta degrees of freedom for standard deviation — 1 for
             sample (default), 0 for population.
 
@@ -1394,9 +1396,10 @@ def skewness_adjusted_sharpe(
 
     r = input_data.values  # (n_periods, n_strategies)
     p = float(input_data.periods_per_year)
+    rf_period = deannualize_rf(rf, input_data.periods_per_year)
 
     # Period Sharpe ratio per column
-    excess = np.nanmean(r, axis=0) - rf
+    excess = np.nanmean(r, axis=0) - rf_period
     sigma = np.nanstd(r, axis=0, ddof=ddof)
     sigma_safe = np.where(sigma < 1e-15, np.nan, sigma)
     sr_period = excess / sigma_safe
@@ -1428,6 +1431,7 @@ def skewness_adjusted_sharpe(
         meta={
             "ref": _ASR_REF,
             "rf": rf,
+            "rf_period": rf_period,
             "ddof": ddof,
         },
     )

@@ -257,6 +257,55 @@ class MetricSet:
             groups.setdefault(primary, []).append(r)
         return {cat: MetricSet(results=grp, meta=dict(self.meta)) for cat, grp in groups.items()}
 
+    # -- Omission reporting ----------------------------------------------
+
+    @property
+    def skipped(self) -> list[str]:
+        """Metric names that could not run, in order they were encountered.
+
+        Populated by ``compute_all()`` when a metric is missing a required
+        keyword argument or raises
+        :class:`~stratstat.exceptions.MetricNotApplicableError`.  Empty for a
+        hand built :class:`MetricSet`.
+        """
+        return list(self.meta.get("skipped", []))
+
+    @property
+    def excluded(self) -> list[str]:
+        """Metric names deliberately left out of the run.
+
+        The union of resampling backend metrics (always excluded from
+        ``compute_all`` because they are expensive and need their own
+        parameters) and deduplicated aliases (dropped because their canonical
+        ``alias_of`` metric also ran).  Empty for a hand built
+        :class:`MetricSet`.
+        """
+        return list(self.meta.get("excluded_resampling", [])) + list(
+            self.meta.get("deduplicated", [])
+        )
+
+    @property
+    def excluded_tiers(self) -> list[str]:
+        """Tier names that did not run (data absent or ``include_*`` false)."""
+        return list(self.meta.get("excluded_tiers", []))
+
+    def summary(self) -> str:
+        """One line reporting what ran and what was omitted.
+
+        Complements the :attr:`skipped`, :attr:`excluded` and
+        :attr:`excluded_tiers` properties with a single readable count, so a
+        caller can glance at a batch result and see whether anything was left
+        out rather than assuming everything ran.
+        """
+        parts = [f"{len(self.results)} metrics computed"]
+        if self.skipped:
+            parts.append(f"{len(self.skipped)} skipped ({', '.join(self.skipped)})")
+        if self.excluded:
+            parts.append(f"{len(self.excluded)} excluded ({', '.join(self.excluded)})")
+        if self.excluded_tiers:
+            parts.append(f"tiers not run: {', '.join(self.excluded_tiers)}")
+        return "; ".join(parts)
+
     # -- Display ----------------------------------------------------------
 
     def __str__(self) -> str:
@@ -315,27 +364,58 @@ class MetricSet:
         """Return results as {name: value} dict."""
         return {r.name: r.value for r in self.results}
 
-    def to_frame(self) -> pd.DataFrame:
+    def to_frame(self, explode: bool = True) -> pd.DataFrame:
         """Return results as a pandas DataFrame.
 
         Columns: ``name``, ``value``, ``tier``, ``category``,
         ``periods_per_year``, plus each key in ``meta`` expanded as its own
         column.  ``tier`` is the registry input tier (``requires``); it is
         ``None`` for metrics not present in the registry.
+
+        Args:
+            explode: When True (default), a metric whose value is a 1-D array
+                and whose ``meta`` carries an ``output_index`` of matching
+                length is expanded into one row per element, with the index
+                label in an ``output_index`` column.  This is how per-strategy
+                outputs (``component_var``,
+                ``marginal_contribution_to_risk``) and per-level outputs
+                (``percentiles``) become sortable and filterable instead of
+                landing as an array in a single cell.  Metrics without a
+                matching index (scalars, matrices such as
+                ``correlation_matrix``) stay in one row regardless.
         """
-        records = []
+        records: list[dict[str, Any]] = []
         for r in self.results:
-            rec = {
+            base: dict[str, Any] = {
                 "name": r.name,
-                "value": r.value,
                 "tier": _requires_of(r.name),
                 "category": r.category,
                 "periods_per_year": r.periods_per_year,
+                "degenerate": bool(r.meta.get("degenerate", False)),
+                "degenerate_reason": r.meta.get("degenerate_reason"),
             }
+            idx = r.meta.get("output_index")
+            value = r.value
+            if (
+                explode
+                and isinstance(value, np.ndarray)
+                and value.ndim == 1
+                and isinstance(idx, (list, tuple, np.ndarray))
+                and len(idx) == value.shape[0]
+            ):
+                scalar_meta = {k: v for k, v in r.meta.items() if k != "output_index"}
+                for label, v in zip(idx, value, strict=True):
+                    rec = dict(base)
+                    rec["value"] = v
+                    rec["output_index"] = label
+                    rec.update(scalar_meta)
+                    records.append(rec)
+                continue
+            rec = dict(base)
+            rec["value"] = value
             rec.update(r.meta)
             records.append(rec)
-        df: pd.DataFrame = pd.DataFrame(records)
-        return df
+        return pd.DataFrame(records)
 
     def to_json(self, indent: int = 2) -> str:
         """Return results as a JSON string."""

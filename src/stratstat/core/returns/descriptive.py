@@ -854,6 +854,7 @@ def percentiles(input_data: ReturnsInput) -> MetricResult:
         meta={
             "ref": _PERCENTILE_REF,
             "levels": _PERCENTILE_LEVELS.tolist(),
+            "output_index": [f"{int(level)}%" for level in _PERCENTILE_LEVELS],
             "method": "linear (type 7)",
         },
     )

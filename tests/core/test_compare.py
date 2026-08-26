@@ -514,7 +514,8 @@ class TestCompareInput:
         inp = CompareInput(returns=simple_returns)
         assert inp.n_periods == 252
         assert inp.n_strategies == 3
-        assert inp.periods_per_year is None
+        assert inp.periods_per_year == 252
+        assert inp.ppy_source == "default"
         assert inp.rf == 0.0
 
     def test_with_all_params(self, simple_returns):
@@ -690,3 +691,50 @@ class TestNumbaAgreement:
         numba_count = _pbo_overfit_numba(data, split_points, purge=2, embargo=1, rf=0.0)
         pure_count = _pbo_overfit_fallback(data, split_points, purge=2, embargo=1, rf=0.0)
         assert numba_count == pure_count
+
+
+# ---------------------------------------------------------------------------
+# A9/A10 — strategy labels carried into per-strategy outputs (issue I7)
+# ---------------------------------------------------------------------------
+
+
+class TestStrategyLabels:
+    def _labeled_input(self):
+        pd = pytest.importorskip("pandas")
+        rng = np.random.default_rng(7)
+        n = 252
+        df = pd.DataFrame(
+            {
+                "alpha": rng.normal(0.001, 0.02, n),
+                "beta": rng.normal(0.0008, 0.018, n),
+            }
+        )
+        return CompareInput(returns=df, periods_per_year=252)
+
+    def test_component_var_carries_output_index(self):
+        from stratstat.core.compare import component_var
+
+        result = component_var(self._labeled_input())
+        assert result.meta["output_index"] == ["alpha", "beta"]
+        assert result.value.shape == (2,)
+
+    def test_marginal_contribution_to_risk_carries_output_index(self):
+        from stratstat.core.compare import marginal_contribution_to_risk
+
+        result = marginal_contribution_to_risk(self._labeled_input())
+        assert result.meta["output_index"] == ["alpha", "beta"]
+
+    def test_correlation_matrix_carries_axis_labels(self):
+        from stratstat.core.compare import correlation_matrix
+
+        result = correlation_matrix(self._labeled_input())
+        assert result.meta["labels"] == ["alpha", "beta"]
+        assert result.value.shape == (2, 2)
+
+    def test_numpy_input_has_no_output_index(self):
+        from stratstat.core.compare import component_var
+
+        rng = np.random.default_rng(7)
+        arr = np.column_stack([rng.normal(0.001, 0.02, 252), rng.normal(0.001, 0.02, 252)])
+        result = component_var(CompareInput(returns=arr, periods_per_year=252))
+        assert "output_index" not in result.meta

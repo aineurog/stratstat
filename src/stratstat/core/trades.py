@@ -55,7 +55,7 @@ _FIELD_CHECKS: dict[str, tuple[str, str]] = {
     "side": ("has_side", "side"),
     "duration": ("has_duration", "duration (or entry_time/exit_time)"),
     "fill_price": ("has_prices", "fill_price, decision_price"),
-    "intratrade_prices": ("has_intratrade", "intratrade_prices"),
+    "price_path": ("has_price_path", "price_path (or intratrade_prices)"),
 }
 
 
@@ -63,7 +63,7 @@ def _require_field(inp: TradeInput, field: str, metric_name: str) -> None:
     """Check that *inp* has *field*; raise ``ValueError`` if not.
 
     Used by metrics that need optional trade-log columns (``side``,
-    ``duration``, ``fill_price``, ``intratrade_prices``).
+    ``duration``, ``fill_price``, ``price_path``).
     """
     if field not in _FIELD_CHECKS:
         raise ValueError(
@@ -362,8 +362,13 @@ def profit_factor(inp: TradeInput) -> MetricResult:
     .. math::
         \text{PF} = \frac{\sum_{j}\max(\text{PnL}_j, 0)}
         {|\sum_{j}\min(\text{PnL}_j, 0)|}
+
+    Defined on account basis: when ``pnl_basis`` is ``"trade"`` and a
+    ``position_size`` column is present, each trade's pnl is converted to
+    account basis first, and ``meta["converted"]`` records that the
+    conversion ran.
     """
-    pnl = inp.pnl
+    pnl, converted = inp.pnl_account_basis()
     gross_profit = np.nansum(np.maximum(pnl, 0.0))
     gross_loss = np.abs(np.nansum(np.minimum(pnl, 0.0)))
     if gross_loss == 0.0:
@@ -375,7 +380,7 @@ def profit_factor(inp: TradeInput) -> MetricResult:
         value=value,
         category=("trades", "pnl"),
         periods_per_year=inp.periods_per_year,
-        meta={"ref": _REF_SCHWAGER},
+        meta={"ref": _REF_SCHWAGER, "pnl_basis": inp.pnl_basis, "converted": converted},
     )
 
 
@@ -398,9 +403,12 @@ def expectancy(inp: TradeInput) -> MetricResult:
         \mathbb{E}[\text{PnL}] = \text{WR} \cdot \bar{W} +
         (1 - \text{WR}) \cdot \bar{L}
 
-    with :math:`\bar{L}` as a negative number.
+    with :math:`\bar{L}` as a negative number.  Defined on account basis:
+    when ``pnl_basis`` is ``"trade"`` and a ``position_size`` column is
+    present, each trade's pnl is converted to account basis first, and
+    ``meta["converted"]`` records that the conversion ran.
     """
-    pnl = inp.pnl
+    pnl, converted = inp.pnl_account_basis()
     wins = pnl[_win_mask(pnl)]
     losses = pnl[_loss_mask(pnl)]
     n = len(pnl)
@@ -416,7 +424,7 @@ def expectancy(inp: TradeInput) -> MetricResult:
         value=value,
         category=("trades", "pnl"),
         periods_per_year=inp.periods_per_year,
-        meta={"ref": _REF_THARP},
+        meta={"ref": _REF_THARP, "pnl_basis": inp.pnl_basis, "converted": converted},
     )
 
 
@@ -451,7 +459,7 @@ def avg_holding_period(inp: TradeInput) -> MetricResult:
         value=value,
         category=("trades", "duration"),
         periods_per_year=inp.periods_per_year,
-        meta={"ref": _REF_SCHWAGER},
+        meta={"ref": _REF_SCHWAGER, "duration_unit": "periods"},
     )
 
 
@@ -495,6 +503,7 @@ def holding_period_distribution(inp: TradeInput) -> MetricResult:
         periods_per_year=inp.periods_per_year,
         meta={
             "ref": _REF_HYNDMAN,
+            "duration_unit": "periods",
             "output_index": ["min", "p25", "p50", "p75", "max"],
         },
     )
@@ -622,6 +631,11 @@ def implementation_shortfall(inp: TradeInput) -> MetricResult:
 
     where :math:`\text{side}_j` is +1 for buys (long entries) and −1
     for sells (short entries).
+
+    Live trading note: ``fill_price`` is the price actually obtained and
+    ``decision_price`` the price when the signal fired.  In a backtest the
+    fill equals the decision by construction, so the shortfall is trivially
+    zero; a non-zero value is only meaningful when the two genuinely differ.
 
     Returns ``[mean, std, min, max]`` of the per-trade shortfall series.
     """
@@ -760,7 +774,7 @@ def avg_winning_duration(inp: TradeInput) -> MetricResult:
         value=value,
         category=("trades", "duration"),
         periods_per_year=inp.periods_per_year,
-        meta={"ref": _REF_SCHWAGER},
+        meta={"ref": _REF_SCHWAGER, "duration_unit": "periods"},
     )
 
 
@@ -798,7 +812,7 @@ def avg_losing_duration(inp: TradeInput) -> MetricResult:
         value=value,
         category=("trades", "duration"),
         periods_per_year=inp.periods_per_year,
-        meta={"ref": _REF_SCHWAGER},
+        meta={"ref": _REF_SCHWAGER, "duration_unit": "periods"},
     )
 
 
@@ -903,8 +917,12 @@ def sqn(inp: TradeInput) -> MetricResult:
     .. math::
         \text{SQN} = \frac{\bar{r}_{\text{trade}}}
         {\sigma_{\text{trade}}} \cdot \sqrt{N}
+
+    Defined per bet on trade basis: when ``pnl_basis`` is ``"account"`` and a
+    ``position_size`` column is present, each trade's pnl is converted to trade
+    basis first.
     """
-    pnl = inp.pnl
+    pnl, converted = inp.pnl_trade_basis()
     valid = pnl[np.isfinite(pnl)]
     n = len(valid)
     if n < 2:
@@ -921,7 +939,7 @@ def sqn(inp: TradeInput) -> MetricResult:
         value=value,
         category=("trades", "pnl"),
         periods_per_year=inp.periods_per_year,
-        meta={"ref": _REF_THARP},
+        meta={"ref": _REF_THARP, "pnl_basis": inp.pnl_basis, "converted": converted},
     )
 
 
@@ -956,7 +974,7 @@ def trade_duration_std(inp: TradeInput) -> MetricResult:
         value=value,
         category=("trades", "duration"),
         periods_per_year=inp.periods_per_year,
-        meta={"ref": _REF_FISHER, "ddof": 1},
+        meta={"ref": _REF_FISHER, "ddof": 1, "duration_unit": "periods"},
     )
 
 
@@ -1012,7 +1030,15 @@ def geometric_mean_return_per_trade(inp: TradeInput) -> MetricResult:
     .. math::
         \bar{r}_{g,\text{trade}} = \exp\!\left(
         \frac{1}{N}\sum_{j=1}^{N}\ln(1 + \text{PnL}_j)\right) - 1
+
+    Requires ``pnl`` as a return fraction; ``log(1 + pnl)`` is meaningless for
+    a currency-valued pnl, so ``pnl_unit="currency"`` raises.
     """
+    if inp.pnl_unit == "currency":
+        raise MetricNotApplicableError(
+            "geometric_mean_return_per_trade requires pnl as a fraction "
+            "(pnl_unit='fraction'); got pnl_unit='currency'."
+        )
     pnl = inp.pnl
     valid = pnl[np.isfinite(pnl)]
     # PnL is a return fraction; 1 + PnL must be > 0 for log
@@ -1028,7 +1054,7 @@ def geometric_mean_return_per_trade(inp: TradeInput) -> MetricResult:
         value=value,
         category=("trades", "pnl"),
         periods_per_year=inp.periods_per_year,
-        meta={"ref": _REF_CAMPBELL},
+        meta={"ref": _REF_CAMPBELL, "pnl_unit": inp.pnl_unit},
     )
 
 
@@ -1131,48 +1157,21 @@ def outlier_loss_ratio(inp: TradeInput) -> MetricResult:
 def mfe(inp: TradeInput) -> MetricResult:
     r"""Maximum Favorable Excursion (summary across all trades).
 
-    For each trade, MFE is the largest dollar gain relative to entry
-    price observed during the trade's lifetime.  For long trades this is
-    :math:`\max P_{\text{path}} - P_{\text{entry}}`; for short trades it
-    is :math:`P_{\text{entry}} - \min P_{\text{path}}`.
+    For each trade, MFE is the largest favorable move observed while the
+    trade was open, expressed as a fraction of the entry price.  For long
+    trades this is :math:`(\max P_{\text{path}} - P_{\text{entry}}) /
+    P_{\text{entry}}`; for short trades it is
+    :math:`(P_{\text{entry}} - \min P_{\text{path}}) / P_{\text{entry}}`.
+
+    The per-trade excursion source follows the precedence in section 3.3 and
+    is recorded in ``meta["excursion_source"]``.
 
     Returns ``[mean, max, min]`` across all trades.
     """
-    _require_field(inp, "intratrade_prices", "mfe")
-    _require_field(inp, "side", "mfe")
-    itp_list = inp.intratrade_prices
-    is_long = inp.is_long
-    assert itp_list is not None
-    assert is_long is not None
-
-    n = len(itp_list)
-    if n == 0:
-        arr: NDArray[np.floating] = np.full(3, np.nan)
-        return MetricResult(
-            name="mfe",
-            value=arr,
-            category=("trades", "excursion"),
-            periods_per_year=inp.periods_per_year,
-            meta={
-                "ref": _REF_SWEENEY,
-                "output_index": ["mean", "max", "min"],
-            },
-        )
-
-    mfe_vals = np.full(n, np.nan)
-    for j in range(n):
-        path = itp_list[j]
-        if len(path) < 2 or not np.isfinite(path[0]):
-            continue
-        entry = path[0]
-        if is_long[j]:
-            mfe_vals[j] = np.nanmax(path) - entry
-        else:
-            mfe_vals[j] = entry - np.nanmin(path)
-
+    mfe_vals, _, source = inp.excursions()
     valid = mfe_vals[np.isfinite(mfe_vals)]
     if len(valid) == 0:
-        arr = np.full(3, np.nan)
+        arr: NDArray[np.floating] = np.full(3, np.nan)
     else:
         arr = np.array([np.mean(valid), np.max(valid), np.min(valid)])
     return MetricResult(
@@ -1183,6 +1182,7 @@ def mfe(inp: TradeInput) -> MetricResult:
         meta={
             "ref": _REF_SWEENEY,
             "output_index": ["mean", "max", "min"],
+            "excursion_source": source,
         },
     )
 
@@ -1202,49 +1202,22 @@ def mfe(inp: TradeInput) -> MetricResult:
 def mae(inp: TradeInput) -> MetricResult:
     r"""Maximum Adverse Excursion (summary across all trades).
 
-    For each trade, MAE is the largest dollar loss relative to entry
-    price observed during the trade's lifetime (reported as a positive
-    number).  For long trades this is
-    :math:`P_{\text{entry}} - \min P_{\text{path}}`; for short trades it
-    is :math:`\max P_{\text{path}} - P_{\text{entry}}`.
+    For each trade, MAE is the largest adverse move observed while the
+    trade was open, expressed as a fraction of the entry price (reported
+    as a positive number).  For long trades this is
+    :math:`(P_{\text{entry}} - \min P_{\text{path}}) / P_{\text{entry}}`;
+    for short trades it is
+    :math:`(\max P_{\text{path}} - P_{\text{entry}}) / P_{\text{entry}}`.
+
+    The per-trade excursion source follows the precedence in section 3.3 and
+    is recorded in ``meta["excursion_source"]``.
 
     Returns ``[mean, max, min]`` across all trades.
     """
-    _require_field(inp, "intratrade_prices", "mae")
-    _require_field(inp, "side", "mae")
-    itp_list = inp.intratrade_prices
-    is_long = inp.is_long
-    assert itp_list is not None
-    assert is_long is not None
-
-    n = len(itp_list)
-    if n == 0:
-        arr: NDArray[np.floating] = np.full(3, np.nan)
-        return MetricResult(
-            name="mae",
-            value=arr,
-            category=("trades", "excursion"),
-            periods_per_year=inp.periods_per_year,
-            meta={
-                "ref": _REF_SWEENEY,
-                "output_index": ["mean", "max", "min"],
-            },
-        )
-
-    mae_vals = np.full(n, np.nan)
-    for j in range(n):
-        path = itp_list[j]
-        if len(path) < 2 or not np.isfinite(path[0]):
-            continue
-        entry = path[0]
-        if is_long[j]:
-            mae_vals[j] = entry - np.nanmin(path)
-        else:
-            mae_vals[j] = np.nanmax(path) - entry
-
+    _, mae_vals, source = inp.excursions()
     valid = mae_vals[np.isfinite(mae_vals)]
     if len(valid) == 0:
-        arr = np.full(3, np.nan)
+        arr: NDArray[np.floating] = np.full(3, np.nan)
     else:
         arr = np.array([np.mean(valid), np.max(valid), np.min(valid)])
     return MetricResult(
@@ -1255,6 +1228,7 @@ def mae(inp: TradeInput) -> MetricResult:
         meta={
             "ref": _REF_SWEENEY,
             "output_index": ["mean", "max", "min"],
+            "excursion_source": source,
         },
     )
 
@@ -1277,9 +1251,16 @@ def kelly_criterion(inp: TradeInput) -> MetricResult:
     .. math::
         f^* = W - \frac{1 - W}{\bar{W} / |\bar{L}|}
 
-    Assumes independent, identically distributed trade returns.
+    Assumes independent, identically distributed trade returns.  Defined per
+    bet on trade basis, and requires ``pnl`` as a fraction; a currency-valued
+    pnl raises.
     """
-    pnl = inp.pnl
+    if inp.pnl_unit == "currency":
+        raise MetricNotApplicableError(
+            "kelly_criterion requires pnl as a fraction (pnl_unit='fraction'); "
+            "got pnl_unit='currency'."
+        )
+    pnl, converted = inp.pnl_trade_basis()
     wins = pnl[_win_mask(pnl)]
     losses = pnl[_loss_mask(pnl)]
     n = len(pnl)
@@ -1305,7 +1286,7 @@ def kelly_criterion(inp: TradeInput) -> MetricResult:
         value=value,
         category=("trades", "pnl"),
         periods_per_year=inp.periods_per_year,
-        meta={"ref": _REF_KELLY},
+        meta={"ref": _REF_KELLY, "pnl_unit": inp.pnl_unit, "converted": converted},
     )
 
 
@@ -1471,6 +1452,7 @@ def long_short_avg_duration(inp: TradeInput) -> MetricResult:
         periods_per_year=inp.periods_per_year,
         meta={
             "ref": _REF_SCHWAGER,
+            "duration_unit": "periods",
             "output_index": ["long_avg_duration", "short_avg_duration"],
         },
     )

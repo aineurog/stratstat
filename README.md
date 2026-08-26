@@ -203,7 +203,7 @@ the container directly gives you more control.
 |-----------|---------|---------------|
 | `ReturnsInput(returns, periods_per_year)` | returns tier | 1-D or 2-D array of period returns |
 | `BenchmarkInput(returns, benchmark, periods_per_year, rf)` | benchmark tier | Strategy returns plus benchmark series |
-| `ExposureInput(positions, returns, ...)` | exposure tier | Position weights, optional returns and benchmark weights |
+| `ExposureInput(positions, asset_returns, ...)` | exposure tier | Position weights, optional asset returns and benchmark weights |
 | `TradeInput(trades)` | trades tier | Dict with pnl, side, duration, and other trade fields |
 | `CompareInput(returns, weights, benchmark)` | compare tier | Multiple strategy columns for head to head comparison |
 
@@ -214,6 +214,193 @@ work:
 ss.compute(returns_array, "sharpe_ratio", periods_per_year=252)
 ss.compute(ReturnsInput(returns_array, periods_per_year=252), "sharpe_ratio")
 ```
+
+---
+
+## Data contract
+
+Every tier reads a specific input shape. StratStat normalizes raw arrays,
+DataFrames, and dicts into typed containers, so you can pass data directly or
+wrap it yourself. This section states the contract each tier expects and the
+units every field is measured in.
+
+### Tiers at a glance
+
+| Tier | Entry point | Input | Required |
+|------|-------------|-------|----------|
+| returns | `compute_returns` | strategy returns | yes |
+| benchmark | `compute_benchmark` | strategy returns plus a benchmark | yes |
+| exposure | `compute_exposure` | positions, optional asset returns | yes |
+| trades | `compute_trades` | trade log with `pnl` | yes |
+| compare | `compute_compare` | several strategy return columns | yes |
+
+Each tier has its own entry point, so a call never mixes inputs across tiers.
+
+```python
+rng = np.random.default_rng(42)
+returns = rng.normal(0.0004, 0.01, size=252)       # returns tier
+bench = rng.normal(0.0003, 0.008, size=252)        # benchmark tier
+positions = np.full((252, 3), 1 / 3)               # exposure tier, three assets
+asset_returns = rng.normal(0.0004, 0.01, size=(252, 3))
+trades = {"pnl": [0.02, -0.01], "side": ["long", "short"]}
+
+ss.compute_returns(returns, periods_per_year=252)
+ss.compute_benchmark(returns, bench, periods_per_year=252)
+ss.compute_exposure(positions, asset_returns=asset_returns, periods_per_year=252)
+ss.compute_trades(trades, periods_per_year=252)
+ss.compute_compare(np.column_stack([returns, bench]), periods_per_year=252)
+```
+
+### Trade log columns
+
+`pnl` is the only required column. Every other column unlocks a specific set
+of metrics.
+
+| Column | Meaning | Status | Unlocks |
+|--------|---------|--------|---------|
+| `pnl` | profit or loss per trade | required | every trade metric |
+| `side` | `"long"`/`"short"`, `±1`, or bool | optional | long/short breakdowns |
+| `duration` | holding period counted in periods | optional | holding period metrics |
+| `entry_time` | entry timestamp | optional | derives `duration`, bar excursions |
+| `exit_time` | exit timestamp | optional | derives `duration`, bar excursions |
+| `fill_price` | price actually obtained | optional | implementation shortfall |
+| `decision_price` | price when the signal fired | optional | implementation shortfall |
+| `price_path` | full price path per trade | optional | MFE and MAE, lowest priority |
+| `position_size` | fraction of account committed | optional | basis conversion |
+| `max_price` | highest price while the trade was open | optional | MFE |
+| `min_price` | lowest price while the trade was open | optional | MAE |
+| `mfe` | precomputed favorable excursion, fraction | optional | MFE, highest priority |
+| `mae` | precomputed adverse excursion, fraction | optional | MAE, highest priority |
+
+`max_price` and `min_price` are side neutral. The library applies the long or
+short logic, so you do not have to invert the columns for shorts. `price_path`
+replaces the old `intratrade_prices` name, which is still accepted as an alias
+for one release.
+
+### Trade pnl conventions
+
+Two parameters, declared at call time and recorded in `meta` on every affected
+result, state how the `pnl` column is measured.
+
+| Parameter | Default | Values | Meaning |
+|-----------|---------|--------|---------|
+| `pnl_basis` | `"trade"` | `"trade"`, `"account"` | the capital base pnl is measured against |
+| `pnl_unit` | `"fraction"` | `"fraction"`, `"currency"` | whether pnl is a fraction or a currency amount |
+
+`pnl_basis` defaults to `"trade"` because the literature this tier cites
+defines its statistics per trade and because a trade log row naturally records
+the trade's own return. When `position_size` is absent it defaults to 1.0 and
+the two bases coincide. With `position_size` present the library converts
+between bases so each metric uses the one it is defined on. Kelly and SQN are
+defined per bet and use trade basis. Profit factor, expectancy, and the
+reconciliation check use account basis.
+
+`pnl_unit` defaults to `"fraction"`. The metrics that need a fraction, the
+Kelly criterion and the geometric mean return per trade, refuse to run when
+`pnl_unit` is `"currency"`.
+
+### Units
+
+Every field is measured in the unit listed here. StratStat does not convert
+between units, so supply each input in the expected scale.
+
+| Input | Expected |
+|-------|----------|
+| returns | fraction, 0.01 is one percent |
+| `rf` | annual, deannualized geometrically |
+| trade `pnl` | fraction by default, currency when declared |
+| benchmark returns | same scale and frequency as strategy returns |
+| positions | weights, 0.5 is fifty percent |
+| compare `weights` | fractions summing to 1 |
+| `duration` | periods |
+| `equity` | level series |
+| MFE and MAE outputs | fractions |
+
+**`rf` is annual.** This is a breaking change from the old behavior, which
+expected a per period rate. A migrating user who passes a per period rate now
+understates it by the annualization factor. The library deannualizes
+geometrically with `(1 + rf) ** (1 / periods_per_year) - 1`, matching the
+convention in QuantStats. The annual value and the derived per period value are
+both recorded in `meta`.
+
+### Excursion precedence
+
+The `mfe` and `mae` metrics derive per trade favorable and adverse excursion
+from the first source available, in this order.
+
+| Priority | Source | Requires |
+|----------|--------|----------|
+| 1 | `mfe` and `mae` columns | nothing else |
+| 2 | `max_price` and `min_price` columns | nothing else |
+| 3 | derived from `prices` bars | `entry_time`, `exit_time`, bars covering the span |
+| 4 | `price_path` | one array per trade |
+
+The chosen route is recorded as `meta["excursion_source"]`. When the bars carry
+only a close and no high or low, the derived extremes understate the true range
+and the source is recorded as `"close_only"`.
+
+### Exposure tier
+
+The exposure tier is a multi asset tier. Its `positions` input is a weights
+matrix, one column per asset, and its `asset_returns` input holds per asset
+returns. A single asset user passes a matrix with one column. The tier was
+renamed so `asset_returns` no longer collides with the strategy `returns` used
+everywhere else.
+
+### Annualization caveat
+
+Annualizing assumes each period represents an equal slice of a year. That holds
+for daily, weekly, and monthly bars. It does not hold for sub daily bars, for
+non time based bars such as tick or volume bars, or for irregularly sampled
+returns, where one period is not a fixed fraction of a year. For those inputs
+the classic annualized Sharpe and its relatives misstate how much return you
+get per unit of risk, so StratStat also ships `lo_sharpe_se`,
+`autocorr_penalty`, `smart_sharpe`, and `smart_sortino`, which correct for
+serial correlation and non normal returns instead of blindly multiplying by the
+square root of time.
+
+---
+
+## Schema and column mapping
+
+StratStat expects canonical column names. Real data rarely uses them, so a
+`Schema` maps your names to the canonical contract. There are three levels.
+
+The first level is to rename nothing and supply canonical names directly.
+
+```python
+trades = {"pnl": [0.02, -0.01], "side": ["long", "short"], "duration": [5, 3]}
+ss.compute_trades(trades)
+```
+
+The second level is the inline `columns=` shorthand, for a one off call.
+
+```python
+trades = {"profit": [0.02, -0.01], "direction": ["long", "short"], "bars_held": [5, 3]}
+ss.compute_trades(
+    trades,
+    columns={"pnl": "profit", "side": "direction", "duration": "bars_held"},
+)
+```
+
+The third level is a `Schema` object, reusable across calls, or the session
+wide `set_schema` default.
+
+```python
+schema = ss.Schema(trades={"pnl": "profit", "side": "direction"})
+ss.compute_trades(trades, schema=schema)
+
+# or set it once for the whole session
+ss.set_schema({"trades": {"pnl": "profit", "side": "direction"}})
+ss.compute_trades(trades)
+ss.clear_schema()
+```
+
+The mapping key is always the canonical name and the value is your column, so
+the mapping reads in the direction you would say it out loud. Matching is
+exact. Nothing is inferred, case folded, or fuzzy matched.
+`ss.describe_columns` reports which of your columns are recognized and which
+metrics you give up by leaving a canonical column out.
 
 ---
 

@@ -68,7 +68,7 @@ def inp_with_ret(simple_positions, simple_returns, simple_benchmark):
     """ExposureInput with positions, returns, and benchmark."""
     return ExposureInput(
         positions=simple_positions,
-        returns=simple_returns,
+        asset_returns=simple_returns,
         benchmark=simple_benchmark,
         periods_per_year=252,
     )
@@ -258,7 +258,7 @@ class TestLeverage:
         expected = np.nanmean(lev)
         np.testing.assert_allclose(result.value, expected)
 
-    def test_no_equity_no_returns_raises(self, inp_no_ret):
+    def test_no_equity_no_asset_returns_raises(self, inp_no_ret):
         from stratstat.registry import _compute_one
 
         assert inp_no_ret.equity is None
@@ -275,6 +275,15 @@ class TestLeverage:
         lev = ge / equity
         expected = np.nanmean(lev)
         np.testing.assert_allclose(result.value, expected)
+
+    def test_equity_source_recorded_in_meta(self, simple_positions):
+        """Leverage states where its equity curve came from."""
+        sret = np.random.default_rng(3).normal(0.0, 0.01, size=simple_positions.shape[0])
+        inp = ExposureInput(positions=simple_positions, returns=sret)
+        from stratstat.registry import _compute_one
+
+        result = _compute_one(inp, "leverage")
+        assert result.meta["equity_source"] == "strategy_returns"
 
     def test_zero_equity_period(self):
         """Periods with zero equity should produce NaN in leverage."""
@@ -381,7 +390,7 @@ class TestLongBookReturn:
         """Independently compute long-book return to verify."""
         positions = np.array([[0.5, 0.3], [0.6, 0.2], [0.4, 0.1]])
         returns = np.array([[0.01, -0.02], [0.02, 0.01], [-0.01, 0.03]])
-        inp = ExposureInput(positions=positions, returns=returns)
+        inp = ExposureInput(positions=positions, asset_returns=returns)
         from stratstat.registry import _compute_one
 
         result = _compute_one(inp, "long_book_return")
@@ -391,7 +400,7 @@ class TestLongBookReturn:
         # mean = (0 + 0.013 + 0.0) / 3 = 0.013 / 3
         np.testing.assert_allclose(result.value, 0.013 / 3)
 
-    def test_no_returns_raises(self, inp_no_ret):
+    def test_no_asset_returns_raises(self, inp_no_ret):
         from stratstat.registry import _compute_one
 
         with pytest.raises(ValueError, match="long_book_return requires"):
@@ -401,7 +410,7 @@ class TestLongBookReturn:
         """When all positions are short, long-book return = 0."""
         positions = np.array([[-0.5, -0.3], [-0.6, -0.2]])
         returns = np.array([[0.01, 0.02], [0.02, -0.01]])
-        inp = ExposureInput(positions=positions, returns=returns)
+        inp = ExposureInput(positions=positions, asset_returns=returns)
         from stratstat.registry import _compute_one
 
         result = _compute_one(inp, "long_book_return")
@@ -427,7 +436,7 @@ class TestShortBookReturn:
         """Independently compute short-book return to verify."""
         positions = np.array([[0.5, -0.3], [0.6, -0.2], [0.4, -0.1]])
         returns = np.array([[0.01, -0.02], [0.02, 0.01], [-0.01, 0.03]])
-        inp = ExposureInput(positions=positions, returns=returns)
+        inp = ExposureInput(positions=positions, asset_returns=returns)
         from stratstat.registry import _compute_one
 
         result = _compute_one(inp, "short_book_return")
@@ -437,7 +446,7 @@ class TestShortBookReturn:
         # mean = (0 - 0.003 - 0.006) / 3 = -0.003
         np.testing.assert_allclose(result.value, (-0.003 - 0.006) / 3)
 
-    def test_no_returns_raises(self, inp_no_ret):
+    def test_no_asset_returns_raises(self, inp_no_ret):
         from stratstat.registry import _compute_one
 
         with pytest.raises(ValueError, match="short_book_return requires"):
@@ -447,7 +456,7 @@ class TestShortBookReturn:
         """When all positions are long, short-book return = 0."""
         positions = np.array([[0.5, 0.3], [0.6, 0.2]])
         returns = np.array([[0.01, 0.02], [0.02, -0.01]])
-        inp = ExposureInput(positions=positions, returns=returns)
+        inp = ExposureInput(positions=positions, asset_returns=returns)
         from stratstat.registry import _compute_one
 
         result = _compute_one(inp, "short_book_return")
@@ -483,7 +492,7 @@ class TestLongBeta:
 
         inp = ExposureInput(
             positions=positions,
-            returns=returns,
+            asset_returns=returns,
             benchmark=benchmark,
         )
         from stratstat.registry import _compute_one
@@ -492,14 +501,14 @@ class TestLongBeta:
         # Beta should be close to 1.5 (t=0 zero pad dilutes by ≈1/n).
         assert abs(float(result.value) - 1.5) < 0.03
 
-    def test_no_returns_raises(self, inp_no_ret):
+    def test_no_asset_returns_raises(self, inp_no_ret):
         from stratstat.registry import _compute_one
 
         with pytest.raises(ValueError, match="long_beta requires asset-level"):
             _compute_one(inp_no_ret, "long_beta")
 
     def test_no_benchmark_raises(self, simple_positions, simple_returns):
-        inp = ExposureInput(positions=simple_positions, returns=simple_returns)
+        inp = ExposureInput(positions=simple_positions, asset_returns=simple_returns)
         from stratstat.registry import _compute_one
 
         with pytest.raises(ValueError, match="long_beta requires benchmark"):
@@ -512,7 +521,7 @@ class TestLongBeta:
         benchmark = np.array([0.005, 0.010])
         inp = ExposureInput(
             positions=positions,
-            returns=returns,
+            asset_returns=returns,
             benchmark=benchmark,
         )
         from stratstat.registry import _compute_one
@@ -554,7 +563,7 @@ class TestShortBeta:
 
         inp = ExposureInput(
             positions=positions,
-            returns=returns,
+            asset_returns=returns,
             benchmark=benchmark,
         )
         from stratstat.registry import _compute_one
@@ -564,14 +573,14 @@ class TestShortBeta:
         # it by at most 1/n = 2 %).
         assert abs(float(result.value) - 2.0) < 0.04
 
-    def test_no_returns_raises(self, inp_no_ret):
+    def test_no_asset_returns_raises(self, inp_no_ret):
         from stratstat.registry import _compute_one
 
         with pytest.raises(ValueError, match="short_beta requires asset-level"):
             _compute_one(inp_no_ret, "short_beta")
 
     def test_no_benchmark_raises(self, simple_positions, simple_returns):
-        inp = ExposureInput(positions=simple_positions, returns=simple_returns)
+        inp = ExposureInput(positions=simple_positions, asset_returns=simple_returns)
         from stratstat.registry import _compute_one
 
         with pytest.raises(ValueError, match="short_beta requires benchmark"):
@@ -589,7 +598,7 @@ class TestShortBeta:
         benchmark = np.array([0.005, 0.010, -0.005])
         inp = ExposureInput(
             positions=positions,
-            returns=returns,
+            asset_returns=returns,
             benchmark=benchmark,
         )
         from stratstat.registry import _compute_one
@@ -737,12 +746,13 @@ class TestTurnover:
         result = _compute_one(inp, "turnover")
         assert np.isnan(result.value)
 
-    def test_no_periods_per_year_raises(self, simple_positions):
+    def test_default_periods_per_year(self, simple_positions):
         inp = ExposureInput(positions=simple_positions)
         from stratstat.registry import _compute_one
 
-        with pytest.raises(ValueError, match="turnover requires periods_per_year"):
-            _compute_one(inp, "turnover")
+        result = _compute_one(inp, "turnover")
+        assert result.periods_per_year == 252
+        assert result.meta["ppy_source"] == "default"
 
     def test_monthly_turnover(self):
         """Test with monthly periods_per_year."""
@@ -1325,10 +1335,10 @@ class TestInputTypes:
         with pytest.raises(ValueError, match="must be 1-D or 2-D"):
             ExposureInput(positions=positions)
 
-    def test_returns_shape_mismatch_raises(self, simple_positions):
+    def test_asset_returns_shape_mismatch_raises(self, simple_positions):
         returns_wrong = np.ones((5, 3))  # wrong n_periods
         with pytest.raises(ValueError, match="must match positions"):
-            ExposureInput(positions=simple_positions, returns=returns_wrong)
+            ExposureInput(positions=simple_positions, asset_returns=returns_wrong)
 
     def test_benchmark_length_mismatch_raises(self, simple_positions):
         benchmark_wrong = np.ones(5)  # wrong length
@@ -1436,17 +1446,17 @@ class TestRegistry:
 class TestExposureInputFeatures:
     """Tests for ExposureInput features and convenience properties."""
 
-    def test_auto_equity_from_positions_returns(
+    def test_auto_equity_from_positions_asset_returns(
         self,
         simple_positions,
         simple_returns,
     ):
-        inp = ExposureInput(positions=simple_positions, returns=simple_returns)
+        inp = ExposureInput(positions=simple_positions, asset_returns=simple_returns)
         assert inp.has_equity
         assert inp.equity is not None
         assert inp.equity.shape == (inp.n_periods,)
 
-    def test_no_equity_without_returns(self, simple_positions):
+    def test_no_equity_without_asset_returns(self, simple_positions):
         inp = ExposureInput(positions=simple_positions)
         assert not inp.has_equity
         assert inp.equity is None
@@ -1455,14 +1465,50 @@ class TestExposureInputFeatures:
         explicit_eq = np.ones(10) * 100.0
         inp = ExposureInput(
             positions=simple_positions,
-            returns=simple_returns,
+            asset_returns=simple_returns,
             equity=explicit_eq,
         )
         np.testing.assert_array_equal(inp.equity, explicit_eq)
 
-    def test_has_returns(self, inp_no_ret, inp_with_ret):
-        assert not inp_no_ret.has_returns
-        assert inp_with_ret.has_returns
+    def test_equity_from_strategy_returns(self, simple_positions):
+        """Route 2: strategy returns derive equity via cumprod(1 + r)."""
+        rng = np.random.default_rng(7)
+        sret = rng.normal(0.0, 0.01, size=simple_positions.shape[0])
+        inp = ExposureInput(positions=simple_positions, returns=sret)
+        assert inp.has_equity
+        np.testing.assert_allclose(inp.equity, np.cumprod(1.0 + sret))
+        assert inp.equity_source == "strategy_returns"
+
+    def test_equity_source_user(self, simple_positions):
+        eq = np.linspace(1.0, 1.1, simple_positions.shape[0])
+        inp = ExposureInput(positions=simple_positions, equity=eq)
+        assert inp.equity_source == "user"
+
+    def test_equity_source_positions(self, simple_positions, simple_returns):
+        inp = ExposureInput(positions=simple_positions, asset_returns=simple_returns)
+        assert inp.equity_source == "positions"
+
+    def test_equity_precedence_user_over_strategy(self, simple_positions):
+        sret = np.zeros(simple_positions.shape[0])
+        eq = np.ones(simple_positions.shape[0]) * 5.0
+        inp = ExposureInput(positions=simple_positions, returns=sret, equity=eq)
+        assert inp.equity_source == "user"
+        np.testing.assert_array_equal(inp.equity, eq)
+
+    def test_equity_precedence_strategy_over_positions(self, simple_positions, simple_returns):
+        sret = np.zeros(simple_positions.shape[0])
+        inp = ExposureInput(
+            positions=simple_positions, returns=sret, asset_returns=simple_returns
+        )
+        assert inp.equity_source == "strategy_returns"
+
+    def test_strategy_returns_length_mismatch_raises(self, simple_positions):
+        with pytest.raises(ValueError, match="must match"):
+            ExposureInput(positions=simple_positions, returns=np.ones(5))
+
+    def test_has_asset_returns(self, inp_no_ret, inp_with_ret):
+        assert not inp_no_ret.has_asset_returns
+        assert inp_with_ret.has_asset_returns
 
     def test_has_benchmark(self, inp_no_ret, inp_with_ret):
         assert not inp_no_ret.has_benchmark
@@ -1482,13 +1528,13 @@ class TestExposureInputFeatures:
         inp = ExposureInput(positions=simple_positions)
         assert inp.n_periods == simple_positions.shape[0]
 
-    def test_returns_1d_broadcasts(self):
+    def test_asset_returns_1d_broadcasts(self):
         """1-D returns array for single-asset should work."""
         positions = np.array([[0.5], [0.6], [0.4]])
         returns = np.array([0.01, 0.02, -0.01])
-        inp = ExposureInput(positions=positions, returns=returns)
-        assert inp.has_returns
-        assert inp.returns.shape == (3, 1)
+        inp = ExposureInput(positions=positions, asset_returns=returns)
+        assert inp.has_asset_returns
+        assert inp.asset_returns.shape == (3, 1)
 
     def test_benchmark_weights_1d(self):
         """1-D benchmark weights should be stored correctly."""
@@ -1591,3 +1637,49 @@ class TestActiveShare:
         inp = ExposureInput(positions=positions)
         with pytest.raises(ValueError, match="benchmark_weights"):
             active_share(inp)
+
+
+# ---------------------------------------------------------------------------
+# A14 — degenerate-result flagging at n_assets == 1 (issue I11)
+# ---------------------------------------------------------------------------
+
+
+class TestDegenerateFlagging:
+    METRICS = [
+        "position_concentration",
+        "effective_n_positions",
+        "avg_holding_weight",
+        "exposure_utilization",
+        "exposure_directional_bias",
+    ]
+
+    def _single_asset(self):
+        return ExposureInput(positions=np.array([[0.5], [0.6], [0.4]]))
+
+    def _multi_asset(self):
+        return ExposureInput(positions=np.array([[0.5, 0.5], [0.4, 0.6], [0.3, 0.7]]))
+
+    def test_single_asset_flags_degenerate(self):
+        from stratstat.registry import _compute_one
+
+        inp = self._single_asset()
+        for name in self.METRICS:
+            result = _compute_one(inp, name)
+            assert result.meta["degenerate"] is True, name
+            assert result.meta["degenerate_reason"] == "single-asset input", name
+
+    def test_multi_asset_not_degenerate(self):
+        from stratstat.registry import _compute_one
+
+        inp = self._multi_asset()
+        for name in self.METRICS:
+            result = _compute_one(inp, name)
+            assert "degenerate" not in result.meta, name
+
+    def test_value_still_computed(self):
+        """Degenerate metrics return a value, not a skip (section 2 decision)."""
+        from stratstat.registry import _compute_one
+
+        for name in self.METRICS:
+            result = _compute_one(self._single_asset(), name)
+            assert np.isfinite(result.value), name

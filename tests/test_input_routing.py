@@ -5,9 +5,9 @@ constructor parameter fell through to the metric function, which then raised an
 error blaming itself for a keyword it was never meant to take.  Passing
 ``benchmark=`` to a benchmark metric raised ``ValueError: ... Provide benchmark=
 to BenchmarkInput``, advice the caller had already followed, and passing
-``returns=`` to an exposure metric raised ``TypeError: long_book_return() got an
-unexpected keyword argument 'returns'``, which reads as if the metric does not
-support asset returns when in fact ``ExposureInput`` does.
+``asset_returns=`` to an exposure metric raised ``TypeError: long_book_return()
+got an unexpected keyword argument 'asset_returns'``, which reads as if the
+metric does not support asset returns when in fact ``ExposureInput`` does.
 
 The working routes at the time were a pre-built container or, for the benchmark
 tier only, a ``(returns, benchmark)`` tuple.  Both still work and are asserted
@@ -67,19 +67,21 @@ def test_keyword_form_matches_prebuilt_container(returns, benchmark, daily_perio
 
 
 def test_exposure_asset_returns_reachable_by_keyword(positions, asset_returns, daily_periods):
-    """ExposureInput.returns means asset level returns. It was unreachable, and
-    the error blamed the metric."""
+    """ExposureInput.asset_returns means asset level returns. It was
+    unreachable, and the error blamed the metric."""
     result = compute(
-        positions, "long_book_return", periods_per_year=daily_periods, returns=asset_returns
+        positions, "long_book_return", periods_per_year=daily_periods, asset_returns=asset_returns
     )
     assert np.isfinite(result.value)
 
 
 def test_exposure_keyword_form_matches_prebuilt(positions, asset_returns, daily_periods):
     by_kwarg = compute(
-        positions, "long_book_return", periods_per_year=daily_periods, returns=asset_returns
+        positions, "long_book_return", periods_per_year=daily_periods, asset_returns=asset_returns
     ).value
-    container = ExposureInput(positions, returns=asset_returns, periods_per_year=daily_periods)
+    container = ExposureInput(
+        positions, asset_returns=asset_returns, periods_per_year=daily_periods
+    )
     assert by_kwarg == compute(container, "long_book_return").value
 
 

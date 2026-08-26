@@ -239,7 +239,9 @@ def _compute_one(input_data: Any, metric_name: str, **kwargs: Any) -> MetricResu
     inp, clean_kwargs = _build_input(input_data, entry["requires"], **kwargs)
     if "rf" in clean_kwargs and "rf" not in _param_names(func):
         del clean_kwargs["rf"]
-    return cast(MetricResult, func(inp, **clean_kwargs))
+    result = cast(MetricResult, func(inp, **clean_kwargs))
+    _attach_ppy_source(result, inp)
+    return result
 
 
 def _compute_all(
@@ -467,9 +469,12 @@ def _compute_all(
         if "rf" in params and "rf" not in clean_kwargs:
             clean_kwargs["rf"] = rf
         try:
-            results.append(func(inp, **clean_kwargs))
+            result = func(inp, **clean_kwargs)
         except MetricNotApplicableError:
             skipped.append(name)
+            continue
+        _attach_ppy_source(result, inp)
+        results.append(result)
 
     meta: dict[str, Any] = {}
     if skipped:
@@ -574,3 +579,16 @@ def _missing_required(func: Callable[..., Any], kwargs: dict[str, Any]) -> bool:
         if p.kind in (Parameter.POSITIONAL_OR_KEYWORD, Parameter.KEYWORD_ONLY):
             return True
     return False
+
+
+def _attach_ppy_source(result: Any, inp: Any) -> None:
+    """Record where an Input's ``periods_per_year`` came from on a result.
+
+    The Input container resolves the factor (defaulting to 252) and stores the
+    provenance in ``ppy_source``.  Copying it onto each result's ``meta`` makes
+    the default visible in ``to_frame`` output, mirroring how ``periods_per_year``
+    itself is already carried.
+    """
+    source = getattr(inp, "ppy_source", None)
+    if source is not None:
+        result.meta.setdefault("ppy_source", source)

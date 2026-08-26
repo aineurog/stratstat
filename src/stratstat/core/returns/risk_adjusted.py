@@ -16,7 +16,7 @@ from numpy.typing import NDArray
 from stratstat.conventions import resolve_convention
 from stratstat.core._utils import compute_cagr
 from stratstat.exceptions import MetricNotApplicableError
-from stratstat.inputs import ReturnsInput
+from stratstat.inputs import ReturnsInput, deannualize_rf
 from stratstat.registry import register_metric
 from stratstat.results import MetricResult
 
@@ -48,14 +48,15 @@ def sharpe_ratio(
     """Sharpe ratio — annualized excess return per unit of volatility.
 
     Formula:
-        SR = ((mean(r) - rf) / std(r, ddof)) * sqrt(P)
+        SR = ((mean(r) - rf_period) / std(r, ddof)) * sqrt(P)
 
-    where P is ``periods_per_year``. Annualization is applied pre-division,
-    equivalent to (r̄_excess * sqrt(P)) / sigma.
+    where P is ``periods_per_year`` and ``rf_period`` is the geometric
+    deannualization of the annual ``rf``. Annualization is applied
+    pre-division, equivalent to (r̄_excess * sqrt(P)) / sigma.
 
     Args:
         input_data: A ``ReturnsInput`` with ``periods_per_year`` set.
-        rf: Risk-free rate per period (default 0.0).
+        rf: Annual risk-free rate (default 0.0).
         ddof: Delta degrees of freedom for standard deviation — 1 for sample
             (default), 0 for population. Overridden by a session default set
             via ``stratstat.set_default("sharpe_ratio", "ddof=...")``.
@@ -70,8 +71,9 @@ def sharpe_ratio(
 
     r = input_data.values  # (n_periods, n_strategies)
     p = float(input_data.periods_per_year)
+    rf_period = deannualize_rf(rf, input_data.periods_per_year)
 
-    excess = np.nanmean(r, axis=0) - rf  # shape: (n_strategies,)
+    excess = np.nanmean(r, axis=0) - rf_period  # shape: (n_strategies,)
     sigma = np.nanstd(r, axis=0, ddof=ddof)  # shape: (n_strategies,)
 
     # Guard against zero (or near-zero) volatility.
@@ -90,6 +92,7 @@ def sharpe_ratio(
         meta={
             "ref": _SHARPE_REF,
             "rf": rf,
+            "rf_period": rf_period,
             "ddof": ddof,
         },
     )
@@ -122,14 +125,14 @@ def sortino_ratio(
     """Sortino ratio — excess return per unit of downside deviation.
 
     Formula:
-        Sortino = ((mean(r) - rf) * P) / (DD * sqrt(P))
+        Sortino = ((mean(r) - rf_period) * P) / (DD * sqrt(P))
 
-    which simplifies to (mean(r) - rf) * sqrt(P) / DD, where DD is the
+    which simplifies to (mean(r) - rf_period) * sqrt(P) / DD, where DD is the
     downside deviation below MAR.
 
     Args:
         input_data: A ``ReturnsInput`` with ``periods_per_year`` set.
-        rf: Risk-free rate per period (default 0.0).
+        rf: Annual risk-free rate (default 0.0).
         mar: Minimum acceptable return for downside deviation (default 0.0).
         denominator: ``"full_downside"`` (default) divides by sqrt of mean
             squared downside over *all* periods; ``"downside_only"`` divides by
@@ -154,8 +157,9 @@ def sortino_ratio(
 
     r = input_data.values  # (n_periods, n_strategies)
     p = float(input_data.periods_per_year)
+    rf_period = deannualize_rf(rf, input_data.periods_per_year)
 
-    excess_mean = np.nanmean(r, axis=0) - rf  # shape: (n_strategies,)
+    excess_mean = np.nanmean(r, axis=0) - rf_period  # shape: (n_strategies,)
 
     # Downside deviation (vectorized, per column).
     # np.minimum(r - mar, 0.0) returns NaN for NaN inputs, and NaN < 0.0
@@ -186,6 +190,7 @@ def sortino_ratio(
         meta={
             "ref": _SORTINO_REF,
             "rf": rf,
+            "rf_period": rf_period,
             "mar": mar,
             "denominator": denominator,
         },
@@ -901,7 +906,7 @@ def serenity_ratio(input_data: ReturnsInput, rf: float = 0.0) -> MetricResult:
 
     Args:
         input_data: A ``ReturnsInput`` with ``periods_per_year`` set.
-        rf: Risk-free rate per period (default 0.0).
+        rf: Annual risk-free rate (default 0.0).
 
     Returns:
         MetricResult with Serenity Ratio (float or array). NaN when
@@ -920,7 +925,7 @@ def serenity_ratio(input_data: ReturnsInput, rf: float = 0.0) -> MetricResult:
 
     mean_ret = np.nanmean(r, axis=0)  # per-period mean
     ann_ret = mean_ret * p  # annualized
-    rf_ann = rf * p  # annualized risk-free
+    rf_ann = rf  # rf is already annual
     excess = ann_ret - rf_ann
 
     sigma = np.nanstd(r, axis=0, ddof=1) * np.sqrt(p)  # annualized vol
@@ -944,6 +949,7 @@ def serenity_ratio(input_data: ReturnsInput, rf: float = 0.0) -> MetricResult:
         meta={
             "ref": _SERENITY_REF,
             "rf": rf,
+            "rf_period": deannualize_rf(rf, input_data.periods_per_year),
         },
     )
 
@@ -978,7 +984,7 @@ def upi(input_data: ReturnsInput, rf: float = 0.0) -> MetricResult:
 
     Args:
         input_data: A ``ReturnsInput`` with ``periods_per_year`` set.
-        rf: Risk-free rate per period (default 0.0).
+        rf: Annual risk-free rate (default 0.0).
 
     Returns:
         MetricResult with UPI (float or array). NaN when Ulcer Index
@@ -995,7 +1001,7 @@ def upi(input_data: ReturnsInput, rf: float = 0.0) -> MetricResult:
 
     mean_ret = np.nanmean(r, axis=0)
     ann_ret = mean_ret * p
-    rf_ann = rf * p
+    rf_ann = rf  # rf is already annual
     excess = ann_ret - rf_ann
 
     equity = _equity_curve(r, "simple")
@@ -1017,6 +1023,7 @@ def upi(input_data: ReturnsInput, rf: float = 0.0) -> MetricResult:
         meta={
             "ref": _UPI_REF,
             "rf": rf,
+            "rf_period": deannualize_rf(rf, input_data.periods_per_year),
         },
     )
 
@@ -1051,7 +1058,7 @@ def modified_sharpe_ratio(
 
     Args:
         input_data: A ``ReturnsInput`` with ``periods_per_year`` set.
-        rf: Risk-free rate per period (default 0.0).
+        rf: Annual risk-free rate (default 0.0).
         confidence: Confidence level for Modified VaR (default 0.95).
 
     Returns:
@@ -1073,7 +1080,7 @@ def modified_sharpe_ratio(
 
     mean_ret = np.nanmean(r, axis=0)
     ann_ret = mean_ret * p
-    rf_ann = rf * p
+    rf_ann = rf  # rf is already annual
     excess = ann_ret - rf_ann
 
     # Modified VaR using Cornish-Fisher (annualized)
@@ -1094,6 +1101,7 @@ def modified_sharpe_ratio(
         meta={
             "ref": _MOD_SHARPE_REF,
             "rf": rf,
+            "rf_period": deannualize_rf(rf, input_data.periods_per_year),
             "confidence": confidence,
         },
     )
@@ -1405,7 +1413,7 @@ def smart_sharpe(
 
     Args:
         input_data: A ``ReturnsInput`` with ``periods_per_year`` set.
-        rf: Risk-free rate per period (default 0.0).
+        rf: Annual risk-free rate (default 0.0).
         ddof: Delta degrees of freedom for the Sharpe std; falls back to the
             ``sharpe_ratio`` convention (default 1).
 
@@ -1430,6 +1438,7 @@ def smart_sharpe(
         meta={
             "ref": _LO_2002_REF,
             "rf": rf,
+            "rf_period": sr.meta["rf_period"],
             "ddof": ddof,
             "autocorr_penalty": penalty.value,
         },
@@ -1462,7 +1471,7 @@ def smart_sortino(
 
     Args:
         input_data: A ``ReturnsInput`` with ``periods_per_year`` set.
-        rf: Risk-free rate per period (default 0.0).
+        rf: Annual risk-free rate (default 0.0).
         mar: Minimum acceptable return for the downside deviation (default 0.0).
         denominator: Downside denominator convention; falls back to the
             ``sortino_ratio`` convention (default ``"full_downside"``).
@@ -1488,6 +1497,7 @@ def smart_sortino(
         meta={
             "ref": _LO_2002_REF,
             "rf": rf,
+            "rf_period": so.meta["rf_period"],
             "mar": mar,
             "denominator": denominator,
             "autocorr_penalty": penalty.value,
@@ -1527,7 +1537,7 @@ def adjusted_sortino_ratio(
 
     Args:
         input_data: A ``ReturnsInput`` with ``periods_per_year`` set.
-        rf: Risk-free rate per period (default 0.0).
+        rf: Annual risk-free rate (default 0.0).
         mar: Minimum acceptable return for the downside deviation (default 0.0).
         denominator: Downside denominator convention; falls back to the
             ``sortino_ratio`` convention (default ``"full_downside"``).
@@ -1552,6 +1562,7 @@ def adjusted_sortino_ratio(
         meta={
             "ref": _ADJ_SORTINO_REF,
             "rf": rf,
+            "rf_period": so.meta["rf_period"],
             "mar": mar,
             "denominator": denominator,
         },
@@ -1578,14 +1589,14 @@ def rar(input_data: ReturnsInput, rf: float = 0.0, rounding: str | None = None) 
     Formula:
         RAR = CAGR(excess) / exposure
 
-    where ``excess = r - rf`` (rf per period), CAGR is computed on the excess
-    returns, and exposure is the share of periods with a non-zero excess
-    return. A higher value means more growth per unit of time actually
+    where ``excess = r - rf_period`` (the deannualized risk-free rate), CAGR
+    is computed on the excess returns, and exposure is the share of periods
+    with a non-zero excess return. A higher value means more growth per unit of time actually
     invested.
 
     Args:
         input_data: A ``ReturnsInput`` with ``periods_per_year`` set.
-        rf: Risk-free rate per period (default 0.0).
+        rf: Annual risk-free rate (default 0.0).
         rounding: ``"raw"`` (default) divides by the exact exposure share;
             ``"percent_ceil"`` rounds the exposure denominator up to the
             nearest whole percent (QuantStats-compatible).
@@ -1600,8 +1611,9 @@ def rar(input_data: ReturnsInput, rf: float = 0.0, rounding: str | None = None) 
 
     r = input_data.values
     p = float(input_data.periods_per_year)
+    rf_period = deannualize_rf(rf, input_data.periods_per_year)
 
-    excess = r - rf
+    excess = r - rf_period
     cagr_arr = compute_cagr(excess, p)  # (n_strategies,)
 
     nonzero = (~np.isnan(excess)) & (excess != 0.0)
@@ -1623,5 +1635,10 @@ def rar(input_data: ReturnsInput, rf: float = 0.0, rounding: str | None = None) 
         value=value,
         category=("risk_adjusted", "returns"),
         periods_per_year=input_data.periods_per_year,
-        meta={"ref": _RAR_REF, "rf": rf, "rounding": rounding},
+        meta={
+            "ref": _RAR_REF,
+            "rf": rf,
+            "rf_period": rf_period,
+            "rounding": rounding,
+        },
     )

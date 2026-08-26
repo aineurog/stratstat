@@ -246,11 +246,11 @@ class TestCalmarRatio:
         assert result.value.shape == (2,)
 
     def test_requires_periods_per_year(self):
-        """Calmar needs periods_per_year for CAGR."""
+        """Calmar defaults periods_per_year to 252 for CAGR."""
         r = np.array([0.01, -0.02, 0.015])
         inp = ReturnsInput(r)
-        with pytest.raises(ValueError, match="periods_per_year"):
-            calmar_ratio(inp)
+        result = calmar_ratio(inp)
+        assert result.periods_per_year == 252
 
 
 # ---------------------------------------------------------------------------
@@ -378,11 +378,11 @@ class TestSterlingRatio:
         assert result.value.shape == (2,)
 
     def test_requires_periods_per_year(self):
-        """Sterling needs periods_per_year."""
+        """Sterling defaults periods_per_year to 252."""
         r = np.array([0.01, -0.02])
         inp = ReturnsInput(r)
-        with pytest.raises(ValueError, match="periods_per_year"):
-            sterling_ratio(inp)
+        result = sterling_ratio(inp)
+        assert result.periods_per_year == 252
 
 
 # ---------------------------------------------------------------------------
@@ -433,11 +433,11 @@ class TestBurkeRatio:
         assert result.value.shape == (2,)
 
     def test_requires_periods_per_year(self):
-        """Burke needs periods_per_year."""
+        """Burke defaults periods_per_year to 252."""
         r = np.array([0.01, -0.02])
         inp = ReturnsInput(r)
-        with pytest.raises(ValueError, match="periods_per_year"):
-            burke_ratio(inp)
+        result = burke_ratio(inp)
+        assert result.periods_per_year == 252
 
 
 # ---------------------------------------------------------------------------
@@ -544,11 +544,11 @@ class TestMartinRatio:
         assert result.value.shape == (2,)
 
     def test_requires_periods_per_year(self):
-        """Martin needs periods_per_year."""
+        """Martin defaults periods_per_year to 252."""
         r = np.array([0.01, -0.02])
         inp = ReturnsInput(r)
-        with pytest.raises(ValueError, match="periods_per_year"):
-            martin_ratio(inp)
+        result = martin_ratio(inp)
+        assert result.periods_per_year == 252
 
 
 # ---------------------------------------------------------------------------
@@ -887,11 +887,11 @@ class TestSerenityRatio:
         assert np.isfinite(result.value)
 
     def test_requires_periods_per_year(self):
-        """Should raise ValueError without periods_per_year."""
+        """Serenity defaults periods_per_year to 252."""
         returns = np.random.default_rng(42).normal(0.0004, 0.01, size=100)
         inp = ReturnsInput(returns)
-        with pytest.raises(ValueError, match="periods_per_year"):
-            serenity_ratio(inp)
+        result = serenity_ratio(inp)
+        assert result.periods_per_year == 252
 
 
 # ---------------------------------------------------------------------------
@@ -911,11 +911,11 @@ class TestUPI:
         # They differ by construction (numerator differs)
 
     def test_requires_periods_per_year(self):
-        """Should raise ValueError without periods_per_year."""
+        """UPI defaults periods_per_year to 252."""
         returns = np.random.default_rng(42).normal(0.0004, 0.01, size=100)
         inp = ReturnsInput(returns)
-        with pytest.raises(ValueError, match="periods_per_year"):
-            upi(inp)
+        result = upi(inp)
+        assert result.periods_per_year == 252
 
 
 # ---------------------------------------------------------------------------
@@ -995,11 +995,11 @@ class TestRiskReturnRatio:
         assert result.value == float("inf")
 
     def test_requires_periods_per_year(self):
-        """Should raise ValueError without periods_per_year."""
+        """Risk-return ratio defaults periods_per_year to 252."""
         returns = np.random.default_rng(42).normal(0.0004, 0.01, size=100)
         inp = ReturnsInput(returns)
-        with pytest.raises(ValueError, match="periods_per_year"):
-            risk_return_ratio(inp)
+        result = risk_return_ratio(inp)
+        assert result.periods_per_year == 252
 
 
 # ---------------------------------------------------------------------------
@@ -1029,11 +1029,11 @@ class TestRoysSafetyFirst:
         assert rsf_high.value < rsf_low.value
 
     def test_requires_periods_per_year(self):
-        """Should raise ValueError without periods_per_year."""
+        """Roy's safety-first defaults periods_per_year to 252."""
         returns = np.random.default_rng(42).normal(0.0004, 0.01, size=100)
         inp = ReturnsInput(returns)
-        with pytest.raises(ValueError, match="periods_per_year"):
-            roys_safety_first(inp)
+        result = roys_safety_first(inp)
+        assert result.periods_per_year == 252
 
 
 # ---------------------------------------------------------------------------
@@ -1142,12 +1142,10 @@ class TestRar:
         assert result.value == pytest.approx(expected, rel=1e-12)
 
     def test_requires_periods_per_year(self):
-        """RAR raises MetricNotApplicableError without periods_per_year."""
-        from stratstat.exceptions import MetricNotApplicableError
-
+        """RAR defaults periods_per_year to 252 when not provided."""
         inp = ReturnsInput(np.array([0.01, -0.02, 0.03]))
-        with pytest.raises(MetricNotApplicableError):
-            rar(inp)
+        result = rar(inp)
+        assert result.periods_per_year == 252
 
     def test_all_zero_returns(self, daily_pp):
         """Zero exposure -> NaN RAR (division by zero avoided)."""

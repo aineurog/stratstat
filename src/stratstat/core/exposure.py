@@ -12,6 +12,8 @@ All tagged: category varies, requires="exposure".
 
 from __future__ import annotations
 
+from typing import Any
+
 import numpy as np
 from numpy.typing import NDArray
 
@@ -20,6 +22,28 @@ from stratstat.exceptions import MetricNotApplicableError
 from stratstat.inputs import ExposureInput
 from stratstat.registry import register_metric
 from stratstat.results import MetricResult
+
+# ---------------------------------------------------------------------------
+# Degenerate-result flagging
+# ---------------------------------------------------------------------------
+
+_SINGLE_ASSET_DEGENERATE = "single-asset input"
+
+
+def _flag_degenerate(inp: ExposureInput, meta: dict[str, Any]) -> dict[str, Any]:
+    """Mark concentration metrics that collapse at a single asset.
+
+    At ``n_assets == 1``, ``position_concentration``, ``effective_n_positions``,
+    ``avg_holding_weight`` and ``exposure_directional_bias`` all reduce to a
+    constant 1.0 that reads as a finding, and ``exposure_utilization`` collapses
+    onto ``position_coverage`` (issue I11).  The value is still computed and
+    returned; the flag lets a consumer filter it rather than misread it.
+    """
+    if inp.n_assets == 1:
+        meta["degenerate"] = True
+        meta["degenerate_reason"] = _SINGLE_ASSET_DEGENERATE
+    return meta
+
 
 # ---------------------------------------------------------------------------
 # Citation strings
@@ -222,12 +246,12 @@ def leverage(inp: ExposureInput) -> MetricResult:
         \text{Leverage}_t = \frac{\text{GE}_t}{\text{equity}_t}
 
     Requires portfolio equity (provided directly or computed from
-    positions + returns).
+    positions + asset_returns).
     """
     if not inp.has_equity:
         raise MetricNotApplicableError(
             "leverage requires equity. Provide equity= to ExposureInput, "
-            "or provide asset-level returns= so equity can be computed."
+            "or provide asset-level asset_returns= so equity can be computed."
         )
     eq = inp.equity
     assert eq is not None  # narrow type for mypy
@@ -240,7 +264,7 @@ def leverage(inp: ExposureInput) -> MetricResult:
         value=value,
         category=("exposure",),
         periods_per_year=inp.periods_per_year,
-        meta={"ref": _REF_LEVERAGE},
+        meta={"ref": _REF_LEVERAGE, "equity_source": inp.equity_source},
     )
 
 
@@ -329,11 +353,12 @@ def long_book_return(inp: ExposureInput) -> MetricResult:
         R_t^{\text{long}} = \sum_{i} w_{i,t-1} \cdot r_{i,t} \cdot
         \mathbf{1}_{[w_{i,t-1} > 0]}
     """
-    if not inp.has_returns:
+    if not inp.has_asset_returns:
         raise MetricNotApplicableError(
-            "long_book_return requires asset-level returns. Provide returns= to ExposureInput."
+            "long_book_return requires asset-level returns. "
+            "Provide asset_returns= to ExposureInput."
         )
-    ret = inp.returns
+    ret = inp.asset_returns
     assert ret is not None
     positions = inp.positions
     w_lag = np.roll(positions, shift=1, axis=0)
@@ -371,11 +396,12 @@ def short_book_return(inp: ExposureInput) -> MetricResult:
         R_t^{\text{short}} = \sum_{i} w_{i,t-1} \cdot r_{i,t} \cdot
         \mathbf{1}_{[w_{i,t-1} < 0]}
     """
-    if not inp.has_returns:
+    if not inp.has_asset_returns:
         raise MetricNotApplicableError(
-            "short_book_return requires asset-level returns. Provide returns= to ExposureInput."
+            "short_book_return requires asset-level returns. "
+            "Provide asset_returns= to ExposureInput."
         )
-    ret = inp.returns
+    ret = inp.asset_returns
     assert ret is not None
     positions = inp.positions
     w_lag = np.roll(positions, shift=1, axis=0)
@@ -413,15 +439,15 @@ def long_beta(inp: ExposureInput) -> MetricResult:
         \beta_{\text{long}} = \frac{\text{Cov}(R^{\text{long}}, R_m)}
         {\text{Var}(R_m)}
     """
-    if not inp.has_returns:
+    if not inp.has_asset_returns:
         raise MetricNotApplicableError(
-            "long_beta requires asset-level returns. Provide returns= to ExposureInput."
+            "long_beta requires asset-level returns. Provide asset_returns= to ExposureInput."
         )
     if not inp.has_benchmark:
         raise MetricNotApplicableError(
             "long_beta requires benchmark returns. Provide benchmark= to ExposureInput."
         )
-    ret = inp.returns
+    ret = inp.asset_returns
     bench = inp.benchmark
     assert ret is not None
     assert bench is not None
@@ -461,15 +487,15 @@ def short_beta(inp: ExposureInput) -> MetricResult:
         \beta_{\text{short}} = \frac{\text{Cov}(R^{\text{short}}, R_m)}
         {\text{Var}(R_m)}
     """
-    if not inp.has_returns:
+    if not inp.has_asset_returns:
         raise MetricNotApplicableError(
-            "short_beta requires asset-level returns. Provide returns= to ExposureInput."
+            "short_beta requires asset-level returns. Provide asset_returns= to ExposureInput."
         )
     if not inp.has_benchmark:
         raise MetricNotApplicableError(
             "short_beta requires benchmark returns. Provide benchmark= to ExposureInput."
         )
-    ret = inp.returns
+    ret = inp.asset_returns
     bench = inp.benchmark
     assert ret is not None
     assert bench is not None
@@ -526,7 +552,7 @@ def position_concentration(inp: ExposureInput) -> MetricResult:
         value=value,
         category=("exposure", "concentration"),
         periods_per_year=inp.periods_per_year,
-        meta={"ref": _REF_HHI},
+        meta=_flag_degenerate(inp, {"ref": _REF_HHI}),
     )
 
 
@@ -569,7 +595,7 @@ def effective_n_positions(inp: ExposureInput) -> MetricResult:
         value=value,
         category=("exposure", "concentration"),
         periods_per_year=inp.periods_per_year,
-        meta={"ref": _REF_EFF_N},
+        meta=_flag_degenerate(inp, {"ref": _REF_EFF_N}),
     )
 
 
@@ -659,7 +685,7 @@ def avg_holding_weight(inp: ExposureInput) -> MetricResult:
         value=value,
         category=("exposure",),
         periods_per_year=inp.periods_per_year,
-        meta={"ref": _REF_AVG_W},
+        meta=_flag_degenerate(inp, {"ref": _REF_AVG_W}),
     )
 
 
@@ -888,7 +914,7 @@ def exposure_utilization(inp: ExposureInput) -> MetricResult:
         value=util,
         category=("exposure",),
         periods_per_year=inp.periods_per_year,
-        meta={"ref": _REF_UTIL},
+        meta=_flag_degenerate(inp, {"ref": _REF_UTIL}),
     )
 
 
@@ -921,7 +947,7 @@ def exposure_directional_bias(inp: ExposureInput) -> MetricResult:
         value=bias,
         category=("exposure",),
         periods_per_year=inp.periods_per_year,
-        meta={"ref": _REF_BIAS},
+        meta=_flag_degenerate(inp, {"ref": _REF_BIAS}),
     )
 
 

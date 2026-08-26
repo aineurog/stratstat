@@ -121,7 +121,12 @@ def alpha(inp: BenchmarkInput) -> MetricResult:
             value=value,
             category=("benchmark",),
             periods_per_year=inp.periods_per_year,
-            meta={"ref": _REF_JENSEN, "annualized": True},
+            meta={
+                "ref": _REF_JENSEN,
+                "annualized": True,
+                "rf": inp.rf,
+                "rf_period": inp.rf_period,
+            },
         )
 
     rc = r[mask]
@@ -137,7 +142,12 @@ def alpha(inp: BenchmarkInput) -> MetricResult:
         value=value,
         category=("benchmark",),
         periods_per_year=inp.periods_per_year,
-        meta={"ref": _REF_JENSEN, "annualized": True},
+        meta={
+            "ref": _REF_JENSEN,
+            "annualized": True,
+            "rf": inp.rf,
+            "rf_period": inp.rf_period,
+        },
     )
 
 
@@ -550,7 +560,7 @@ def treynor_ratio(inp: BenchmarkInput) -> MetricResult:
     r = inp.returns[:, 0]
     bench = inp.benchmark
     p = float(inp.periods_per_year)  # type: ignore[arg-type]
-    excess = r - inp.rf
+    excess = r - inp.rf_period
     mean_excess_ann = float(np.nanmean(excess) * p)
     beta_val = ols_beta(r, bench)
     if beta_val == 0.0 or np.isnan(beta_val):
@@ -564,7 +574,12 @@ def treynor_ratio(inp: BenchmarkInput) -> MetricResult:
         value=value,
         category=("benchmark",),
         periods_per_year=inp.periods_per_year,
-        meta={"ref": _REF_TREYNOR, "annualized": True},
+        meta={
+            "ref": _REF_TREYNOR,
+            "annualized": True,
+            "rf": inp.rf,
+            "rf_period": inp.rf_period,
+        },
     )
 
 
