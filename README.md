@@ -372,7 +372,7 @@ pip install -e ".[dev]"
 
 pytest tests/ -q
 ruff check src/ tests/
-mypy src/stratstat/
+mypy src/
 ```
 
 ## License
