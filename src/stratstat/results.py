@@ -415,7 +415,14 @@ class MetricSet:
             rec["value"] = value
             rec.update(r.meta)
             records.append(rec)
-        return pd.DataFrame(records)
+        df = pd.DataFrame(records)
+        # pandas 3 infers a str dtype for a column that mixes None and strings
+        # and turns the None into NaN.  degenerate_reason is part of the public
+        # contract and must stay None for non degenerate metrics.
+        if "degenerate_reason" in df.columns:
+            df["degenerate_reason"] = df["degenerate_reason"].astype(object)
+            df.loc[df["degenerate_reason"].isna(), "degenerate_reason"] = None
+        return df
 
     def to_json(self, indent: int = 2) -> str:
         """Return results as a JSON string."""

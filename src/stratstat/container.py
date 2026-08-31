@@ -424,7 +424,7 @@ class Comparison:
         )
 
     def __len__(self) -> int:
-        return self.returns.shape[1]
+        return int(self.returns.shape[1])
 
     def __iter__(self) -> Any:
         return iter(self.strategies)
