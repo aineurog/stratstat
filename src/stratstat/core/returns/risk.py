@@ -1187,7 +1187,7 @@ def tail_ratio(input_data: ReturnsInput, tail_cutoff: float | None = None) -> Me
     """Tail ratio — upper-tail mean divided by absolute lower-tail mean.
 
     Formula:
-        TR = E[r | r >= q_{1-alpha}] / |E[r | r <= q_alpha]|
+        TR = E[r given r >= q_{1-alpha}] / abs(E[r given r <= q_alpha])
 
     where alpha = tail_cutoff.
 
@@ -1268,7 +1268,7 @@ def common_sense_ratio(input_data: ReturnsInput, tail_cutoff: float = 0.05) -> M
     """Common-Sense Ratio — tail ratio multiplied by gain-to-pain ratio.
 
     Formula:
-        CSR = TR_alpha * (sum(gains) / |sum(losses)|)
+        CSR = TR_alpha * (sum(gains) / abs(sum(losses)))
 
     where TR_alpha is the tail ratio at cutoff alpha.
 

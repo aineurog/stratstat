@@ -1066,7 +1066,7 @@ def active_share(inp: ExposureInput) -> MetricResult:
     """Active Share — fraction of the portfolio that differs from the benchmark.
 
     Formula (per period):
-        AS_t = (1/2) * sum_i |w_{i,t} - w_{b,i,t}|
+        AS_t = (1/2) * sum_i abs(w_{i,t} - w_{b,i,t})
 
     where w_{i,t} are portfolio position weights and w_{b,i,t} are benchmark
     constituent weights for asset i at time t. Active Share ranges from 0

@@ -874,7 +874,7 @@ def coefficient_of_variation(input_data: ReturnsInput) -> MetricResult:
     """Coefficient of variation (relative standard deviation).
 
     Formula:
-        CV = sigma / |r_bar|
+        CV = sigma / abs(r_bar)
 
     where sigma is the sample standard deviation (ddof=1) and r_bar is the
     arithmetic mean. Returns NaN when the mean is zero.
@@ -1628,7 +1628,7 @@ def period_profit_factor(input_data: ReturnsInput) -> MetricResult:
     """Gross positive return divided by gross negative return (absolute).
 
     Formula:
-        PF = sum(max(r_t, 0)) / |sum(min(r_t, 0))|
+        PF = sum(max(r_t, 0)) / abs(sum(min(r_t, 0)))
 
     This is the returns level analogue of the trade level ``profit_factor``.
     Periods with exactly zero return are included in the numerator.
@@ -1684,7 +1684,7 @@ def period_payoff_ratio(input_data: ReturnsInput) -> MetricResult:
     """Average up period divided by the absolute average down period.
 
     Formula:
-        payoff = avg_up / |avg_down|
+        payoff = avg_up / abs(avg_down)
 
     This is the returns level analogue of the trade level ``payoff_ratio``.
 

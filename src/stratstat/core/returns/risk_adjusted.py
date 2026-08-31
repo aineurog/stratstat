@@ -216,7 +216,7 @@ def calmar_ratio(input_data: ReturnsInput) -> MetricResult:
     """Calmar ratio — CAGR divided by the absolute value of max drawdown.
 
     Formula:
-        Calmar = CAGR / |MDD|
+        Calmar = CAGR / abs(MDD)
 
     Requires ``periods_per_year`` on the input for CAGR annualization.
 
@@ -278,7 +278,7 @@ def omega_ratio(input_data: ReturnsInput, threshold: float = 0.0) -> MetricResul
     """Omega ratio — probability-weighted ratio of gains to losses.
 
     Formula:
-        Omega(tau) = sum(max(r_t - tau, 0)) / |sum(min(r_t - tau, 0))|
+        Omega(tau) = sum(max(r_t - tau, 0)) / abs(sum(min(r_t - tau, 0)))
 
     where tau is the threshold (default 0.0).
 
@@ -340,7 +340,7 @@ def sterling_ratio(input_data: ReturnsInput, floor: float = 0.10) -> MetricResul
     """Sterling ratio — CAGR divided by average drawdown depth plus a floor.
 
     Formula:
-        Sterling = CAGR / (|ADD| + k)
+        Sterling = CAGR / (abs(ADD) + k)
 
     where ADD is the average drawdown depth (negative) and k is a floor
     constant (default 0.10 = 10%) that prevents division by zero for
@@ -348,7 +348,7 @@ def sterling_ratio(input_data: ReturnsInput, floor: float = 0.10) -> MetricResul
 
     Args:
         input_data: A ``ReturnsInput`` with ``periods_per_year`` set.
-        floor: Non-negative constant added to |ADD| (default 0.10).
+        floor: Non-negative constant added to abs(ADD) (default 0.10).
 
     Returns:
         MetricResult with Sterling ratio (float or array).
@@ -610,7 +610,7 @@ def gain_to_pain_ratio(input_data: ReturnsInput) -> MetricResult:
     """Gain-to-Pain ratio — sum of gains divided by absolute sum of losses.
 
     Formula:
-        GPR = sum(max(r_t, 0)) / |sum(min(r_t, 0))|
+        GPR = sum(max(r_t, 0)) / abs(sum(min(r_t, 0)))
 
     Args:
         input_data: A ``ReturnsInput``.
@@ -665,7 +665,7 @@ def pain_ratio(input_data: ReturnsInput) -> MetricResult:
     """Pain Ratio — CAGR divided by the absolute value of the Pain Index.
 
     Formula:
-        Pain Ratio = CAGR / |PI|
+        Pain Ratio = CAGR / abs(PI)
 
     where PI = mean(d_t) over all periods (including zero-drawdown periods).
     Higher values indicate a better return per unit of drawdown pain.
@@ -726,7 +726,7 @@ def recovery_factor(input_data: ReturnsInput) -> MetricResult:
     """Recovery Factor — total cumulative return divided by absolute max drawdown.
 
     Formula:
-        RF = total_cumulative_return / |MDD|
+        RF = total_cumulative_return / abs(MDD)
 
     Where total_cumulative_return = prod(1+r) - 1 and MDD is the maximum
     drawdown (a negative number). Uses TOTAL return, not CAGR (which is
@@ -1193,7 +1193,7 @@ def risk_return_ratio(input_data: ReturnsInput) -> MetricResult:
     """Risk Return Ratio — annualized return divided by absolute max drawdown.
 
     Formula:
-        RRR = annualized_return / |MDD|
+        RRR = annualized_return / abs(MDD)
 
     where annualized_return = mean(r) * periods_per_year and MDD is the
     maximum drawdown. Simpler than the Calmar ratio (which uses CAGR).

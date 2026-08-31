@@ -599,10 +599,12 @@ def whites_reality_check(
 
     Parameters
     ----------
-    n_boot: Number of bootstrap resamples (default 1000).
-    block_size: Expected block length for stationary bootstrap
-        (default 1 = i.i.d.).
-    seed: Optional seed for reproducible bootstrap draws.
+    n_boot:
+        Number of bootstrap resamples (default 1000).
+    block_size:
+        Expected block length for stationary bootstrap (default 1 = i.i.d.).
+    seed:
+        Optional seed for reproducible bootstrap draws.
 
     Returns
     -------
@@ -761,12 +763,15 @@ def pbo(
 
     Parameters
     ----------
-    n_splits: Number of train/test splits (default 100).
-    purge_pct: Fraction of observations to purge between train and
-        test (default 0.01).
-    embargo_pct: Fraction of observations to embargo after purge
-        (default 0.0).
-    seed: Optional seed for reproducible split generation.
+    n_splits:
+        Number of train/test splits (default 100).
+    purge_pct:
+        Fraction of observations to purge between train and test
+        (default 0.01).
+    embargo_pct:
+        Fraction of observations to embargo after purge (default 0.0).
+    seed:
+        Optional seed for reproducible split generation.
 
     Returns
     -------

@@ -158,8 +158,7 @@ def compute_all(
     rf:
         Annual risk-free rate (default 0.0).  Used by benchmark-tier,
         compare-tier, and the risk-adjusted returns metrics.
-    include_returns, include_trades, include_benchmark, include_exposure,
-    include_compare:
+    include_returns, include_trades, include_benchmark, include_exposure, include_compare:
         Per-tier switches (all default ``True``).
     deduplicate:
         Drop period-level "twin" metrics when their trade-level canonical

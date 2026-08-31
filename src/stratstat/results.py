@@ -445,7 +445,8 @@ class MetricSet:
 
         Parameters
         ----------
-        path: Output file path (``.csv`` suffix recommended).
+        path:
+            Output file path (``.csv`` suffix recommended).
         """
         p = Path(path) if isinstance(path, str) else path
         p.parent.mkdir(parents=True, exist_ok=True)

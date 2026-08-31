@@ -1286,8 +1286,8 @@ def bias_ratio(input_data: ReturnsInput, bandwidth: float = 1.0) -> MetricResult
     return smoothing or artificial price manipulation.
 
     Formula:
-        bias_ratio = count(|r| < bandwidth * sigma) /
-                     max(count(|r| >= bandwidth * sigma), 1)
+        bias_ratio = count(abs(r) < bandwidth * sigma) /
+                     max(count(abs(r) >= bandwidth * sigma), 1)
 
     where sigma is the sample standard deviation (ddof=1). The default
     bandwidth of 1.0 uses ±1 sigma as the narrow band (Abdulali 2006).
