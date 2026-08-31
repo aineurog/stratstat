@@ -44,6 +44,7 @@ Python 3.10+ required.
 
    quickstart
    metrics
+   usage-guide
 
 .. toctree::
    :maxdepth: 3
