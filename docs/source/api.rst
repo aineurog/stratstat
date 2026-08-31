@@ -1,7 +1,7 @@
 API Reference
 =============
 
-Top-level API
+Top level API
 -------------
 
 .. automodule:: stratstat
@@ -33,8 +33,29 @@ Registry
    :members:
    :undoc-members:
 
-Core — Returns
---------------
+Containers
+----------
+
+.. automodule:: stratstat.container
+   :members:
+   :undoc-members:
+
+Schema and column mapping
+-------------------------
+
+.. automodule:: stratstat.schema
+   :members:
+   :undoc-members:
+
+Conventions
+-----------
+
+.. automodule:: stratstat.conventions
+   :members:
+   :undoc-members:
+
+Core returns
+------------
 
 Descriptive
 ~~~~~~~~~~~
@@ -50,8 +71,8 @@ Risk
    :members:
    :undoc-members:
 
-Risk-Adjusted
-~~~~~~~~~~~~~
+Risk adjusted
+~~~~~~~~~~~~~~
 
 .. automodule:: stratstat.core.returns.risk_adjusted
    :members:
@@ -71,29 +92,29 @@ Wrappers
    :members:
    :undoc-members:
 
-Core — Exposure
----------------
+Core exposure
+-------------
 
 .. automodule:: stratstat.core.exposure
    :members:
    :undoc-members:
 
-Core — Trades
--------------
+Core trades
+-----------
 
 .. automodule:: stratstat.core.trades
    :members:
    :undoc-members:
 
-Core — Benchmark
-----------------
+Core benchmark
+--------------
 
 .. automodule:: stratstat.core.benchmark
    :members:
    :undoc-members:
 
-Core — Compare
---------------
+Core compare
+------------
 
 .. automodule:: stratstat.core.compare
    :members:

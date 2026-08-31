@@ -1,8 +1,7 @@
-# StratStat Formula Reference — v0.1
+# StratStat Formula Reference
 
-> **Phase 1 deliverable.** Every v0.1 metric listed in `stats.md`, with its
-> exact formula, citation, and default convention where applicable. This
-> document must be reviewed and approved before any metric code is written.
+Every metric, with its exact formula, citation, and default convention where
+applicable. This document is kept in sync with the code.
 
 ---
 

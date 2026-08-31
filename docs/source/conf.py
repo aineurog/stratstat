@@ -9,11 +9,14 @@ from pathlib import Path
 # So that autodoc can import stratstat without installing.
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "src"))
 
+import stratstat  # noqa: E402
+
 # -- Project information ------------------------------------------------------
 project = "StratStat"
 copyright = "2026, Syed Qaisar Jalil"
 author = "Syed Qaisar Jalil"
-release = "0.1.0"
+version = stratstat.__version__
+release = stratstat.__version__
 
 # -- General configuration ----------------------------------------------------
 extensions = [

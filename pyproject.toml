@@ -15,7 +15,9 @@ authors = [
 keywords = [
     "finance",
     "quantitative",
+    "quant",
     "strategy",
+    "backtesting",
     "evaluation",
     "statistics",
     "performance",
@@ -23,9 +25,21 @@ keywords = [
     "metrics",
     "trading",
     "portfolio",
+    "algorithmic trading",
+    "risk management",
+    "performance metrics",
+    "sharpe ratio",
+    "sortino ratio",
+    "drawdown",
+    "time series",
+    "alpha",
+    "beta",
+    "quantstats",
+    "empyrical",
+    "pyfolio",
 ]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Financial and Insurance Industry",
     "Intended Audience :: Science/Research",
     "License :: OSI Approved :: MIT License",
@@ -36,6 +50,8 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
     "Topic :: Office/Business :: Financial",
     "Topic :: Scientific/Engineering :: Mathematics",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Natural Language :: English",
 ]
 dependencies = [
     "numpy>=1.24",
@@ -64,6 +80,7 @@ dev = [
 
 [project.urls]
 Homepage = "https://github.com/aineurog/stratstat"
+Documentation = "https://stratstat.readthedocs.io/"
 Repository = "https://github.com/aineurog/stratstat.git"
 Issues = "https://github.com/aineurog/stratstat/issues"
 
