@@ -15,6 +15,7 @@ python examples/05_generating_reports.py
 python examples/06_quantstats_comparison.py
 python examples/07_monte_carlo_comparison.py
 python examples/08_timing_benchmark.py
+python examples/09_charts_and_export.py
 ```
 
 ## What each example covers
@@ -30,6 +31,7 @@ python examples/08_timing_benchmark.py
 | 06 | `quantstats_comparison` | a metric by metric parity check against QuantStats, grouped into exact match, convention, sign, formula, benchmark, and QuantStats-only tiers |
 | 07 | `monte_carlo_comparison` | StratStat bootstrap versus QuantStats shuffle, and why shuffle leaves three of four Monte Carlo statistics degenerate |
 | 08 | `timing_benchmark` | wall clock timing of the public API against QuantStats, per metric and full report |
+| 09 | `charts_and_export` | each individual chart called directly (returns, benchmark, trades, exposure), plus the `to_html`, `to_image`, `to_json`, `to_markdown`, and `to_latex` export helpers |
 
 ## Dependencies
 
@@ -37,6 +39,8 @@ python examples/08_timing_benchmark.py
 - Example 04 needs `pip install stratstat[report]`
 - Example 05 needs `pip install stratstat[report]` for HTML and
   `pip install stratstat[pdf]` for PDF output
+- Example 09 needs `pip install stratstat[report]` (and
+  `pip install stratstat[image]` for the optional `to_image` static export)
 - Examples 06, 07, and 08 import QuantStats only as an optional reference and
   print a hint and exit cleanly if it is not installed
 
