@@ -1,6 +1,7 @@
 # StratStat
 
 [![CI](https://github.com/aineurog/stratstat/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/aineurog/stratstat/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/stratstat.svg)](https://pypi.org/project/stratstat/)
 [![Python](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
@@ -12,6 +13,11 @@ StratStat computes 176 statistics across five input tiers. Give it a return
 series, a trade log, positions, a benchmark, or several strategies, and it
 returns typed results with the formula and its citation attached to every
 number.
+
+> **Status:** early release, version 0.1.0. The metric and report APIs work
+> today, but several planned features are not implemented yet, including batch
+> strategy computation, resampling of irregular bars, and reconstruction of
+> positions from a trade log. The public API may still change before 1.0.
 
 ## Contents
 

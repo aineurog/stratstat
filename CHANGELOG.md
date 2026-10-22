@@ -5,7 +5,17 @@ All notable changes to StratStat are documented in this file.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.1.0] - 2026-08-20
+## [Unreleased]
+
+### Planned
+
+- `compute_strategies` batch computation across many strategies.
+- `resample_returns` for irregular bars.
+- `positions_from_ledger` for reconstructing positions from a trade log.
+- Buy and hold benchmark, per asset trade breakdowns, and calendar based
+  densifying.
+
+## [0.1.0] - 2026-10-22
 
 ### Added
 
@@ -55,7 +65,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   dependency. The core install requires only numpy and pandas.
 - Package version is now read from `stratstat.__version__` (single source of
   truth) instead of being duplicated in `pyproject.toml`.
-
-## [0.1.0.dev0] - unreleased
-
 - Project scaffold: package structure, registry skeleton, CI pipeline.
