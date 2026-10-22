@@ -10,6 +10,10 @@ series, a trade log, positions, a benchmark, or several strategies, and it
 returns typed results with the formula and its citation attached to every
 number.
 
+StratStat is published on `PyPI <https://pypi.org/project/stratstat/>`_ as
+``stratstat``. The current release is ``0.1.0``, an early release; the public
+API may change before 1.0.
+
 Features at a glance
 --------------------
 
